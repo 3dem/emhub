@@ -210,10 +210,12 @@ table: TableViewerData = {
   data from `data/warp_m.py`) is a table of the 3D volumes of its species
   (sharpened map first; species, volume, box, Å/px, resolution, particles; a
   species without maps still gets a row). Its row panes (`grid`s):
-  - volume (default, `span-top`): the volume (VolumeViewer, density request
-    with maxSize 256) above the Plotly FSC curves (`*_fsc.star`, the look of
-    the former Highcharts plot: own title, dashed 0.5 / 0.143, reversed
-    resolution, legend below) and the local resolution histogram
+  - volume (default, `span-left`; `cols` without a local resolution): the
+    volume (VolumeViewer, density request with maxSize 256) over the left
+    column, beside the Plotly FSC curves (`*_fsc.star`, the look of the
+    former Highcharts plot: own title, dashed 0.5 / 0.143, reversed
+    resolution, legend at the bottom of the figure, under the axis title,
+    two entries per row) above the local resolution histogram
     (`*_localres.star`, with its median).
   - refinement (`span-top`): resolution and B-factor per round (a point per
     new species version), the species summary (html) and the rounds (html:

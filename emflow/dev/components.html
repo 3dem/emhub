@@ -47,7 +47,7 @@
         </div></div></div>
       </div>
       <div class="card mt-3"><div class="card-body">
-        <h6>WarpPopulation pane (TableViewerGrid): a species map (real data in node_modules/.dev-data, see below) over its FSC</h6>
+        <h6>WarpPopulation pane (TableViewerGrid): a species map (real data in node_modules/.dev-data, see below) beside its FSC</h6>
         <div id="warp-pane" style="height: 900px"></div>
       </div></div>
       <div class="card mt-3"><div class="card-body">
@@ -249,13 +249,13 @@
               return r.json();
             }),
           }),
-          props: { content: { kind: "grid", title: "apoferritin — apoferritin_filtsharp.mrc", layout: "rows", cells: {
-            top: { kind: "imageSlider", layout: "volume", title: "apoferritin_filtsharp.mrc", dimensions: [330, 330, 330],
+          props: { content: { kind: "grid", title: "apoferritin — apoferritin_filtsharp.mrc", layout: "cols", cells: {
+            left: { kind: "imageSlider", layout: "volume", title: "apoferritin_filtsharp.mrc", dimensions: [330, 330, 330],
                    voxelSize: 0.7894,
                    density: { path: "/api/fetch_volume_density", payload: { root: "/dev", path: "m/apoferritin_filtsharp.mrc", maxSize: 256 } },
                    viewerConfig: { tabs: { view3d: false }, initialTab: "volume3d",
                                    tools: { crosshair: false, particles: false }, defaults: { iso: { dust: 100 } } } },
-            bottom: fsc || { kind: "empty", title: "FSC", message: "No node_modules/.dev-data/fsc.json" },
+            right: fsc || { kind: "empty", title: "FSC", message: "No node_modules/.dev-data/fsc.json" },
           } } },
         });
       });
