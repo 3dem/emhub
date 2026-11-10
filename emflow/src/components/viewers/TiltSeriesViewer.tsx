@@ -23,8 +23,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Slider } from "@mui/material";
 import {
   Contrast,
-  Maximize2,
-  Minimize2,
+  Maximize,
+  Minimize,
   Pause,
   Play,
   Ruler as RulerIcon,
@@ -622,7 +622,7 @@ export default function TiltSeriesViewer({
           <span className={styles.expand}>
             <ToolButton title={full ? "Back to the page (Esc)" : "Expand to the browser window"}
                         onClick={() => setFull((v) => !v)}>
-              {full ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              {full ? <Minimize size={16} /> : <Maximize size={16} />}
             </ToolButton>
           </span>
         )}

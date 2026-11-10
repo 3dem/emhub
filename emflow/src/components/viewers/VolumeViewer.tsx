@@ -37,8 +37,8 @@ import {
   Contrast,
   Crosshair,
   EyeOff,
-  Maximize2,
-  Minimize2,
+  Maximize,
+  Minimize,
   Move,
   RefreshCw,
   Ruler as RulerIcon,
@@ -980,7 +980,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
           <button type="button" className={styles.fullBtn}
                   title={full ? "Back to the page (Esc)" : "Expand to the browser window"}
                   onClick={toggleFull}>
-            {full ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            {full ? <Minimize size={16} /> : <Maximize size={16} />}
           </button>
         </div>
 
