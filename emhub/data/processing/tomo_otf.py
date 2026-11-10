@@ -56,6 +56,12 @@ STAGES = OrderedDict([
     ('tomogram',   {'label': 'Tomogram reconstruction',
                     'jobtypes': ['emw-warp-ctfrec']}),
 ])
+# The curation only needs motion correction and CTF: alignment and
+# reconstruction are shown when there.  A job of theirs still running (or
+# not written anything yet) does not change the status of a tilt series; a
+# failure marks it failed, but its data is still judged and shown, and it
+# can still be curated.
+OPTIONAL_STAGES = ('align', 'tomogram')
 
 # emw-warp-mctf does motion correction and CTF in one job, so both stages
 # point at it.  Keep the distinction in the UI: the metrics differ.
@@ -444,8 +450,10 @@ class TiltSeriesMetrics:
         self.stage = None            # last stage this TS reached
         self.stagesSeen = set()      # stages whose output lists this series
         self.failedAt = None         # stage whose job could not process it
+        self.pending = set()         # optional stages whose job is still on it
         self.tiltCounts = OrderedDict()   # stage -> tilts its output lists
         self.status = None
+        self.quality = None          # ok/suspect/bad, also when failed after CTF
         self.reasons = []            # why it is suspect/bad
         # Paths, filled in as the stages produce them
         self.tiltSeriesStar = None
@@ -679,8 +687,12 @@ class TiltSeriesMetrics:
     def _classify(self, th):
         """ Assign ok / suspect / bad, keeping the reasons for the tooltip.
         Job-level problems (failed, still running) are set by the caller and
-        are deliberately not mixed with data quality. """
-        if self.status in (STATUS_FAILED, STATUS_RUNNING):
+        are deliberately not mixed with data quality: a series that failed
+        after motion correction and CTF (an optional stage) stays failed,
+        but its data is still judged, as self.quality with the reasons. """
+        self.quality = None
+        if self.status == STATUS_RUNNING or (
+                self.status == STATUS_FAILED and self.failedAt not in OPTIONAL_STAGES):
             return
 
         level = STATUS_OK
@@ -750,7 +762,9 @@ class TiltSeriesMetrics:
               'Alignment shifts are irregular across tilt angle '
               '({value:.0f} Å, {level} limit {limit:.0f} Å)')
 
-        self.status = level
+        self.quality = level
+        if self.status != STATUS_FAILED:
+            self.status = level
         self.reasons = reasons
 
     # -- serialization -----------------------------------------------------
@@ -759,7 +773,9 @@ class TiltSeriesMetrics:
             'tomoName': self.tomoName,
             'stage': self.stage,
             'failedAt': self.failedAt,
+            'pending': sorted(self.pending),
             'status': self.status,
+            'quality': self.quality,
             'reasons': self.reasons,
             'notReported': getattr(self, 'notReported', []),
             'stagesSeen': sorted(self.stagesSeen),
@@ -1284,8 +1300,17 @@ class OtfSession:
             # "the job broke on this one" stays distinct from "the data is
             # poor".  The file is not removed when a job continues in its
             # folder, so a series in the output after all is not failed.
+            # A failure after motion correction and CTF (an optional stage)
+            # marks the series failed too, but its data is still judged and
+            # shown, and it can still be curated (see TiltSeriesMetrics.
+            # _classify); only series with that data are concerned.
+            optional = key in OPTIONAL_STAGES
             for name, cells in self._read_failed(job).items():
                 if name in globals_:
+                    continue
+                if optional:
+                    if (ts := series.get(name)) is not None and ts.status is None:
+                        ts.status, ts.failedAt = STATUS_FAILED, key
                     continue
                 ts = series.get(name) or series.setdefault(
                     name, TiltSeriesMetrics(name))
@@ -1297,20 +1322,24 @@ class OtfSession:
             # waiting for it: those in its input it has not written out yet.
             # On the fly jobs run for the whole session, so marking its
             # output as running would hide every series until acquisition
-            # ends.
+            # ends.  A running optional stage is only noted per series
+            # (pending), never as their status: it does not block curation.
             inputs = (self._read_inputs(job)
                       if key == 'motioncorr' or job.failed or job.running else None)
             if key == 'motioncorr':
                 self._queued = inputs
             if (job.failed or job.running) and prev_key is not None:
                 for ts in series.values():
-                    if (ts.stage == prev_key and ts.status is None
+                    if (ts.stage == prev_key
                             and (inputs is None or ts.tomoName in inputs)):
+                        if ts.status is not None:
+                            continue
                         if job.failed:
                             ts.status, ts.failedAt = STATUS_FAILED, key
+                        elif optional:
+                            ts.pending.add(key)
                         else:
-                            ts.status = STATUS_RUNNING
-                            ts.stage = key
+                            ts.status, ts.stage = STATUS_RUNNING, key
             prev_key = key
 
         # Imported only, and not waiting for a running job: there is no
@@ -1457,10 +1486,10 @@ class OtfSession:
             name for t in ts_list for name in getattr(t, 'notReported', [])))
 
         # The tilt axis should agree between tilt series; a spread points at
-        # stage wear or holder calibration rather than at one sample.
+        # stage wear or holder calibration rather than at one sample.  Series
+        # whose data is judged count, failed after CTF included (quality).
         warnings = []
-        axes = _clean([t.tiltAxis['mean'] for t in ts_list
-                       if t.status not in (STATUS_FAILED, STATUS_RUNNING)])
+        axes = _clean([t.tiltAxis['mean'] for t in ts_list if t.quality])
         axis_std = _std(axes) if len(axes) > 1 else None
         axis_limit = self.thresholds['tiltAxisSessionStd']
         if axis_std is not None and axis_std > axis_limit:
