@@ -655,14 +655,15 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       // avail reads box and extra
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [box, full, viewSize, X, Y, Z, extra.slices]);
-    // 3D planes: the scene and its controls beside it
+    // 3D planes: the scene and its controls beside it. As expanded, the
+    // scene takes all the room (no height cap, up to 1.4 times as wide as
+    // high), as the Slices do
     const size3d = useMemo(() => {
-      const h = Math.max(120, Math.min(full ? Infinity : 520, avail("view3d")));
-      let w = full ? Math.min(window.innerWidth - 260, h * 1.4) : h * 1.2;
-      w = Math.min(w, Math.max(240, box.width - 200));
+      const h = Math.max(120, avail("view3d"));
+      const w = Math.min(h * 1.4, Math.max(240, box.width - 200));
       return [Math.round(w), Math.round(h)] as [number, number];
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [box, full, extra.view3d]);
+    }, [box, extra.view3d]);
     // 3D volume: a wider panel beside the scene, as high as it (it scrolls
     // when longer); with no room for it there, the panel goes below and the
     // scene takes the width. As expanded, the scene takes all the room (no
