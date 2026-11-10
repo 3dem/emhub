@@ -152,14 +152,32 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
                                        var(--otf-border) var(--otf-surface); }
 .otf-dark .otf-tabs .nav-link:not(.active):hover { border-color: transparent; color: var(--otf-ink); }
 /* The aligned stack and the tomogram side by side */
-.otf-viewers { display: flex; flex-wrap: wrap; gap: 0 32px; align-items: flex-start; }
-.otf-viewer-panel { min-width: 0; }
-.otf-viewer-panel h6 { overflow-wrap: anywhere; }
-/* The tilt series viewer (emflow, mounted with fit) fits the box it is
-   given: this height until it is kept as high as the tomogram viewer
-   (otfAlignViewers in tomo_otf_tiltseries.html) */
+.otf-viewers { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start;
+               margin-top: 1rem; }
+/* Each viewer is its own framed panel, headed by the stage it shows and
+   the file it opens, so the two read apart */
+.otf-viewer-panel { min-width: 0; border: 1px solid var(--otf-border); border-radius: 8px;
+                    background: var(--otf-surface); overflow: hidden; }
+.otf-viewer-head { padding: .25rem .6rem; border-bottom: 1px solid var(--otf-border);
+                   background: var(--otf-surface-alt); }
+.otf-viewer-label { font-size: .62rem; font-weight: 600; text-transform: uppercase;
+                    letter-spacing: .05em; color: var(--otf-muted); }
+/* Only the file name, on one line; the full path is its tooltip */
+.otf-viewer-panel h6 { margin: 0; font-size: .66rem; line-height: 1.3; font-weight: 400;
+                       color: var(--otf-secondary); white-space: nowrap;
+                       overflow: hidden; text-overflow: ellipsis; }
+.otf-viewer-body { padding: .35rem; }
+/* The emflow viewer inside, rounded and inset from the panel border so it
+   does not look cut by it */
+.otf-viewer-body > .emflow-root { border-radius: 6px; overflow: hidden; padding: 4px 6px;
+                                  background: #fff;   /* the emflow viewers' own */
+                                  box-shadow: 0 0 0 1px var(--otf-border); }
+/* Both viewers (emflow, mounted to fill) fit the box they are given: this
+   height until otfFitViewers (tomo_otf_tiltseries.html) sets the room left
+   in the window, so neither needs scrolling */
 .otf-viewer-panel[data-viewer="stack"] { flex: 1 1 460px; max-width: 760px; }
-#otf-viewer-body-stack { height: min(70vh, 720px); }
+.otf-viewer-panel[data-viewer="tomogram"] { flex: 1 1 460px; }
+#otf-viewer-body-stack, #otf-viewer-body-tomogram { height: min(70vh, 720px); }
 /* Tomogram orthogonal sections; the lines mark the other two slices */
 /* Each figure's flex-grow is its image's width/height, so both images
    are the same height */
@@ -498,11 +516,14 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
        two are. */
     function otfOrthoViewer($body, pane, voxel) {
         var d = pane.dimensions;
-        // emflow VolumeViewer; it unmounts by itself when the panel is replaced
+        // emflow VolumeViewer; it unmounts by itself when the panel is replaced.
+        // It fits its sections to the height of the box (fill), as the tilt
+        // series viewer beside it, so neither needs scrolling.
         EMFlow.mount('VolumeViewer', {
-            container: $body[0],
+            container: $body[0], fill: true,
             loader: EMFlow.DataLoader.emhub(),   // the density of the 3D volume tab
             props: {
+                height: 'fill',
                 data: $.extend({}, pane, {voxelSize: voxel || pane.voxelSize || null}),
                 info: 'Volume dimensions (X × Y × Z): ' + d.join(' × ') + ' voxels' +
                       (voxel ? ' at ' + voxel.toFixed(2) + ' Å' : '') + '.'
@@ -510,15 +531,21 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
         });
     }
 
+    // The stage each viewer panel shows, as the stage labels of the page
+    var OTF_VIEWER_LABELS = {stack: 'Tilt series alignment', tomogram: 'Tomogram reconstruction'};
+
     /* Load a viewer into its own panel inside the given container.  The
        content comes from the same pane endpoint as the project table view.
        done($panel) is called once it is drawn. */
     function otfViewer(into, kind, attrs, opts, done) {
         opts = opts || {};
         var bodyId = 'otf-viewer-body-' + kind;
+        var $head = $('<div class="otf-viewer-head"></div>')
+            .append($('<div class="otf-viewer-label"></div>').text(OTF_VIEWER_LABELS[kind] || ''))
+            .append('<h6></h6>');
         var $panel = $('<div class="otf-viewer-panel"></div>').attr('data-viewer', kind)
-            .append('<h6 class="mt-3"></h6>')
-            .append($('<div></div>').attr('id', bodyId)
+            .append($head)
+            .append($('<div class="otf-viewer-body"></div>').attr('id', bodyId)
                     .html('<small class="text-muted">Loading…</small>'))
             .appendTo($(into));
         attrs.root = OTF_ROOT;
@@ -531,7 +558,8 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
                 showError(data.error || 'Could not load viewer content.');
                 return;
             }
-            $panel.find('h6').text(pane.title || '');
+            var title = pane.title || '';
+            $panel.find('h6').text(title.split('/').pop()).attr('title', title);
             var $body = $('#' + bodyId).empty();
             if (pane.kind === 'imageSlider' && pane.axes && pane.dimensions &&
                     pane.axes.x && pane.axes.y && pane.axes.z) {

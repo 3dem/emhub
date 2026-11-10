@@ -16,6 +16,11 @@
             <span class="otf-dot otf-shape-{{ statusShape }} mr-1"
                   style="background: {{ statusColor }}; color: {{ statusColor }}"></span>
             <small>{{ statusLabel }}</small>
+            {% if quality %}
+                <span class="otf-dot otf-shape-{{ qualityShape }} ml-2 mr-1"
+                      style="background: {{ qualityColor }}; color: {{ qualityColor }}"></span>
+                <small>{{ qualityLabel }}</small>
+            {% endif %}
         </span>
         <small class="text-muted">
             {{ nUsed }} of {{ nTilts }} tilts used
@@ -33,7 +38,7 @@
     <div class="modal-body">
 
         {% if reasons %}
-            <div class="alert {{ 'alert-danger' if status == 'bad' else 'alert-warning' }} py-2">
+            <div class="alert {{ 'alert-danger' if (quality or status) == 'bad' else 'alert-warning' }} py-2">
                 <small>
                 {% for r in reasons %}{{ r }}{% if not loop.last %} &middot; {% endif %}{% endfor %}
                 </small>
@@ -42,8 +47,10 @@
 
         {% if failedAt %}
             <div class="alert alert-danger py-2">
-                <small>This tilt series is listed in the failed output of the
-                {{ failedAt }} stage, so later stages never received it.</small>
+                <small>{{ failedLabel }} could not process this tilt series, so
+                later stages never received it.{% if quality %} Its motion
+                correction and CTF data are judged and shown as usual, and it
+                can still be curated.{% endif %}</small>
             </div>
         {% endif %}
 
@@ -490,50 +497,36 @@
             if (tab === '#otf-tab-metadata') {
                 otfViewStar(tab, tomoName, {{ tiltSeriesStar|tojson }});
             } else if (tab === '#otf-tab-viewers') {
-                var panels = {}, waiting = 0;
-                var ready = function(kind) {
-                    return function($panel) {
-                        panels[kind] = $panel;
-                        if (--waiting === 0) otfAlignViewers(panels);
-                    };
-                };
-                {% if hasStack %}waiting++;{% endif %}
-                {% if tomogram %}waiting++;{% endif %}
                 {% if hasStack %}
                 otfViewStack('#otf-viewers', tomoName, {{ alignedStack|tojson }},
-                             {{ tiltSeriesStar|tojson }}, ready('stack'));
+                             {{ tiltSeriesStar|tojson }});
                 {% endif %}
                 {% if tomogram %}
                 otfViewTomogram('#otf-viewers', tomoName, {{ tomogram|tojson }},
-                                {{ tomoPixelSize|tojson }}, ready('tomogram'));
+                                {{ tomoPixelSize|tojson }});
                 {% endif %}
+                // The panels are in the page already (loading): size them
+                // before the viewers are drawn in them
+                otfFitViewers();
+                $(window).off('resize.otfViewers').on('resize.otfViewers', otfFitViewers);
             }
         });
 
-        /* The tilt series viewer (mounted with fit) is kept as high as the
-           tomogram viewer beside it, so neither needs scrolling; its expand
-           button shows it over the whole window.  Wrapped under the tomogram
-           (narrow window), or while the tomogram viewer is expanded (its
-           body then collapses), it keeps the height from the CSS. */
-        function otfAlignViewers(panels) {
-            if (!panels.stack || !panels.tomogram) return;
-            var stackBody = panels.stack.find('#otf-viewer-body-stack')[0];
-            var tomoBody = panels.tomogram.find('#otf-viewer-body-tomogram')[0];
-            if (!stackBody || !tomoBody) return;
-            var top = function(el) { return el.getBoundingClientRect().top; };
-            var sync = function() {
-                if (!$.contains(document, stackBody)) return;
-                var h = tomoBody.getBoundingClientRect().height;
-                var side = Math.abs(top(panels.stack[0]) - top(panels.tomogram[0])) <= 2;
-                stackBody.style.height = side && h >= 320 ? Math.round(h) + 'px' : '';
-            };
-            sync();
-            if (window.otfViewersObserver) window.otfViewersObserver.disconnect();
-            if (window.ResizeObserver) {
-                window.otfViewersObserver = new ResizeObserver(sync);
-                window.otfViewersObserver.observe(tomoBody);
-                window.otfViewersObserver.observe(panels.stack[0]);
-            }
+        /* Both viewers (mounted to fill their box) get the room left in the
+           window below them, the same for both, so neither needs scrolling;
+           each has an expand button to the whole window.  Measured from the
+           top of the window content, whatever it is scrolled to. */
+        var OTF_VIEWER_MIN = 380;       // px, below this a viewer is unusable
+        var OTF_VIEWER_BOTTOM = 30;     // px, the window padding below the panels
+        function otfFitViewers() {
+            var $bodies = $('#otf-viewer-body-stack, #otf-viewer-body-tomogram');
+            if (!$bodies.length || !$('#otf-tab-viewers').hasClass('active')) return;
+            var scroller = $('#otf-tiltseries-modal')[0];
+            var tops = $bodies.toArray().map(function(el) {
+                return el.getBoundingClientRect().top + scroller.scrollTop;
+            });
+            var h = window.innerHeight - Math.min.apply(null, tops) - OTF_VIEWER_BOTTOM;
+            $bodies.css('height', Math.max(OTF_VIEWER_MIN, Math.round(h)) + 'px');
         }
 
         /* Tilt selection: a box on each image, and presets by tilt QC.

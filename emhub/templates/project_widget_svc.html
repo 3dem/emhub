@@ -996,6 +996,23 @@ var svc = {
     };
   },
 
+  // Another version of a table (TableViewerData.variants): the variant ids
+  // are file names in the folder of the shown table (e.g. the iterations of
+  // a Relion job, run_it020_optimiser.star); the requests of the new table
+  // use its path
+  async loadTableViewerVariant(context, variantId) {
+    var current = context.outputPath || '';
+    var folder = current.split('/').slice(0, -1).join('/');
+    var outputPath = (folder ? folder + '/' : '') + variantId;
+    var tableViewData = await loadTableViewData(outputPath, context.pointerClass);
+    if (!tableViewData.rows || !tableViewData.rows.length)
+      throw new Error('Could not load ' + variantId);
+    return {
+      context: { ...context, outputPath: outputPath },
+      table: adaptTableViewData(tableViewData, outputPath, context.pointerClass),
+    };
+  },
+
   /**
    * Create a subset with the rows left checked in the 'Selected' column.
    * request: { actionId, edits: [{ rowId, columnId, value }] } (changed cells)

@@ -147,6 +147,28 @@ const withFakeOutputPrefixes = (project) => {
 // TomoCoordinates table (Coordinates column, particles on the tomogram slices)
 const isCoordsTable = () => new URLSearchParams(location.search).get("tomoTable") === "coords";
 const FAKE_NCOORDS = [12, 7, 0];
+// A 3D classes table of one Relion iteration (as EMhub's
+// build_classes3d_table), with the job's iterations as variants
+function fakeClasses3DTable(it) {
+  const n = 4;
+  const name = (k) => `run_it${String(k).padStart(3, "0")}_optimiser.star`;
+  const rows = Array.from({ length: n }, (_, i) => {
+    const particles = Math.round(4000 * (1 + Math.sin(i + it / 5)) + 500);
+    return { id: i + 1, data: {}, cells: { classId: i + 1, volume: `run_it${String(it).padStart(3, "0")}_class00${i + 1}.mrc`,
+      particles, percent: 25, resolution: Math.round((40 - it * 1.1 + i * 2.5) * 100) / 100 } };
+  });
+  return {
+    title: `3D classes — Iteration ${it} (${n} classes)`,
+    columns: [
+      { id: "classId", label: "Class", sortable: true }, { id: "volume", label: "Volume" },
+      { id: "particles", label: "Particles", sortable: true }, { id: "percent", label: "% Particles", sortable: true },
+      { id: "resolution", label: "Resolution (Å)", sortable: true },
+    ],
+    rows,
+    variants: { label: "Iteration", value: name(it), options: Array.from({ length: 26 }, (_, k) => ({ id: name(k), label: `Iteration ${k}` })) },
+  };
+}
+
 const fakeTomogramsTable = () => ({
   title: isCoordsTable() ? "Tomo coordinates (3 items)" : "Tomograms (3 items)",
   // "Selected" and "Create subset" as EMhub adds them (project_widget_svc.html)
@@ -457,6 +479,16 @@ export function createFakeService() {
                                   ...(asMask ? { mask: { type: "map", density: fakeEllipsoid(n), label: "mask.mrc" } } : {}) } },
         };
       }
+      if (ctx.pointerClass === "Classes3D" || new URLSearchParams(location.search).has("classesTable")) {
+        return {
+          handled: true,
+          viewer: "table",
+          title: ctx.outputName,
+          context: { projectId: ctx.projectId, protocolId: ctx.protocolId, outputName: ctx.outputName,
+                     pointerClass: "Classes3D", outputPath: "Class3D/job055/run_it025_optimiser.star" },
+          table: fakeClasses3DTable(25),
+        };
+      }
       if (ctx.pointerClass === "Tomograms" || new URLSearchParams(location.search).has("tomoTable")) {
         return {
           handled: true,
@@ -469,6 +501,13 @@ export function createFakeService() {
       return { handled: false };
     },
 
+    // Another iteration of the fake 3D classes table
+    loadTableViewerVariant: async (context, variantId) => {
+      log("loadTableViewerVariant", variantId);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const it = Number(/_it(\d+)_/.exec(variantId)?.[1] ?? 0);
+      return { context: { ...context, outputPath: `Class3D/job055/${variantId}` }, table: fakeClasses3DTable(it) };
+    },
     executeTableViewerEditAction: async (context, request) => {
       log("executeTableViewerEditAction", request);
       const deselected = request.edits.filter((edit) => !edit.value).map((edit) => edit.rowId);

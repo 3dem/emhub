@@ -209,6 +209,7 @@ export function normalizeServiceAPI(srv: any): ProjectService {
     message: "Table edit actions are not configured.",
   }));
   ensureFn("resolveTableViewerChildren", async () => ({ columns: [], rows: [] }));
+  ensureFn("loadTableViewerVariant", async () => null);
 
   if (rawListProjectTags) {
     normalized.listProjectTags = async (projectId: any) => {
