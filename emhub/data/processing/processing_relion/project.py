@@ -28,7 +28,7 @@ from emtools.utils import Path, Timer, Pretty, FolderManager
 from emtools.metadata import StarFile, EPU, SqliteFile, RelionStar
 from emtools.image import Thumbnail
 
-from emwrap.base import ProcessingConfig, ProjectManager, job_star_path
+from emwrap.base import ProcessingConfig, ProjectManager, read_job_params
 from emwrap.base.job_form import JobForm
 from emwrap.base.wizards import Wizards
 
@@ -464,9 +464,8 @@ class RelionSessionData(SessionData):
         # jobValues is usually filled by RelionRun, but callers may only pass
         # runId (e.g. form-only requests); read the star file directly then.
         if jobValues is None and runId:
-            jobStar = job_star_path(self.join(runId))
-            if os.path.exists(jobStar):
-                jobValues = RelionStar.read_jobstar(jobStar)
+            if os.path.exists(self.join(runId, 'job.star')):
+                jobValues = read_job_params(self.join(runId))
 
         jobForm = ProcessingConfig.get_job_form(jobType)
 
