@@ -63,6 +63,11 @@ type Props = {
   pan: boolean;
   /** Most height of the side panel (it scrolls when longer). */
   panelHeight?: number;
+  /** Width of the panel when it is below the scene (in two columns);
+   * undefined: beside the scene. */
+  panelWidth?: number;
+  /** The height the panel needs to show without scrolling. */
+  onPanelHeight?: (height: number) => void;
   /** Inverted contrast (the viewer's Invert button): the dark density is
    * enclosed (values below the threshold). Without it, `defaults.below`. */
   inverted?: boolean;
@@ -347,6 +352,8 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
           hidden={hidden}
           onChange={onPanelChange}
           maxHeight={props.panelHeight}
+          width={props.panelWidth}
+          onHeight={props.onPanelHeight}
         />
       )}
     </div>

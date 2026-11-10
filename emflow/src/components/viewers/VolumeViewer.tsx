@@ -665,22 +665,30 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [box, extra.view3d]);
     // 3D volume: a wider panel beside the scene, as high as it (it scrolls
-    // when longer); with no room for it there, the panel goes below and the
-    // scene takes the width. As expanded, the scene takes all the room (no
-    // height cap, up to 1.4 times as wide as high), as the Slices do.
-    // [width, height, panel max height]
-    const sizeIso = useMemo<[number, number, number]>(() => {
+    // when longer); with no room for it there, the panel goes below, as wide
+    // as the scene and in two columns, and the scene takes the height the
+    // panel does not need (isoPanelNeed, measured by the panel), so nothing
+    // scrolls. As expanded, the scene takes all the room (no height cap, up
+    // to 1.4 times as wide as high), as the Slices do.
+    // [width, height, panel max height, panel width (below only)]
+    const [isoPanelNeed, setIsoPanelNeed] = useState(260);
+    const sizeIso = useMemo<[number, number, number, number | undefined]>(() => {
       const room = avail("volume3d");
       const h = Math.max(120, room);
       if (box.width - 290 >= 320) {
         const w = Math.min(h * 1.4, box.width - 290);
-        return [Math.round(w), Math.round(h), Math.round(h)];
+        return [Math.round(w), Math.round(h), Math.round(h), undefined];
       }
-      const w = Math.max(200, Math.min(box.width - 24, h * 1.2));
-      const sh = Math.min(w, Math.max(120, Math.round(room * 0.55)));
-      return [Math.round(w), Math.round(sh), Math.max(120, Math.round(room - sh - 14))];
+      const w = Math.round(Math.max(200, Math.min(box.width - 24, h * 1.2)));
+      // 14: the gap of .wrap3d between the scene and the panel
+      const sh = Math.round(Math.max(120, Math.min(w, room - isoPanelNeed - 14)));
+      // .isoPanel has a 4 px right padding (content box)
+      return [w, sh, Math.max(120, Math.round(room - sh - 14)), w - 4];
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [box, extra.volume3d]);
+    }, [box, extra.volume3d, isoPanelNeed]);
+    const onIsoPanelHeight = useCallback((ph: number) => {
+      setIsoPanelNeed((cur) => (Math.abs(cur - ph) > 1 ? ph : cur));
+    }, []);
 
     // Measured after each render of the shown tab: from the top of the first
     // element to the bottom of the output bar, but the sections (their height
@@ -1071,7 +1079,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               {builtIso && volume.density && (
                 <IsoSurfaceView ref={isoRef} density={volume.density} dim={dim} onDebug={onDebug}
                                 width={sizeIso[0]} height={sizeIso[1]} pan={isoPan} defaults={defaults.iso}
-                                panelHeight={sizeIso[2]}
+                                panelHeight={sizeIso[2]} panelWidth={sizeIso[3]}
+                                onPanelHeight={onIsoPanelHeight}
                                 inverted={inverted} onInvert={(v) => { if (v !== inverted) toggleInvert(false); }}
                                 mask={isoMask} maskStyle={maskStyle} />
               )}

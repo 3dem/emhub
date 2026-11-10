@@ -366,6 +366,19 @@
   box-sizing: content-box;
 }
 
+/* Below the scene (VolumeViewer when there is no room beside it): its two
+   groups side by side, as wide as the scene */
+.isoCols {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.isoCols .isoGroup {
+  flex: 1;
+  min-width: 0;
+}
+
 .isoWait {
   position: absolute;
   inset: 0;
