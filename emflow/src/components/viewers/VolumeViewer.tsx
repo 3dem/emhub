@@ -665,20 +665,21 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     }, [box, full, extra.view3d]);
     // 3D volume: a wider panel beside the scene, as high as it (it scrolls
     // when longer); with no room for it there, the panel goes below and the
-    // scene takes the width. [width, height, panel max height]
+    // scene takes the width. As expanded, the scene takes all the room (no
+    // height cap, up to 1.4 times as wide as high), as the Slices do.
+    // [width, height, panel max height]
     const sizeIso = useMemo<[number, number, number]>(() => {
       const room = avail("volume3d");
-      const h = Math.max(120, Math.min(full ? Infinity : 520, room));
+      const h = Math.max(120, room);
       if (box.width - 290 >= 320) {
-        let w = full ? Math.min(window.innerWidth - 260, h * 1.4) : h * 1.2;
-        w = Math.min(w, box.width - 290);
+        const w = Math.min(h * 1.4, box.width - 290);
         return [Math.round(w), Math.round(h), Math.round(h)];
       }
       const w = Math.max(200, Math.min(box.width - 24, h * 1.2));
       const sh = Math.min(w, Math.max(120, Math.round(room * 0.55)));
       return [Math.round(w), Math.round(sh), Math.max(120, Math.round(room - sh - 14))];
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [box, full, extra.volume3d]);
+    }, [box, extra.volume3d]);
 
     // Measured after each render of the shown tab: from the top of the first
     // element to the bottom of the output bar, but the sections (their height
