@@ -10,7 +10,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import styles from "../VolumeViewer.module.css";
 import { useLoad } from "@/data/DataLoaderContext";
 import { IsoSurfaceScene, type IsoMask, type IsoState, type MaskStyle } from "./IsoSurfaceScene";
-import DensityPanel, { DETAILS, levelForFraction, type DensityOptions } from "./DensityPanel";
+import DensityPanel, { DETAILS, enclosedFraction, levelForFraction, type DensityOptions } from "./DensityPanel";
 import { densityValues, prepareDensity, removeDust, smoothGrid } from "./densityGrid";
 import { isDensitySource, type DensitySource, type Vec3, type VolumeDensity } from "./volumeMath";
 
@@ -39,7 +39,8 @@ export type IsoDefaults = {
   threshold?: number;
   /** Share of the voxels enclosed by the first threshold (0.01, as ChimeraX). */
   enclosed?: number;
-  /** Dark density: enclose the values below the threshold (false). */
+  /** Dark density: enclose the values below the threshold (false); the
+   * viewer's `inverted` takes precedence. */
   below?: boolean;
   /** 0-1 (1). */
   opacity?: number;
@@ -60,6 +61,13 @@ type Props = {
   height: number;
   /** Drags move the view. */
   pan: boolean;
+  /** Most height of the side panel (it scrolls when longer). */
+  panelHeight?: number;
+  /** Inverted contrast (the viewer's Invert button): the dark density is
+   * enclosed (values below the threshold). Without it, `defaults.below`. */
+  inverted?: boolean;
+  /** Called by the Dark density checkbox when `inverted` is given. */
+  onInvert?: (inverted: boolean) => void;
   defaults?: IsoDefaults;
   /** Timing of the loading and filters, as it happens. */
   onDebug?: (info: DensityDebug) => void;
@@ -125,7 +133,7 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     if (!density || opts) return;
     const h = density.histogram;
     const [v0, v1] = density.valueRange;
-    const below = Boolean(dflt.below);
+    const below = Boolean(props.inverted ?? dflt.below);
     setOpts({
       threshold: dflt.threshold ?? (h ? levelForFraction(h, enclosed, below) : v0 + (below ? 0.3 : 0.7) * (v1 - v0)),
       below,
@@ -141,13 +149,31 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     setOpts((o) => {
       if (!o) return o;
       const next = { ...o, ...patch };
-      // Switching dark/bright density: the same share from the other tail
+      // Inverting (dark/bright density) inverts the threshold too: the same
+      // share of the voxels from the other tail, so the surface keeps its size
       const h = density?.histogram;
       if (patch.below !== undefined && patch.below !== o.below && h) {
-        next.threshold = levelForFraction(h, enclosed, patch.below);
+        next.threshold = levelForFraction(h, enclosedFraction(h, o.threshold, o.below), patch.below);
       }
       return next;
     });
+  };
+  // The viewer's Invert button
+  const inverted = props.inverted;
+  useEffect(() => {
+    if (inverted !== undefined) onChange({ below: inverted });
+    // onChange only sets the state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inverted]);
+  const onInvert = props.onInvert;
+  const onPanelChange = (patch: Partial<DensityOptions>) => {
+    if (patch.below !== undefined && onInvert) {
+      const { below: b, ...rest } = patch;
+      onInvert(b);
+      if (Object.keys(rest).length) onChange(rest);
+    } else {
+      onChange(patch);
+    }
   };
 
   const host = useRef<HTMLDivElement>(null);
@@ -319,7 +345,8 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
           onDetail={source && !source.payload?.maxSize ? setDetail : undefined}
           loading={loading}
           hidden={hidden}
-          onChange={onChange}
+          onChange={onPanelChange}
+          maxHeight={props.panelHeight}
         />
       )}
     </div>

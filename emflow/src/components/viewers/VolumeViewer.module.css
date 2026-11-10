@@ -154,6 +154,7 @@
 
 .wrap3d {
   display: inline-flex;
+  vertical-align: top;
   gap: 14px;
   align-items: flex-start;
   flex-wrap: wrap;
@@ -211,8 +212,11 @@
   margin-left: 0;
 }
 
+/* Top aligned: no baseline gap under the sections or the 3D scene, so the
+   viewer's measured sizes are exact */
 .content {
   display: inline-block;
+  vertical-align: top;
 }
 
 /* Particles panel (volume/ParticlesPanel.tsx), under its toolbar button */
@@ -355,6 +359,11 @@
 .isoPanel {
   width: 250px;
   font-size: 0.8rem;
+  /* max-height from the viewer: as high as the scene */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  box-sizing: content-box;
 }
 
 .isoWait {

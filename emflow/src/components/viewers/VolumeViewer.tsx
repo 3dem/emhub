@@ -6,8 +6,11 @@
 //   - 3D planes: three orthogonal planes in a rotatable scene, at most two
 //     shown, the faint whole volume and the particles or their template
 //     (volume/VolumeScene3D.ts).
-//   - 3D volume: the density as an iso-surface with its histogram, threshold
-//     and opacity (volume/IsoSurfaceView.tsx); only with a `density`.
+//   - 3D volume: the density as an iso-surface with its histogram, threshold,
+//     opacity and inverted contrast (volume/IsoSurfaceView.tsx); only with a
+//     `density`.
+// Each tab fits the room it has (the container, the window below it or the
+// whole window when expanded): the rest of the tab is measured.
 // An optional `mask` (a sphere or another map) is drawn over the 3D volume
 // and the slices, with its options in a panel (volume/MaskPanel.tsx).
 // The slices are the host's images (`axes`) or, without them, drawn from the
@@ -101,7 +104,8 @@ export type VolumeViewerDefaults = {
   };
   /** Shown planes of 3D planes, at most two (["z", "y"]). */
   planes?: Axis[];
-  /** Inverted contrast (false). */
+  /** Inverted contrast, of every tab (false; iso.below when not given): in
+   * 3D volume it encloses the dark density. */
   inverted?: boolean;
   /** 3D volume: threshold or share of voxels enclosed, dark density, opacity,
    * color and detail of the grid (see IsoDefaults). */
@@ -170,7 +174,7 @@ export type VolumeViewerConfig = {
   /** Same as defaults.particles.tolerance (kept for older hosts). */
   particleTolerance?: number;
   /** A line under the viewer with how long the volume took on the host,
-   * to load and to decode (DEBUG_TIMING by default). */
+   * to load and to decode, for debugging (DEBUG_TIMING, off, by default). */
   debug?: boolean;
 };
 
@@ -209,8 +213,13 @@ const VOL_OPACITY = 0.35;
 const MASK_COLOR = "#5fd38d";
 const MASK_COLOR_ALT = "#ffd166";
 const MASK_OPACITY = 0.3;
-/** Default of the `debug` line (timing of the volume); false to hide it. */
-export const DEBUG_TIMING = true;
+/** Smallest longest side of the Z section, px, when the room is too short. */
+const MIN_SECTION = 60;
+/** Vertical padding of the expanded viewer (`.full`, 12px top and bottom). */
+const FULL_PADDING = 24;
+/** Default of the `debug` line (timing of the volume); true to show it
+ * everywhere while debugging. */
+export const DEBUG_TIMING = false;
 
 /** The debug line: host steps, request, size, decoding and filters. */
 function debugText(info: DensityDebug): string {
@@ -402,7 +411,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const [sel, setSel] = useState(-1);
     const [partsOn, setPartsOn] = useState(hasParticles && dParts.show !== false);
     const [hideLines, setHideLines] = useState(false);
-    const [inverted, setInverted] = useState(Boolean(defaults.inverted));
+    // One contrast for all the tabs (3D volume: the dark density)
+    const [inverted, setInverted] = useState(Boolean(defaults.inverted ?? defaults.iso?.below));
     const [volOn, setVolOn] = useState(false);
     const [tmplOn, setTmplOn] = useState(Boolean(dParts.template && hasTemplate));
     // Particles: only those near the sections/planes (± tolerance) or all, per
@@ -578,14 +588,21 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     };
 
     /* ---------- size ---------- */
+    // room: the height the viewer may take (its content box): the container
+    // without its padding ("fill"), the window below the viewer, or the
+    // whole window when expanded
     const [box, setBox] = useState({ width: 800, room: 700 });
     const measure = useCallback(() => {
       const el = rootRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
+      const parent = el.parentElement;
       let room: number;
-      if (full) room = window.innerHeight;
-      else if (fillHeight) room = el.parentElement?.clientHeight || rect.height;
+      if (full) room = window.innerHeight - FULL_PADDING;
+      else if (fillHeight && parent?.clientHeight) {
+        const cs = getComputedStyle(parent);
+        room = parent.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+      } else if (fillHeight) room = rect.height;
       else room = window.innerHeight - Math.min(Math.max(rect.top, 0), window.innerHeight / 2);
       const width = full ? window.innerWidth - 32 : el.clientWidth || window.innerWidth;
       setBox((b) => (b.width === width && b.room === room ? b : { width, room }));
@@ -603,28 +620,62 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       };
     }, [measure, fillHeight]);
 
-    // Screen px per voxel: the sections fit the room without scrolling
+    // The height of everything shown in a tab but its sections or scene
+    // (info, tabs, toolbar, sliders, output bar...), measured below, so they
+    // take the rest of the room and nothing scrolls. Expanded, there is no
+    // zoom cap: they take all the window
+    const [extra, setExtra] = useState<Record<VolumeViewerTab, number>>({ slices: 240, view3d: 220, volume3d: 220 });
+    const avail = (t: VolumeViewerTab) => Math.max(40, box.room - extra[t] - 4);
+    // Screen px per voxel of the sections
     const scale = useMemo(() => {
-      const availH = Math.max(200, box.room - (full ? 190 : 238));
-      const availW = Math.max(300, box.width - 40);
-      const cap = full ? 4 : viewSize / Math.max(X, Y);
-      return Math.max(0.05, Math.min(cap, availH / (Y + Z), (availW - 14) / (X + Z)));
-    }, [box, full, viewSize, X, Y, Z]);
+      const availW = Math.max(60, box.width - 40);
+      const cap = full ? Infinity : viewSize / Math.max(X, Y);
+      // In a very short container the sections keep a usable size (the
+      // viewer scrolls there; expand it for more)
+      const byHeight = Math.max(avail("slices") / (Y + Z), MIN_SECTION / Math.max(X, Y));
+      return Math.max(0.05, Math.min(cap, byHeight, (availW - 14) / (X + Z)));
+      // avail reads box and extra
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [box, full, viewSize, X, Y, Z, extra.slices]);
+    // 3D planes: the scene and its controls beside it
     const size3d = useMemo(() => {
-      const h = Math.max(260, Math.min(full ? 4000 : 520, box.room - (full ? 190 : 220)));
+      const h = Math.max(120, Math.min(full ? Infinity : 520, avail("view3d")));
       let w = full ? Math.min(window.innerWidth - 260, h * 1.4) : h * 1.2;
       w = Math.min(w, Math.max(240, box.width - 200));
       return [Math.round(w), Math.round(h)] as [number, number];
-    }, [box, full]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [box, full, extra.view3d]);
+    // 3D volume: a wider panel beside the scene, as high as it (it scrolls
+    // when longer); with no room for it there, the panel goes below and the
+    // scene takes the width. [width, height, panel max height]
+    const sizeIso = useMemo<[number, number, number]>(() => {
+      const room = avail("volume3d");
+      const h = Math.max(120, Math.min(full ? Infinity : 520, room));
+      if (box.width - 290 >= 320) {
+        let w = full ? Math.min(window.innerWidth - 260, h * 1.4) : h * 1.2;
+        w = Math.min(w, box.width - 290);
+        return [Math.round(w), Math.round(h), Math.round(h)];
+      }
+      const w = Math.max(200, Math.min(box.width - 24, h * 1.2));
+      const sh = Math.min(w, Math.max(120, Math.round(room * 0.55)));
+      return [Math.round(w), Math.round(sh), Math.max(120, Math.round(room - sh - 14))];
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [box, full, extra.volume3d]);
 
-    // The 3D volume tab has a wider panel beside the scene; with no room for
-    // it there, the panel goes below and the scene takes the width
-    const sizeIso = useMemo<[number, number]>(() => {
-      const room = box.width - 290;
-      if (room >= 320) return [Math.min(size3d[0], room), size3d[1]];
-      const w = Math.max(240, Math.min(box.width - 24, size3d[1] * 1.2));
-      return [Math.round(w), Math.round(Math.min(size3d[1], w))];
-    }, [size3d, box.width]);
+    // Measured after each render of the shown tab: from the top of the first
+    // element to the bottom of the output bar, but the sections (their height
+    // is (Y + Z) * scale) or the 3D box; it does not change with their size
+    useLayoutEffect(() => {
+      const el = rootRef.current;
+      if (!el?.firstElementChild || !el.lastElementChild) return;
+      const content = el.lastElementChild.getBoundingClientRect().bottom
+        - el.firstElementChild.getBoundingClientRect().top;
+      const main = tab === "slices" ? (Y + Z) * scale
+        : (tab === "view3d" ? view3dBox : isoBox).current?.offsetHeight ?? 0;
+      if (!content || !main) return;
+      const e = Math.ceil(content - main);
+      setExtra((cur) => (Math.abs(cur[tab] - e) > 1 ? { ...cur, [tab]: e } : cur));
+    });
 
     /* ---------- expand to the browser window ---------- */
     useEffect(() => {
@@ -980,6 +1031,12 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                   <Move size={16} />
                 </ToolButton>
               )}
+              {toolsCfg.invert && (
+                <ToolButton active={inverted} onClick={() => toggleInvert(false)}
+                            title="Invert the contrast: enclose the dark density (the threshold moves to the other tail)">
+                  <Contrast size={16} />
+                </ToolButton>
+              )}
               {maskButton("volume3d")}
               <ToolButton title="Reset the 3D view" onClick={() => isoRef.current?.reset()}>
                 <RefreshCw size={16} />
@@ -989,6 +1046,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               {builtIso && volume.density && (
                 <IsoSurfaceView ref={isoRef} density={volume.density} dim={dim} onDebug={onDebug}
                                 width={sizeIso[0]} height={sizeIso[1]} pan={isoPan} defaults={defaults.iso}
+                                panelHeight={sizeIso[2]}
+                                inverted={inverted} onInvert={(v) => { if (v !== inverted) toggleInvert(false); }}
                                 mask={isoMask} maskStyle={maskStyle} />
               )}
             </div>

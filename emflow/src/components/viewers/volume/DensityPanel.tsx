@@ -140,6 +140,8 @@ type Props = DensityOptions & {
   /** Blobs hidden as dust. */
   hidden?: number;
   onChange: (patch: Partial<DensityOptions>) => void;
+  /** Most height (it scrolls when longer). */
+  maxHeight?: number;
 };
 
 export default function DensityPanel(props: Props) {
@@ -154,7 +156,7 @@ export default function DensityPanel(props: Props) {
   const frac = h ? enclosedFraction(h, threshold, below) : null;
 
   return (
-    <div className={styles.isoPanel}>
+    <div className={styles.isoPanel} style={props.maxHeight ? { maxHeight: props.maxHeight } : undefined}>
       {h ? (
         <>
           <HistogramPlot h={h} binned={d.binning > 1} threshold={threshold} below={below} color={color}
@@ -179,7 +181,7 @@ export default function DensityPanel(props: Props) {
         {frac !== null && <>{sigma !== null && " · "}encloses {(frac * 100).toPrecision(2)}% of the voxels</>}
       </div>
 
-      <label className={styles.panelRow}>
+      <label className={styles.panelRow} title="Linked to the Invert button of the toolbar">
         <input type="checkbox" checked={below} onChange={(e) => onChange({ below: e.target.checked })} />
         Dark density (enclose values below)
       </label>
