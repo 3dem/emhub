@@ -10,13 +10,14 @@
 import * as THREE from "three";
 import { templateMesh, type ParticleTemplate } from "./templateSurface";
 import { Trackball } from "./trackball";
-import { densityValues, removeDust, smoothGrid } from "./densityGrid";
+import { densityValues, gaussianImage, removeDust, smoothGrid } from "./densityGrid";
 import {
   AXES,
   clampVox,
   imageSize,
   nearest,
   particleRotation,
+  sectionSize,
   type Axis,
   type SliceImage,
   type Vec3,
@@ -52,6 +53,8 @@ export type SceneState = {
   /** Volume: only within volTolerance voxels of the shown planes. */
   volNear: boolean;
   volTolerance: number;
+  /** Denoise of the plane images: Gaussian sigma in voxels (0: none). */
+  filterSigma: number;
   /** Active tool: "pan" drags move the volume; "select" clicks pick. */
   mode: string | null;
 };
@@ -175,6 +178,8 @@ export class VolumeScene3D {
   private vol: THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial> | null = null;
   private volLoading = false;
   private grid: VolumeDensity | null = null;
+  /** Invert and denoise setting whose plane images are the only ones kept. */
+  private texDropped = "";
   /** Cumulative histogram of the volume's grid values. */
   private cumul: Float64Array | null = null;
   /** The volume's smoothed grid, and the threshold its dust was hidden at. */
@@ -312,8 +317,8 @@ export class VolumeScene3D {
   }
 
   private texture(a: Axis, key: number): THREE.Texture | null {
-    const inverted = this.state.inverted;
-    const id = `${a}:${key}${inverted ? ":inv" : ""}`;
+    const { inverted, filterSigma } = this.state;
+    const id = `${a}:${key}${this.texVariant()}`;
     const hit = this.tex.get(id);
     if (hit) return hit;
     const img = this.o.getImage(a, key);
@@ -328,12 +333,14 @@ export class VolumeScene3D {
       }
       return null;
     }
-    let src: SliceImage = img;
+    // Denoised as the Slices tab (sigma voxels, in the image's pixels)
+    let src: SliceImage = filterSigma
+      ? gaussianImage(img, filterSigma * imageSize(img)[0] / sectionSize(this.o.dim)[a][0]) : img;
     if (inverted) {
       const c = document.createElement("canvas");
       [c.width, c.height] = imageSize(img);
       const g = c.getContext("2d")!;
-      g.drawImage(img, 0, 0);
+      g.drawImage(src, 0, 0);
       g.globalCompositeOperation = "difference";
       g.fillStyle = "#fff";
       g.fillRect(0, 0, c.width, c.height);
@@ -346,6 +353,29 @@ export class VolumeScene3D {
     tx.needsUpdate = true;
     this.tex.set(id, tx);
     return tx;
+  }
+
+  /** Frees the plane images of another invert or denoise setting that no
+   * plane shows; done again until every plane shows the current setting. */
+  private dropOtherTextures() {
+    const variant = this.texVariant();
+    if (variant === this.texDropped) return;
+    const shown = new Set(AXES.map((a) => this.planes[a].material.map));
+    for (const [id, t] of this.tex) {
+      if (id.replace(/^[xyz]:\d+/, "") === variant || shown.has(t)) continue;
+      t.dispose();
+      this.tex.delete(id);
+    }
+    const done = AXES.every((a) => {
+      const key = this.o.keys[a][nearest(this.o.keys[a], this.state.pos[a])];
+      return this.tex.has(`${a}:${key}${variant}`);
+    });
+    if (done) this.texDropped = variant;
+  }
+
+  /** The part of a texture id after `axis:key`: invert and denoise. */
+  private texVariant() {
+    return `${this.state.inverted ? ":inv" : ""}:${this.state.filterSigma}`;
   }
 
   private queueSync() {
@@ -377,6 +407,7 @@ export class VolumeScene3D {
       m.material.needsUpdate = true;
       m.visible = active.includes(a);
     }
+    this.dropOtherTextures();
     const P = this.o.particles;
     if (P && this.points) {
       this.updateShown(P);

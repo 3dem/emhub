@@ -2,7 +2,9 @@
 //
 // Config-driven volume viewer (tomograms, maps) with up to three tabs:
 //   - Slices: linked X/Y/Z sections (volume/VolumeSlices.tsx) with select,
-//     ruler, zoom and pan tools, contrast, crosshair and particles.
+//     ruler, zoom and pan tools, contrast, crosshair and particles; zoomed,
+//     the host's full-resolution crop of the view (`crop`) is drawn over the
+//     slice image.
 //   - 3D planes: three orthogonal planes in a rotatable scene, at most two
 //     shown, the volume around them (its densest voxels, from the `density`
 //     grid) and the particles as dots, spheres (oriented by an arrow) or
@@ -10,6 +12,7 @@
 //   - 3D volume: the density as an iso-surface with its histogram, threshold,
 //     opacity and inverted contrast (volume/IsoSurfaceView.tsx); only with a
 //     `density`.
+// Slice images (Slices, 3D planes) can be denoised (volume/DenoisePanel.tsx).
 // Each tab fits the room it has (the container, the window below it or the
 // whole window when expanded): the rest of the tab is measured.
 // An optional `mask` (a sphere or another map) is drawn over the 3D volume
@@ -43,6 +46,7 @@ import {
   Move,
   RefreshCw,
   Ruler as RulerIcon,
+  Sparkles,
   Undo2,
   ZoomIn,
 } from "lucide-react";
@@ -56,6 +60,7 @@ import VolumeSlices, {
 } from "./volume/VolumeSlices";
 import { VolumeScene3D, type ParticleDraw, type SceneState } from "./volume/VolumeScene3D";
 import ParticlesPanel, { type ParticleOptions } from "./volume/ParticlesPanel";
+import DenoisePanel from "./volume/DenoisePanel";
 import MaskPanel, { type MaskOptions } from "./volume/MaskPanel";
 import IsoSurfaceView, {
   type DensityDebug,
@@ -79,7 +84,9 @@ import {
   type DensitySource,
   type Ruler,
   type SliceImage,
+  type CropRequest,
   type Vec3,
+  type VolumeCrop,
   type VolumeData,
   type VolumeDensity,
 } from "./volume/volumeMath";
@@ -223,6 +230,8 @@ const VOL_OPACITY = 0.52;
 const VOL_SHARE = 0.2;
 /** Distance (voxels) of the volume drawn near the planes. */
 const VOL_TOLERANCE = 20;
+/** Default sigma (voxels) of the low-pass filter of the sections. */
+const FILTER_SIGMA = 1.5;
 const MASK_COLOR = "#5fd38d";
 const MASK_COLOR_ALT = "#ffd166";
 const MASK_OPACITY = 0.3;
@@ -595,6 +604,28 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       });
     }, [loader, volume.axes, gridSlices]);
 
+    // Full-resolution crops of the sections (when the host sends their
+    // request), with the contrast of their slice image
+    const cropSrc = volume.crop ?? null;
+    const loadCrop = useMemo(() => {
+      if (!cropSrc) return null;
+      return (r: CropRequest): Promise<VolumeCrop> => loader.load<any>(cropSrc.path, {
+        ...cropSrc.payload, ...r, levels: volume.levels?.[r.axis]?.[String(r.index)] ?? null,
+      }).then((res) => {
+        const c = res?.crop ?? res;
+        // No image: the host skipped it (e.g. too slow to read), the slice
+        // image stays
+        if (!c?.image) throw new Error(c?.skipped || "The crop has no image");
+        return loader.image(c.image).then((image) => ({ image, x0: c.x0, y0: c.y0, w: c.w, h: c.h, binning: c.binning || 1 }));
+      });
+    }, [cropSrc, loader, volume.levels]);
+    // Denoise: Gaussian low-pass of the sections (Slices and 3D planes)
+    const [filterOn, setFilterOn] = useState(false);
+    const [filterSigma, setFilterSigma] = useState(FILTER_SIGMA);
+    const [denoiseOpen, setDenoiseOpen] = useState(false);
+    const denoiseRef = useRef<HTMLDivElement>(null);
+    const shownSigma = filterOn ? filterSigma : 0;
+
     /* ---------- undo, invert, lines ---------- */
     const pushHistory = useCallback((e: HistoryEntry) => history.current.push(e), []);
     const toggleInvert = (isUndo: boolean) => {
@@ -726,8 +757,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
 
     /* ---------- expand to the browser window ---------- */
     useEffect(() => {
-      if (!full && !panelOpen && !maskOpen) return undefined;
-      // Captured: Esc closes the particles or mask panel, then collapses the
+      if (!full && !panelOpen && !maskOpen && !denoiseOpen) return undefined;
+      // Captured: Esc closes the particles, mask or denoise panel, then collapses the
       // viewer, and does not reach a dialog around it
       const onKey = (e: KeyboardEvent) => {
         if (e.key !== "Escape") return;
@@ -735,11 +766,12 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         e.preventDefault();
         if (panelOpen) setPanelOpen(false);
         else if (maskOpen) setMaskOpen(false);
+        else if (denoiseOpen) setDenoiseOpen(false);
         else setFull(false);
       };
       document.addEventListener("keydown", onKey, true);
       return () => document.removeEventListener("keydown", onKey, true);
-    }, [full, panelOpen, maskOpen]);
+    }, [full, panelOpen, maskOpen, denoiseOpen]);
 
     /* ---------- particles panel ---------- */
     // A click outside the panel (and its button) closes it
@@ -766,6 +798,18 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       document.addEventListener("mousedown", onDown);
       return () => document.removeEventListener("mousedown", onDown);
     }, [maskOpen]);
+    // ... and for the denoise panel
+    useEffect(() => {
+      if (!denoiseOpen) return undefined;
+      const onDown = (e: MouseEvent) => {
+        const t = e.target as Node;
+        if (denoiseRef.current?.contains(t)) return;
+        if ((t as Element).closest?.("[data-denoise-button]")) return;
+        setDenoiseOpen(false);
+      };
+      document.addEventListener("mousedown", onDown);
+      return () => document.removeEventListener("mousedown", onDown);
+    }, [denoiseOpen]);
     const setParticleOptions = (o: Partial<ParticleOptions>) => {
       if (o.partsOn !== undefined) setPartsOn(o.partsOn);
       if (o.nearOnly !== undefined) (tab === "view3d" ? setNear3d : setNearSlices)(o.nearOnly);
@@ -823,6 +867,24 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         )}
       </span>
     );
+    // The denoise options, in the toolbar of the visible tab
+    const denoiseButton = (forTab: VolumeViewerTab) => (
+      <span className={styles.panelAnchor} data-denoise-button>
+        <ToolButton title="Denoise: Gaussian low-pass filter of the sections"
+                    active={denoiseOpen || filterOn} onClick={() => setDenoiseOpen((v) => !v)}>
+          <Sparkles size={16} />
+        </ToolButton>
+        {denoiseOpen && tab === forTab && (
+          <div ref={denoiseRef}>
+            <DenoisePanel on={filterOn} sigma={filterSigma}
+                          onChange={(o) => {
+                            if (o.on !== undefined) setFilterOn(o.on);
+                            if (o.sigma !== undefined) setFilterSigma(o.sigma);
+                          }} />
+          </div>
+        )}
+      </span>
+    );
     // The mask options, in the toolbar of the visible tab
     const maskButton = (forTab: VolumeViewerTab) => maskCfg && (
       <span className={styles.panelAnchor} data-mask-button>
@@ -864,6 +926,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
             <EyeOff size={16} />
           </ToolButton>
         )}
+        {/* Denoise: only for slice images (tomograms), not for maps */}
+        {volume.axes && denoiseButton("slices")}
         {particlesButton(false)}
         {maskButton("slices")}
         {(toolsCfg.ruler || toolsCfg.zoom || toolsCfg.pan || toolsCfg.invert) && (
@@ -889,6 +953,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
           </ToolButton>
         )}
         {modeButton("pan", "Move the volume: drag it in any direction (or right-drag / shift+drag)", <Move size={16} />)}
+        {denoiseButton("view3d")}
         {particlesButton(true)}
         <ToolButton title="Reset the 3D view" onClick={() => sceneRef.current?.reset()}>
           <RefreshCw size={16} />
@@ -904,7 +969,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const [sceneError, setSceneError] = useState<string | null>(null);
     const sceneState: SceneState = {
       pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance,
-      mode, nearOnly: near3d, tolerance, templateLevel, particleColor,
+      filterSigma: shownSigma, mode, nearOnly: near3d, tolerance, templateLevel, particleColor,
     };
     const sceneStateRef = useRef(sceneState);
     sceneStateRef.current = sceneState;
@@ -949,7 +1014,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       sceneRef.current?.setState(sceneState);
       // the fields are the dependencies
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance,
+    }, [pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance, shownSigma,
         mode, near3d, tolerance, templateLevel, particleColor]);
     useEffect(() => {
       sceneRef.current?.setDensity(volGrid.density);
@@ -1031,6 +1096,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               voxelSize={vs}
               getImage={getImage}
               loadImage={loadImage}
+              loadCrop={loadCrop}
+              filterSigma={shownSigma}
               onPosition={(p) => { setSel(-1); setPos(p, true); }}
               onParticle={selectParticle}
               onRuler={(a, r) => setRulers((cur) => ({ ...cur, [a]: r }))}

@@ -230,10 +230,23 @@ table: TableViewerData = {
   payload}` (EMhub: `/api/fetch_volume_density` with `{root, path,
   maxVoxels, maxSize}`, answering `{density}`) loaded with the DataLoader when
   needed.
+  With slices, each axis may have `levels` (`{slice: [low, high]}`: the
+  values its thumbnail shows as black and white, `data/volume_crop.py`
+  `slice_levels`) and the pane a `crop` request `{path, payload}` (EMhub:
+  `/api/fetch_volume_crop` with `{root, path}`; the viewer adds `axis,
+  index, x0, y0, w, h` (section voxels: horizontal, vertical; X sections
+  upright, rows Y, columns Z), `maxW, maxH` (pixels), `sigma` (Gaussian
+  denoise, voxels), `levels` and `thumbBinning`; answers `{crop: {image
+  (base64 PNG), x0, y0, w, h (voxels covered), binning (block means to the
+  output size), sigma, timing}}` or `{crop: {skipped}}` when the window would
+  be too slow to read: an X window needs whole file rows, at most 64 MB).
+  The crop keeps the thumbnail's contrast (its levels, scaled by the ratio
+  of the spread of the crop to the window binned as the thumbnail). Z
+  sections are kept in server memory (≤ 512 MB) after the first crop.
   EMhub builds these panes with `build_volume_viewer_pane_content(root, rel,
   slices=, density='lazy' | 'inline' | None, max_voxels=, max_size=,
-  viewer_config=)`; tomograms of the table viewer (Tomograms,
-  TomoCoordinates, TomoParticles) get slices, a
+  viewer_config=)` (with slices: `levels` and `crop` too); tomograms of the
+  table viewer (Tomograms, TomoCoordinates, TomoParticles) get slices, a
   lazy density (block means, for the 3D planes volume) and
   `TOMOGRAM_VIEWER_CONFIG` (`tabs {volume3d: false}`). A WarpPopulation output (EMhub `api_viewers_warp.py`,
   data from `data/warp_m.py`) is a table of the 3D volumes of its species

@@ -8,9 +8,16 @@
 // imperatively; a section is only redrawn when its slice or zoom changed and
 // keeps its picture until the next image has loaded (no blank frames).
 // A mask (a sphere or a map) is drawn over the sections, translucent.
+// The images are thumbnails: when a view shows them coarser than the screen
+// (zoomed, or a large view) and than the voxels, the host's full-resolution
+// crop of the view (loadCrop) is drawn over it, binned only to the screen
+// pixels and smoothly interpolated past the voxels (no detail made up). The
+// low-pass filter (filterSigma) is applied by the host to the crops and here
+// to the slice images (same Gaussian and contrast), so a view that needs no
+// crop (e.g. a whole X section, strided in the file) reads nothing more.
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef } from "react";
 import styles from "../VolumeViewer.module.css";
-import { maskSlice } from "./densityGrid";
+import { gaussianImage, maskSlice } from "./densityGrid";
 import {
   HV,
   nearest,
@@ -21,7 +28,9 @@ import {
   type Ruler,
   type SliceImage,
   type Vec3,
+  type CropRequest,
   type VolumeCoordinates,
+  type VolumeCrop,
   type VolumeDensity,
   type VoxelSize,
 } from "./volumeMath";
@@ -70,6 +79,10 @@ type Props = {
   voxelSize: VoxelSize | null;
   getImage: (a: Axis, key: number) => SliceImage | null;
   loadImage: (a: Axis, key: number) => Promise<SliceImage>;
+  /** Full-resolution crop of a window (none: only the slice images). */
+  loadCrop?: ((r: CropRequest) => Promise<VolumeCrop>) | null;
+  /** Gaussian low-pass of the sections (voxels, 0: none). */
+  filterSigma: number;
   onPosition: (p: Partial<Vec3>) => void;
   onParticle: (index: number) => void;
   onRuler: (a: Axis, ruler: Ruler | null) => void;
@@ -119,11 +132,76 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   };
   const currentKey = (a: Axis) => p.current.keys[a][nearest(p.current.keys[a], p.current.pos[a])];
 
+  // Full-resolution crops: the last one of each axis (drawn over the
+  // thumbnail while it still covers the view) and the pending request
+  const crops = useRef<Partial<Record<Axis, { key: number; sigma: number; crop: VolumeCrop }>>>({});
+  const cropTimers = useRef<Partial<Record<Axis, number>>>({});
+
+  // Filtered slice images, by axis, slice and sigma
+  const filteredImages = useRef(new Map<string, SliceImage>());
+  /** The slice image low-pass filtered as the crops (sigma voxels, in its
+   * pixels: sigma * px per voxel), or itself without filter. */
+  const filtered = (a: Axis, key: number, img: SliceImage, pxPerVoxel: number): SliceImage => {
+    const sigma = p.current.filterSigma;
+    if (!sigma) return img;
+    const id = `${a}:${key}:${sigma}`;
+    let out = filteredImages.current.get(id);
+    if (!out) {
+      out = gaussianImage(img, sigma * pxPerVoxel);
+      if (filteredImages.current.size > 64) filteredImages.current.clear();
+      filteredImages.current.set(id, out);
+    }
+    return out;
+  };
+
+  /** The crop of `a` over the view, where it covers it. */
+  const paintCrop = (a: Axis, v: View, key: number) => {
+    const c = crops.current[a];
+    if (!c || c.key !== key || c.sigma !== p.current.filterSigma) return;
+    const [px, py] = toPx(v, c.crop.x0, c.crop.y0), k = sv(v);
+    v.img.imageSmoothingEnabled = true;
+    v.img.imageSmoothingQuality = "high";
+    v.img.drawImage(c.crop.image, px, py, c.crop.w * k, c.crop.h * k);
+  };
+
+  /** Asks for the crop of the view (with the filter) when the thumbnail is
+   * coarser than the screen and the voxels, once the view has settled. */
+  const requestCrop = (a: Axis, v: View, key: number, stamp: string, thumbPx: number) => {
+    window.clearTimeout(cropTimers.current[a]);
+    const { loadCrop, filterSigma } = p.current;
+    if (!loadCrop) return;
+    const w = v.win, screenPx = (v.cw * dpr) / w.w;
+    // Only when the view needs more detail than the slice image has (the
+    // filter of a view that does not is applied to the slice image)
+    if (thumbPx >= 0.98 * Math.min(1, screenPx)) return;
+    const c = crops.current[a];
+    const sz = p.current.size[a];
+    const x0 = Math.max(0, Math.floor(w.x0)), y0 = Math.max(0, Math.floor(w.y0));
+    const x1 = Math.min(sz[0], Math.ceil(w.x0 + w.w)), y1 = Math.min(sz[1], Math.ceil(w.y0 + w.h));
+    // The last crop already covers the view at least as finely
+    if (c && c.key === key && c.sigma === filterSigma && c.crop.x0 <= x0 && c.crop.y0 <= y0
+        && c.crop.x0 + c.crop.w >= x1 - c.crop.binning && c.crop.y0 + c.crop.h >= y1 - c.crop.binning
+        && 1 / c.crop.binning >= 0.98 * Math.min(1, screenPx)) return;
+    cropTimers.current[a] = window.setTimeout(() => {
+      const req: CropRequest = {
+        axis: a, index: key, x0, y0, w: x1 - x0, h: y1 - y0,
+        maxW: Math.ceil(((x1 - x0) / w.w) * v.cw * dpr), maxH: Math.ceil(((y1 - y0) / w.h) * v.ch * dpr),
+        sigma: filterSigma,
+        thumbBinning: Math.round((1 / thumbPx) * 100) / 100,
+      };
+      loadCrop(req).then((crop) => {
+        crops.current[a] = { key, sigma: req.sigma, crop };
+        // Still the same view: draw it now
+        if (views.current[a] === v && v.drawn === stamp) paintCrop(a, v, key);
+      }, () => undefined);
+    }, 250);
+  };
+
   const drawImage = useCallback((a: Axis) => {
     const v = views.current[a];
     if (!v) return;
     const key = currentKey(a);
-    const w = v.win, stamp = [key, w.x0, w.y0, w.w, w.h, v.cw, v.ch].join(",");
+    const w = v.win, stamp = [key, w.x0, w.y0, w.w, w.h, v.cw, v.ch, p.current.filterSigma].join(",");
     if (v.drawn === stamp) return;
     const img = p.current.getImage(a, key);
     if (!img) {
@@ -136,8 +214,12 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     const [iw, ih] = imageSize(img);
     const rx = iw / sz[0], ry = ih / sz[1];
     v.img.clearRect(0, 0, v.cw, v.ch);
-    v.img.drawImage(img, w.x0 * rx, w.y0 * ry, w.w * rx, w.h * ry, 0, 0, v.cw, v.ch);
+    v.img.drawImage(filtered(a, key, img, Math.min(rx, ry)), w.x0 * rx, w.y0 * ry, w.w * rx, w.h * ry, 0, 0, v.cw, v.ch);
+    paintCrop(a, v, key);
     v.drawn = stamp;
+    requestCrop(a, v, key, stamp, Math.min(rx, ry));
+    // the helpers only read refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const drawOverlay = useCallback((a: Axis) => {
@@ -278,7 +360,17 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   useEffect(() => {
     drawAll();
   }, [props.pos, props.sel, props.mode, props.partsOn, props.hideLines, props.rulers, props.tolerance,
-      props.particleColor, props.mask, drawAll]);
+      props.particleColor, props.mask, props.filterSigma, drawAll]);
+  // A new crop source: forget the crops and filtered images and draw again
+  useEffect(() => {
+    crops.current = {};
+    filteredImages.current.clear();
+    for (const a of VIEW_ORDER) if (views.current[a]) views.current[a]!.drawn = null;
+    drawAll();
+  }, [props.loadCrop, drawAll]);
+  useEffect(() => () => {
+    for (const a of VIEW_ORDER) window.clearTimeout(cropTimers.current[a]);
+  }, []);
 
   useImperativeHandle(ref, () => ({
     setWindow(a, win) {

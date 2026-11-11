@@ -242,7 +242,8 @@
         window.devTomoReal = EMFlow.mount("VolumeViewer", {
           container: "#vol-tomo-real",
           loader: new EMFlow.DataLoader({
-            // The density from its file; any other request is posted to its path
+            // The density from its file; the crops (if tomo87.json has a crop
+            // source) from a local server running emhub.data.volume_crop
             request: (path, payload) => (path.includes("volume_density")
               ? fetch("/node_modules/.dev-data/tomo87_density.json").then((r) => r.json())
               : fetch(path, { method: "POST", headers: { "content-type": "application/json" },

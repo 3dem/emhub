@@ -715,6 +715,7 @@ def _volume_axis_slices(
     full_range=False,
     upright=False,
     step=None,
+    levels_out=None,
 ):
     """ Thumbnails of slices along one axis, keyed by slice index.
 
@@ -722,11 +723,14 @@ def _volume_axis_slices(
     axis. full_range spreads them over the whole axis instead, first and
     last slice included.  step takes every step-th slice of the whole axis
     instead.  upright turns X slices from (Z, Y) to (Y, Z), so they line up
-    with the rows of a Z slice in an orthogonal view.
+    with the rows of a Z slice in an orthogonal view. levels_out (a dict)
+    gets, by slice index, the [low, high] values each thumbnail shows as
+    black and white (for the full-resolution crops, emhub.data.volume_crop).
     """
     import mrcfile
     import numpy as np
     from emtools.image import Thumbnail
+    from emhub.data.volume_crop import slice_levels
 
     # volume_data is a path, or an open MRC to read several axes from one load
     opened = (mrcfile.open(volume_data, permissive=True)
@@ -773,7 +777,13 @@ def _volume_axis_slices(
                     np.linspace(margin, dim - margin, count),
                 ).astype(int)
 
-        slices = {str(int(i)): vol_thumb.from_array(getter(i)) for i in indices}
+        slices = {}
+        for i in indices:
+            arr = getter(i)
+            slices[str(int(i))] = vol_thumb.from_array(arr)
+            if levels_out is not None:
+                levels_out[str(int(i))] = slice_levels(
+                    arr, (slice_dim, slice_dim), vol_thumb.contrast_factor)
         return slices, prefix, [xdim, ydim, zdim]
 
 
@@ -790,6 +800,17 @@ def volume_density_source(root, rel_path, max_size=None):
     if max_size:
         payload['maxSize'] = int(max_size)
     return {'path': url, 'payload': payload}
+
+
+def volume_crop_source(root, rel_path):
+    """ Request of the full-resolution crops of the sections of a volume
+    (emhub.data.volume_crop) for the Slices tab of emflow's VolumeViewer,
+    which adds the section, window, output size and filter. """
+    try:
+        url = flask.url_for('api.fetch_volume_crop')
+    except RuntimeError:  # outside a request
+        url = '/api/fetch_volume_crop'
+    return {'path': url, 'payload': {'root': root, 'path': rel_path}}
 
 
 def _volume_dimensions(path):
@@ -821,12 +842,15 @@ def build_volume_image_slider_pane_content(
     slice_label_offset=0,
     full_range=False,
     upright=False,
+    levels=False,
 ):
-    """Build image-slider pane content from a volume or tilt-series stack file."""
+    """Build image-slider pane content from a volume or tilt-series stack file.
+    levels: also send the contrast levels of each slice (axes.<a>.levels). """
     axis_payload = {}
     dimensions = None
     for axis in axes:
         prefix = axis_prefix if axis == 'z' and axis_prefix else None
+        axis_levels = {} if levels else None
         slices, prefix, dimensions = _volume_axis_slices(
             volume_path,
             axis=axis,
@@ -836,11 +860,14 @@ def build_volume_image_slider_pane_content(
             all_slices=all_slices,
             full_range=full_range,
             upright=upright,
+            levels_out=axis_levels,
         )
         axis_payload[axis] = {
             'slices': slices,
             'sliderPrefix': prefix,
         }
+        if axis_levels:
+            axis_payload[axis]['levels'] = axis_levels
 
     basename = os.path.basename(volume_path)
     if len(axis_payload) == 1:
@@ -1287,7 +1314,10 @@ def build_volume_viewer_pane_content(
             axes=('x', 'y', 'z'),
             full_range=True,
             upright=True,
+            levels=True,
         )
+        # Full-resolution crops of the sections, when zoomed past the slice images
+        content['crop'] = volume_crop_source(root, vol_rel)
     else:
         content = {'kind': 'imageSlider', 'title': title or vol_rel,
                    'dimensions': _volume_dimensions(vol_path)}
