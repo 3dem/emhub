@@ -62,7 +62,7 @@ function GridCellMessage({ message }: { message: string }) {
             <Typography
                 variant="body2"
                 sx={{
-                    color: "#94a3b8",
+                    color: "var(--emf-slate-400)",
                     textAlign: "center",
                     fontSize: "0.76rem",
                 }}
@@ -95,8 +95,8 @@ function GridCell({
                 minHeight: 0,
                 display: "flex",
                 flexDirection: "column",
-                backgroundColor: "#ffffff",
-                border: "1px solid #e2e8f0",
+                backgroundColor: "var(--emf-white)",
+                border: "1px solid var(--emf-slate-200)",
                 borderRadius: 1,
                 overflow: "hidden",
             }}
@@ -108,7 +108,7 @@ function GridCell({
                     pl: 1.25,
                     pr: 0.25,
                     minHeight: 26,
-                    borderBottom: "1px solid #eef2f7",
+                    borderBottom: "1px solid var(--emf-surface-soft)",
                     flexShrink: 0,
                 }}
             >
@@ -118,7 +118,7 @@ function GridCell({
                         minWidth: 0,
                         fontSize: "0.72rem",
                         fontWeight: 600,
-                        color: "#334155",
+                        color: "var(--emf-slate-700)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -131,7 +131,7 @@ function GridCell({
                         size="small"
                         aria-label={expandLabel}
                         onClick={onToggleExpand}
-                        sx={{ p: 0.4, color: "#64748b" }}
+                        sx={{ p: 0.4, color: "var(--emf-slate-500)" }}
                     >
                         {expanded ? (
                             <CloseFullscreenIcon sx={{ fontSize: 14 }} />
@@ -217,7 +217,7 @@ export default function TableViewerGrid({
                     .join(" "),
                 gridTemplateColumns: `repeat(${nCols}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${layout.areas.length}, minmax(0, 1fr))`,
-                backgroundColor: "#f6f7fb",
+                backgroundColor: "var(--emf-pane-bg)",
             }}
         >
             {layout.slots.map((slot) => (

@@ -80,9 +80,9 @@ export default function TableViewerDialog({
                     display: "flex",
                     flexDirection: "column",
                     border:
-                        "1px solid #dbe2ea",
+                        "1px solid var(--emf-slate-200)",
                     backgroundColor:
-                        "#ffffff",
+                        "var(--emf-white)",
                     boxShadow:
                         "0 24px 70px rgba(15,23,42,0.22)",
                 },

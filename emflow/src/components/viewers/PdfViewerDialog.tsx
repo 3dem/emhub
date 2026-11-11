@@ -40,8 +40,8 @@ export default function PdfViewerDialog({ decision, onClose, protocolLabel = "" 
       PaperProps={{
         sx: {
           width: "92vw", maxWidth: "92vw", height: "92vh", maxHeight: "92vh", m: 0, borderRadius: 2.5,
-          overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid #dbe2ea",
-          backgroundColor: "#ffffff", boxShadow: "0 24px 70px rgba(15,23,42,0.22)",
+          overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid var(--emf-slate-200)",
+          backgroundColor: "var(--emf-white)", boxShadow: "0 24px 70px rgba(15,23,42,0.22)",
         },
       }}
       onDoubleClickCapture={(event) => event.stopPropagation()}

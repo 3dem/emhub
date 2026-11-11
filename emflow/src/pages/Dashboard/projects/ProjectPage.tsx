@@ -60,7 +60,6 @@ import {
   XCircle,
   LayoutGrid,
   MapIcon,
-  FocusIcon,
   TagsIcon,
   AlertTriangle,
   Trash2,
@@ -69,8 +68,10 @@ import {
   ClipboardPaste,
   CheckSquare,
   Info,
+  Moon,
+  Sun,
 } from "lucide-react";
-import { FitViewIcon, TableIcon, TreeIcon } from "@/icons";
+import { TableIcon, TreeIcon } from "@/icons";
 
 import { useProjectService } from "@/ProjectServiceContext";
 import {
@@ -1009,7 +1010,8 @@ export type ProjectPageProps = {
 };
 
 export default function ProjectPage({ projectName }: ProjectPageProps) {
-  const hostIsDark = useTheme().theme === "dark";
+  const { theme: widgetTheme, toggleTheme } = useTheme();
+  const hostIsDark = widgetTheme === "dark";
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
   const svc = useProjectService();
@@ -8214,15 +8216,6 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     setViewport({ x: newVp.x, y: newVp.y, zoom: newVp.zoom });
     persistCurrentViewport();
   }, [viewMode]);
-  const handleFitView = useCallback(() => {
-    if (viewMode === "grid") {
-      snapViewportToTopLeft(GRID_ZOOM);
-      return;
-    }
-    centerLikeButton(undefined, true);
-    persistCurrentViewport();
-  }, [viewMode, centerLikeButton, snapViewportToTopLeft]);
-
   /* ------------------------ Wrapper plumbing (unchanged) ------------------------ */
   const onClickRef = useRef(handleNodeClick);
   const onDblClickRef = useRef(handleNodeDoubleClick);
@@ -9073,15 +9066,6 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
 
                 <button
                   type="button"
-                  title={isGrid ? "Fixed zoom (Grid)" : "Fit view (preserve zoom)"}
-                  onClick={handleFitView}
-                  className="pp-flowControlBtn"
-                >
-                  <FitViewIcon className="pp-btnIcon" />
-                </button>
-
-                <button
-                  type="button"
                   title="Reorganize project"
                   onClick={() => handleReorganize({ preserveZoom: true })}
                   className="pp-flowControlBtn"
@@ -9110,12 +9094,13 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
 
                 <button
                   type="button"
-                  onClick={() => setFocusModeEnabled((v) => !v)}
-                  aria-pressed={focusModeEnabled}
+                  onClick={toggleTheme}
+                  aria-pressed={hostIsDark}
                   className="pp-flowControlBtn"
-                  title={focusModeEnabled ? "Focus selection: Off" : "Focus selection: On"}
+                  title={hostIsDark ? "Light mode" : "Dark mode"}
+                  aria-label={hostIsDark ? "Switch to light mode" : "Switch to dark mode"}
                 >
-                  <FocusIcon className="pp-btnIcon" />
+                  {hostIsDark ? <Sun className="pp-btnIcon" /> : <Moon className="pp-btnIcon" />}
                 </button>
 
                 {hasWidgetBuildInfo() && (

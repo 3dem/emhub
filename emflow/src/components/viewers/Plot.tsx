@@ -6,6 +6,7 @@
 import { Box, Typography } from "@mui/material";
 import PlotlyPlot from "@/lib/plot";
 import { useLoad } from "@/data/DataLoaderContext";
+import { useTheme } from "@/context/ThemeContext";
 
 export type PlotFigure = {
   data?: any[];
@@ -41,6 +42,35 @@ export function normalizeTitles(layout: Record<string, any> = {}): Record<string
   return out;
 }
 
+/** The layout with dark-mode defaults (transparent background, light text,
+ * faint grid and axis lines) when dark, unchanged otherwise. Values set in
+ * the layout win, except the backgrounds. */
+export function themedLayout(layout: Record<string, any> = {}, dark: boolean): Record<string, any> {
+  if (!dark) return layout;
+  const ink = "#e2e8f0";
+  const axis = { gridcolor: "rgba(148,163,184,0.16)", zerolinecolor: "rgba(148,163,184,0.38)",
+                 linecolor: "rgba(148,163,184,0.38)", tickcolor: "rgba(148,163,184,0.38)" };
+  const out: Record<string, any> = {
+    ...layout,
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { color: ink, ...(layout.font ?? {}) },
+    legend: { bgcolor: "rgba(0,0,0,0)", ...(layout.legend ?? {}) },
+  };
+  for (const key of Object.keys(out)) {
+    if (/^[xy]axis\d*$/.test(key)) out[key] = { ...axis, ...(out[key] ?? {}) };
+  }
+  for (const key of ["xaxis", "yaxis"]) {
+    if (!out[key]) out[key] = { ...axis };
+  }
+  // Annotations with a white box (e.g. the FSC resolution): a dark box
+  if (Array.isArray(out.annotations)) {
+    out.annotations = out.annotations.map((a: any) =>
+      /^rgba?\(255,\s*255,\s*255/.test(String(a?.bgcolor ?? "")) ? { ...a, bgcolor: "rgba(17,24,39,0.85)" } : a);
+  }
+  return out;
+}
+
 export default function Plot({
   data,
   layout,
@@ -54,6 +84,7 @@ export default function Plot({
   onRelayout,
 }: PlotProps) {
   const loaded = useLoad<any>(source?.path, source?.payload);
+  const dark = useTheme().theme === "dark";
   const figure: PlotFigure = source
     ? (loaded.data?.figure ?? loaded.data ?? {})
     : { data, layout, config };
@@ -72,7 +103,7 @@ export default function Plot({
     <Box sx={{ width: "100%", height, minHeight: 0 }}>
       <PlotlyPlot
         data={figure.data ?? []}
-        layout={{ autosize: true, ...normalizeTitles(figure.layout) }}
+        layout={themedLayout({ autosize: true, ...normalizeTitles(figure.layout) }, dark)}
         config={{ displaylogo: false, responsive: true, ...figure.config }}
         style={{ width: "100%", height: "100%" }}
         useResizeHandler

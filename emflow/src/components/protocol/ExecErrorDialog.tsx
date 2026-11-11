@@ -42,7 +42,7 @@ export default function ExecErrorDialog({
           px: 2.25,
           py: 1.6,
           bgcolor: "#333d49",
-          color: "#f8fafc",
+          color: "var(--emf-slate-50)",
           display: "flex",
           alignItems: "center",
           gap: 1.25,
@@ -68,7 +68,7 @@ export default function ExecErrorDialog({
         sx={{
           px: 2.5,
           py: 2,
-          bgcolor: "#f8fafc",
+          bgcolor: "var(--emf-slate-50)",
         }}
       >
         <Typography
@@ -76,7 +76,7 @@ export default function ExecErrorDialog({
           sx={{
             mb: 1.5,
             mt:1.5,
-            color: "#475569",
+            color: "var(--emf-slate-600)",
             fontWeight: 600,
           }}
         >
@@ -87,7 +87,7 @@ export default function ExecErrorDialog({
           sx={{
             maxHeight: "52vh",
             overflow: "auto",
-            bgcolor: "#ffffff",
+            bgcolor: "var(--emf-white)",
             border: "1px solid rgba(148, 163, 184, 0.45)",
             borderRadius: 1.5,
             px: 1.75,
@@ -98,7 +98,7 @@ export default function ExecErrorDialog({
             variant="body2"
             component="div"
             sx={{
-              color: "#111827",
+              color: "var(--emf-gray-900)",
               fontSize: "0.9rem",
               lineHeight: 1.65,
               whiteSpace: "pre-wrap",
@@ -116,7 +116,7 @@ export default function ExecErrorDialog({
         sx={{
           px: 2.25,
           py: 1.25,
-          bgcolor: "#f8fafc",
+          bgcolor: "var(--emf-slate-50)",
         }}
       >
         <Button

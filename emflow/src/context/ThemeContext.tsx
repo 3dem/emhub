@@ -1,8 +1,10 @@
 // src/context/ThemeContext.tsx
 //
 // Widget-scoped theme. Unlike the ScipionWeb app, this never touches the host
-// page: no classes on <html>/<body>, no localStorage, no stylesheet rewriting.
-// The "dark" class is only toggled on the widget shell element (.emflow-root).
+// page: no classes on <html>/<body>, no stylesheet rewriting. The "dark" class
+// is only toggled on the widget shell element (.emflow-root). The theme chosen
+// in the widget (toggleTheme) is remembered in localStorage (THEME_STORAGE_KEY)
+// and used instead of the mode given by the host.
 
 import type React from "react";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
@@ -31,6 +33,26 @@ export function getHostIsDark(): boolean {
   );
 }
 
+const THEME_STORAGE_KEY = "emflow:theme";
+
+/** The theme chosen in the widget, if any (storage might be unavailable). */
+function readStoredTheme(): Theme | null {
+  try {
+    const value = localStorage.getItem(THEME_STORAGE_KEY);
+    return value === "light" || value === "dark" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeTheme(theme: Theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // Not remembered (e.g. storage blocked)
+  }
+}
+
 function resolveTheme(mode: ThemeMode): Theme {
   return mode === "auto" ? (getHostIsDark() ? "dark" : "light") : mode;
 }
@@ -48,10 +70,11 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   rootElements,
   children,
 }) => {
-  const [mode, setMode] = useState<ThemeMode>(initialMode);
-  const [theme, setTheme] = useState<Theme>(() => resolveTheme(initialMode));
+  const [mode, setMode] = useState<ThemeMode>(() => readStoredTheme() ?? initialMode);
+  const [theme, setTheme] = useState<Theme>(() => resolveTheme(readStoredTheme() ?? initialMode));
 
-  useEffect(() => setMode(initialMode), [initialMode]);
+  // The theme chosen in the widget wins over the host's mode
+  useEffect(() => setMode(readStoredTheme() ?? initialMode), [initialMode]);
 
   // followHostThemeWhenAuto
   useEffect(() => {
@@ -71,10 +94,11 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   }, [rootElements, theme]);
 
   const setThemeMode = useCallback((next: ThemeMode) => setMode(next), []);
-  const toggleTheme = useCallback(
-    () => setMode(theme === "dark" ? "light" : "dark"),
-    [theme],
-  );
+  const toggleTheme = useCallback(() => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    storeTheme(next);
+    setMode(next);
+  }, [theme]);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setThemeMode }}>
