@@ -77,11 +77,14 @@ function GridCell({
     slot,
     content,
     expanded,
+    hidden = false,
     onToggleExpand,
 }: {
     slot: TableViewerGridSlot;
     content?: TableViewerPaneContent;
     expanded: boolean;
+    /** Kept mounted (its state) but not shown: another cell is expanded. */
+    hidden?: boolean;
     onToggleExpand: () => void;
 }) {
     const title = content?.title;
@@ -93,7 +96,7 @@ function GridCell({
                 gridArea: slot,
                 minWidth: 0,
                 minHeight: 0,
-                display: "flex",
+                display: hidden ? "none" : "flex",
                 flexDirection: "column",
                 backgroundColor: "var(--emf-white)",
                 border: "1px solid var(--emf-slate-200)",
@@ -163,8 +166,9 @@ function GridCell({
     );
 }
 
-/** Cells that keep their state when the grid cell is expanded or collapsed
- * (not remounted): viewers that fit their new size by themselves. */
+/** Cells that keep their state when a grid cell is expanded or collapsed:
+ * viewers that fit their new size by themselves. They are not remounted
+ * when they are expanded, and stay mounted (hidden) while another cell is. */
 function keepsState(cell: TableViewerPaneContent | undefined): boolean {
     return cell?.kind === "tiltSeries"
         || (cell?.kind === "imageSlider" && cell.layout === "volume");
@@ -220,7 +224,11 @@ export default function TableViewerGrid({
                 backgroundColor: "var(--emf-pane-bg)",
             }}
         >
-            {layout.slots.map((slot) => (
+            {fullLayout.slots
+                // Hidden while another cell is expanded: only the cells that
+                // keep their state stay (mounted, not shown)
+                .filter((slot) => layout.slots.includes(slot) || keepsState(content.cells[slot]))
+                .map((slot) => (
                 <GridCell
                     // Remount when expanding/collapsing so plots fit the new
                     // size; a tilt series viewer or a volume viewer keeps its
@@ -233,6 +241,7 @@ export default function TableViewerGrid({
                     slot={slot}
                     content={content.cells[slot]}
                     expanded={expanded === slot}
+                    hidden={!layout.slots.includes(slot)}
                     onToggleExpand={() =>
                         setExpandedSlot(expanded === slot ? null : slot)
                     }
