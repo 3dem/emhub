@@ -217,6 +217,17 @@ class RelionSessionData(SessionData):
             return ''
         return '/'.join(micrographs.split('/')[:-1])
 
+    def _cluster_job_id(self, job):
+        """ Id of the cluster job of a launched or running job submitted to a
+        queue (written by emwrap when submitted), or '' (run locally). """
+        if job['status'] not in ('Launched', 'Running'):
+            return ''
+        try:
+            with open(self.join(job.id, self.project.JOB_CLUSTER_ID_FILE)) as f:
+                return f.readline().strip()
+        except OSError:
+            return ''
+
     def _job_timing(self, job):
         """ Elapsed time of the job runs (cached in project.json from the job
         info.json), with the total of all runs in seconds, and the time each
@@ -392,6 +403,7 @@ class RelionSessionData(SessionData):
                 "elapsedRuns": timing['runs'],
                 "launched": timing['launched'],
                 "queued": timing['queued'],
+                "clusterJobId": self._cluster_job_id(job),
                 "isInteractive": False,
                 "numberOfSteps": 1,
                 "stepsDone": 1,

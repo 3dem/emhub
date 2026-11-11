@@ -102,7 +102,8 @@ import { withOutputPrefix } from "@/utils/output_label";
 const statusColors: Record<string, string> = {
   running: "#FCCE62",
   saved: "#D9F1FA",
-  launched: "#D9F1FA",
+  // Periwinkle: waiting in the queue, apart from the saved (cyan) ones
+  launched: "#DCE3FD",
   finished: "#D2F5CB",
   failed: "#F5CCCB",
   aborted: "#F5CCCB",
@@ -115,7 +116,8 @@ const statusColors: Record<string, string> = {
 const statusBadgeColors: Record<string, string> = {
   running: "#918516",
   saved: "#1E90FF",
-  launched: "#1E90FF",
+  // Darker than saved: waiting in the queue / starting
+  launched: "#1565C0",
   finished: "#28A745",
   failed: "#DC3545",
   aborted: "#DC3545",
@@ -143,6 +145,7 @@ type StatusNodeProps = {
     elapsedRuns?: ProtocolRunTiming[];
     launched?: string;
     queued?: number | null;
+    clusterJobId?: string;
     tick?: number;
     numberOfSteps?: number;
     stepsDone?: number;
@@ -1451,12 +1454,12 @@ export default function ProtocolNodeCard({
 
 
 
-  // Items of the "Workflow" submenu (node menus)
+  // Duplicate (top level) and the items of the "Workflow" submenu (node menus)
   const showDuplicateItem = isMenuItemVisible("duplicate");
   const showCopyItem = isMenuItemVisible("copyWorkflow") && !!onCopyWorkflow && !isProjectNode;
   const showPasteItem = isMenuItemVisible("pasteWorkflow") && !!onPasteWorkflow && canPasteWorkflow;
   const showExportItem = isMenuItemVisible("export");
-  const hasWorkflowMenu = showDuplicateItem || showCopyItem || showPasteItem || showExportItem;
+  const hasWorkflowMenu = showCopyItem || showPasteItem || showExportItem;
 
   const FromIcon = graphDirection === "TB" ? ArrowDown : ArrowRight;
   const ToIcon = graphDirection === "TB" ? ArrowUp : ArrowLeft;
@@ -2452,8 +2455,16 @@ export default function ProtocolNodeCard({
               {!isProjectNode && (
                 <Tooltip {...jobInfoTooltipProps}>
                   <div
-                    className={[styles.nodeIdBadge, data.status === "running" ? styles.glowBadge : ""].filter(Boolean).join(" ")}
+                    className={[styles.nodeIdBadge, data.status === "running" ? styles.glowBadge : "",
+                      onRename ? styles.annotationTitleClickable : "", onRename ? "nodrag" : ""]
+                      .filter(Boolean).join(" ")}
                     style={isCompactView ? { fontSize: "2.4rem" } : { fontSize: "2.3rem" }}
+                    // Clicking the job id opens the annotate dialog
+                    onPointerDown={onRename ? (e) => e.stopPropagation() : undefined}
+                    onClick={onRename ? (e) => {
+                      e.stopPropagation();
+                      handleRename();
+                    } : undefined}
                   >
                     <span>{data.id}</span>
                   </div>
@@ -2467,9 +2478,16 @@ export default function ProtocolNodeCard({
               ) : protocolRunName ? (
                 <Tooltip {...jobInfoTooltipProps}>
                   <div
-                    className={[styles.label, isCompactView ? styles.labelCompact : "", styles.annotationTitle]
+                    className={[styles.label, isCompactView ? styles.labelCompact : "", styles.annotationTitle,
+                      onRename ? styles.annotationTitleClickable : "", onRename ? "nodrag" : ""]
                       .filter(Boolean)
                       .join(" ")}
+                    // Clicking the annotation opens the annotate dialog
+                    onPointerDown={onRename ? (e) => e.stopPropagation() : undefined}
+                    onClick={onRename ? (e) => {
+                      e.stopPropagation();
+                      handleRename();
+                    } : undefined}
                   >
                     {protocolRunName}
                   </div>
@@ -2484,7 +2502,12 @@ export default function ProtocolNodeCard({
                     <button
                       type="button"
                       className={`${styles.iconButton} nodrag`}
-                      onPointerDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        // Select the node (alone, as a right click does,
+                        // unless it is already selected)
+                        if (e.button === 0) ensureRightClickSelectionIsUnambiguous(e as any);
+                      }}
                       onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => e.stopPropagation()}
                       onDoubleClick={(e) => e.stopPropagation()}
@@ -2503,18 +2526,6 @@ export default function ProtocolNodeCard({
                     onInteractOutside={preventMenuDismissWhileHelpOpen}>
                     {!reduceMenus && (
                       <>
-                        {isMenuItemVisible("open") && (
-                          <DropdownMenuItem onSelect={() => handleEdit()}>
-                            <div className={styles.menuRow}>
-                              <span className={styles.menuLeft}>
-                                <Scan className={styles.menuItemIcon} />
-                                <span>Open</span>
-                              </span>
-                              <ShortcutHint text={shortcuts.edit} />
-                            </div>
-                          </DropdownMenuItem>)}
-
-
                         {isMenuItemVisible("browse") && (
                           <DropdownMenuItem onSelect={() => handleBrowse()}>
                             <div className={styles.menuRow}>
@@ -2537,7 +2548,7 @@ export default function ProtocolNodeCard({
                             </div>
                           </DropdownMenuItem>)}
 
-                        {(isMenuItemVisible("open") || isMenuItemVisible("rename") || isMenuItemVisible("rename")) && (
+                        {(isMenuItemVisible("browse") || isMenuItemVisible("rename")) && (
                           <DropdownMenuSeparator />)}
 
                         {isMenuItemVisible("selectFrom") && (
@@ -2763,8 +2774,19 @@ export default function ProtocolNodeCard({
                       </DropdownMenuSub>
                     )}
 
-                    {/* Workflow: duplicate, copy / paste (also to other projects) and export */}
-                    {hasWorkflowMenu && <DropdownMenuSeparator />}
+                    {/* Duplicate, and Workflow: copy / paste (also to other projects) and export */}
+                    {(showDuplicateItem || hasWorkflowMenu) && <DropdownMenuSeparator />}
+                    {showDuplicateItem && (
+                      <DropdownMenuItem onSelect={() => handleDuplicate()}>
+                        <div className={styles.menuRow}>
+                          <span className={styles.menuLeft}>
+                            <Copy className={styles.menuItemIcon} />
+                            <span>Duplicate</span>
+                          </span>
+                          <ShortcutHint text={shortcuts.duplicate} />
+                        </div>
+                      </DropdownMenuItem>
+                    )}
                     {hasWorkflowMenu && (
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger>
@@ -2777,17 +2799,6 @@ export default function ProtocolNodeCard({
                         </DropdownMenuSubTrigger>
 
                         <DropdownMenuSubContent className={styles.menuContent} sideOffset={8}>
-                          {showDuplicateItem && (
-                          <DropdownMenuItem onSelect={() => handleDuplicate()}>
-                            <div className={styles.menuRow}>
-                              <span className={styles.menuLeft}>
-                                <Copy className={styles.menuItemIcon} />
-                                <span>Duplicate</span>
-                              </span>
-                              <ShortcutHint text={shortcuts.duplicate} />
-                            </div>
-                          </DropdownMenuItem>
-                          )}
                           {showCopyItem && (
                           <DropdownMenuItem onSelect={() => handleCopyWorkflow()}>
                             <div className={styles.menuRow}>
@@ -2917,6 +2928,12 @@ export default function ProtocolNodeCard({
                       {data.status}
                     </span>
 
+                    {data.clusterJobId && (data.status === "launched" || data.status === "running") && (
+                      <span className={styles.clusterJobPill} title="Cluster job id">
+                        {data.clusterJobId}
+                      </span>
+                    )}
+
                     <Tooltip
                       title={elapsedTooltip}
                       placement="top"
@@ -2980,17 +2997,6 @@ export default function ProtocolNodeCard({
       >
         {!reduceMenus && (
           <>
-            {isMenuItemVisible("open") && (
-              <ContextMenuItem onClick={handleEdit}>
-                <div className={styles.menuRow}>
-                  <span className={styles.menuLeft}>
-                    <Scan className={styles.menuItemIcon} />
-                    <span>Open</span>
-                  </span>
-                  <ShortcutHint text={shortcuts.edit} />
-                </div>
-              </ContextMenuItem>)}
-
             {isMenuItemVisible("browse") && (
               <ContextMenuItem onClick={handleBrowse}>
                 <div className={styles.menuRow}>
@@ -3013,7 +3019,7 @@ export default function ProtocolNodeCard({
                 </div>
               </ContextMenuItem>)}
 
-            {(isMenuItemVisible("rename") || isMenuItemVisible("browse") || isMenuItemVisible("open")) && (
+            {(isMenuItemVisible("rename") || isMenuItemVisible("browse")) && (
               <ContextMenuSeparator />)}
 
 
@@ -3238,8 +3244,19 @@ export default function ProtocolNodeCard({
           </ContextMenuSub>)}
 
 
-        {/* Workflow: duplicate, copy / paste (also to other projects) and export */}
-        {hasWorkflowMenu && <ContextMenuSeparator />}
+        {/* Duplicate, and Workflow: copy / paste (also to other projects) and export */}
+        {(showDuplicateItem || hasWorkflowMenu) && <ContextMenuSeparator />}
+        {showDuplicateItem && (
+          <ContextMenuItem onClick={handleDuplicate}>
+            <div className={styles.menuRow}>
+              <span className={styles.menuLeft}>
+                <Copy className={styles.menuItemIcon} />
+                <span>Duplicate</span>
+              </span>
+              <ShortcutHint text={shortcuts.duplicate} />
+            </div>
+          </ContextMenuItem>
+        )}
         {hasWorkflowMenu && (
           <ContextMenuSub>
             <ContextMenuSubTrigger>
@@ -3252,17 +3269,6 @@ export default function ProtocolNodeCard({
             </ContextMenuSubTrigger>
 
             <ContextMenuSubContent className={styles.menuContent} sideOffset={8}>
-              {showDuplicateItem && (
-              <ContextMenuItem onClick={handleDuplicate}>
-                <div className={styles.menuRow}>
-                  <span className={styles.menuLeft}>
-                    <Copy className={styles.menuItemIcon} />
-                    <span>Duplicate</span>
-                  </span>
-                  <ShortcutHint text={shortcuts.duplicate} />
-                </div>
-              </ContextMenuItem>
-              )}
               {showCopyItem && (
               <ContextMenuItem onClick={handleCopyWorkflow}>
                 <div className={styles.menuRow}>
