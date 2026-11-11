@@ -6,9 +6,12 @@
 // The surface may be smoothed and its dust (small blobs of noise) hidden:
 // both filter the grid given to the GPU, not the map. An optional mask (a
 // sphere or another map, loaded like the density) is drawn over it.
+// When the density changes to another map of a series (the iterations of a
+// Relion map, `preload`ed in the background) the same share of voxels stays
+// enclosed and the view is not framed again, so the series plays smoothly.
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import styles from "../VolumeViewer.module.css";
-import { useLoad } from "@/data/DataLoaderContext";
+import { useDataLoader, useLoad } from "@/data/DataLoaderContext";
 import { IsoSurfaceScene, type IsoMask, type IsoState, type MaskStyle } from "./IsoSurfaceScene";
 import DensityPanel, { DETAILS, enclosedFraction, levelForFraction, type DensityOptions } from "./DensityPanel";
 import { densityValues, prepareDensity, removeDust, smoothGrid } from "./densityGrid";
@@ -80,6 +83,18 @@ type Props = {
   maskStyle?: MaskStyle;
   /** Loading or error of a map mask; null once it is shown. */
   onMaskStatus?: (status: string | null) => void;
+  /** Under the scene, in its column (the panel beside keeps its height). */
+  below?: React.ReactNode;
+  /** The grid size and statistics in the panel (the viewer's debug). */
+  debug?: boolean;
+  /** Other densities of a series (the iterations of a map), loaded and
+   * decoded in the background (two at a time, the detail of this one), so
+   * they show at once; null entries are skipped. */
+  preload?: (DensitySource | null)[];
+  /** Index (in preload) of a density loaded in the background. */
+  onPreloaded?: (index: number) => void;
+  /** The density shown now is the one of `density` (playback waits for it). */
+  onShown?: (density: VolumeDensity | DensitySource) => void;
 };
 
 /** First threshold of a map mask: 0.5 for a 0-1 mask, else the middle. */
@@ -93,7 +108,8 @@ export function maskThreshold(d: VolumeDensity, given?: number): number {
 const INITIAL_ENCLOSED = 0.01;
 /** ChimeraX's default map color. */
 const DEFAULT_COLOR = "#b2b2ff";
-const DEFAULT_DUST = 20;
+// No dust hidden at first (the Hide dust slider at None)
+const DEFAULT_DUST = 0;
 /** Wait for the threshold to settle before hiding the dust again. */
 const DUST_DELAY_MS = 120;
 
@@ -110,6 +126,12 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
   debugRef.current = props.onDebug;
   // The last grid stays while another detail loads; it is decoded first
   const [density, setDensity] = useState<VolumeDensity | null>(null);
+  const shownRef = useRef<{ density: VolumeDensity; given: VolumeDensity | DensitySource } | null>(null);
+  // A density that replaced another map of the series (another iteration):
+  // the same share of voxels is enclosed and the view is not framed again
+  const keepView = useRef<VolumeDensity | null>(null);
+  const onShownRef = useRef(props.onShown);
+  onShownRef.current = props.onShown;
   useEffect(() => {
     let d: VolumeDensity | null = null;
     let requestMs: number | undefined;
@@ -124,7 +146,17 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     const ready = d;
     prepareDensity(ready).then((decodeMs) => {
       if (!live) return;
+      const prev = shownRef.current;
+      shownRef.current = { density: ready, given };
       setDensity(ready);
+      if (prev && prev.given !== given && prev.density !== ready) {
+        keepView.current = ready;
+        const h0 = prev.density.histogram, h1 = ready.histogram;
+        if (h0 && h1) {
+          setOpts((o) => (o ? { ...o, threshold: levelForFraction(h1, enclosedFraction(h0, o.threshold, o.below), o.below) } : o));
+        }
+      }
+      onShownRef.current?.(given);
       if (requestMs !== undefined) debugRef.current?.({ from: "request", requestMs, decodeMs, density: ready });
       else if (decodeMs) debugRef.current?.({ from: "inline", decodeMs, density: ready });
     }, (e) => live && setDecodeError(String(e?.message ?? e)));
@@ -235,14 +267,20 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
   const dust = opts?.dust ?? 0;
   const thr = opts?.threshold ?? 0;
   const below = Boolean(opts?.below);
+  // A new density is cleaned at once (not after the threshold settles), so
+  // the dust does not flash between the iterations of a series
+  const dustOf = useRef<VolumeDensity | null>(null);
+  const hasOpts = Boolean(opts);
   useEffect(() => {
-    if (!density || !base) return undefined;
+    // (the first threshold comes with the options)
+    if (!density || !base || !hasOpts) return undefined;
     if (!dust) {
       sceneRef.current?.setValues(base);
       setHidden(0);
       return undefined;
     }
-    const timer = window.setTimeout(() => {
+    const clean = () => {
+      dustOf.current = density;
       const t0 = performance.now();
       const [v0, v1] = density.valueRange;
       const level = ((thr - v0) / (v1 - v0 || 1)) * 255;
@@ -252,12 +290,17 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
       // The first frame without the dust (blobs of noise widen it)
       if (dustFramed.current !== density) {
         dustFramed.current = density;
-        autoFit();
+        if (keepView.current !== density) autoFit();
       }
       debugRef.current?.({ filterMs: performance.now() - t0, hidden: r.hidden });
-    }, DUST_DELAY_MS);
+    };
+    if (dustOf.current !== density) {
+      clean();
+      return undefined;
+    }
+    const timer = window.setTimeout(clean, DUST_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [density, base, dust, thr, below]);
+  }, [density, base, dust, thr, below, hasOpts]);
   useEffect(() => {
     if (state) sceneRef.current?.setState(state);
   }, [state, density]);
@@ -322,10 +365,38 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     const f = framed.current;
     if (f && f.density === density && f.mask === hasMask) return;
     framed.current = { density, mask: hasMask };
+    // Another iteration of the series: the view stays
+    if (keepView.current === density && f?.mask === hasMask) return;
     autoFit();
     // after the density, state and mask effects above (same commit)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [density, opts, hasMask, error]);
+
+  // The other densities of the series, in the background (two at a time)
+  const loader = useDataLoader();
+  const preload = props.preload;
+  const onPreloadedRef = useRef(props.onPreloaded);
+  onPreloadedRef.current = props.onPreloaded;
+  useEffect(() => {
+    if (!preload?.length) return undefined;
+    let live = true;
+    const queue = preload.map((d, i) => [d, i] as const).filter(([d]) => d);
+    const next = (): Promise<void> => {
+      const item = queue.shift();
+      if (!item || !live) return Promise.resolve();
+      const [src, i] = item;
+      return loader.load<any>(src!.path, { ...src!.payload, maxVoxels: detail })
+        .then((r) => {
+          const d = r && r.density ? r.density : r;
+          return d ? prepareDensity(d) : 0;
+        })
+        .then(() => { if (live) onPreloadedRef.current?.(i); }, () => undefined)
+        .then(next);
+    };
+    next();
+    next();
+    return () => { live = false; };
+  }, [preload, detail, loader]);
 
   useImperativeHandle(ref, () => ({ reset: () => sceneRef.current?.reset() }), []);
 
@@ -333,13 +404,16 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
   const loading = Boolean(source) && loaded.status === "loading";
   return (
     <div className={styles.wrap3d}>
-      <div ref={host} className={styles.canvas3d} style={{ width, height }}>
-        {!density && (
-          <div className={styles.isoWait}>
-            {decodeError ? `Could not read the volume: ${decodeError}`
-              : loaded.status === "error" ? `Could not load the volume: ${loaded.error.message}` : "Loading the volume…"}
-          </div>
-        )}
+      <div className={styles.isoCol}>
+        <div ref={host} className={styles.canvas3d} style={{ width, height }}>
+          {!density && (
+            <div className={styles.isoWait}>
+              {decodeError ? `Could not read the volume: ${decodeError}`
+                : loaded.status === "error" ? `Could not load the volume: ${loaded.error.message}` : "Loading the volume…"}
+            </div>
+          )}
+        </div>
+        {props.below}
       </div>
       {density && opts && (
         <DensityPanel
@@ -352,6 +426,7 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
           hidden={hidden}
           onChange={onPanelChange}
           maxHeight={props.panelHeight}
+          debug={props.debug}
           width={props.panelWidth}
           onHeight={props.onPanelHeight}
         />

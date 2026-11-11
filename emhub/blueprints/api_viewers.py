@@ -813,6 +813,37 @@ def volume_crop_source(root, rel_path):
     return {'path': url, 'payload': {'root': root, 'path': rel_path}}
 
 
+def map_iterations_source(root, rel_path):
+    """ Request of the iterations of a Relion map (emhub.data.relion_iterations)
+    for the 3D volume tab of emflow's VolumeViewer (to play the map through
+    them), or None when the file name is not one of a Relion map. """
+    from emhub.data.relion_iterations import is_relion_map
+    if not is_relion_map(os.path.basename(rel_path)):
+        return None
+    try:
+        url = flask.url_for('api.fetch_map_iterations')
+    except RuntimeError:  # outside a request
+        url = '/api/fetch_map_iterations'
+    return {'path': url, 'payload': {'root': root, 'path': rel_path}}
+
+
+def build_map_iterations(root, rel_path, max_size=None):
+    """ The iterations of the Relion map rel_path (see
+    emhub.data.relion_iterations.map_iterations), each with the request of
+    its density (as the map's), or None. """
+    from emhub.data.relion_iterations import map_iterations
+    full = _resolve_data_path(root, rel_path)
+    if not full or not os.path.exists(full):
+        raise Exception(f'Volume not found: {rel_path}')
+    result = map_iterations(full)
+    if not result:
+        return None
+    folder = os.path.dirname(rel_path)
+    for item in result['items']:
+        item['density'] = volume_density_source(root, os.path.join(folder, item['file']), max_size)
+    return result
+
+
 def _volume_dimensions(path):
     """[X, Y, Z] of a volume from its MRC header."""
     import mrcfile
@@ -1260,12 +1291,11 @@ def build_tilt_series_grid_pane_content(root, row_cells, star_rel, row_label):
 
 # VolumeViewer of a map (3D classes, species of a population): its iso-surface
 # first and the slices drawn from the same density; no 3D planes, crosshair
-# nor particles. Small blobs of noise ("dust") are hidden
+# nor particles (no dust hidden at first: the viewer's Hide dust slider)
 MAP_VIEWER_CONFIG = {
     'tabs': {'view3d': False},
     'initialTab': 'volume3d',
     'tools': {'crosshair': False, 'particles': False},
-    'defaults': {'iso': {'dust': 100}},
 }
 
 # Tomograms in the TableViewer (Tomograms, TomoCoordinates, TomoParticles):
@@ -1357,7 +1387,6 @@ VOLUME_OUTPUT_VIEWER_CONFIG = {
     'tabs': {'view3d': False},
     'initialTab': 'volume3d',
     'tools': {'select': False, 'crosshair': False, 'particles': False},
-    'defaults': {'iso': {'dust': 100}},
 }
 # Longest side of their density grid (maps are Fourier scaled to it)
 VOLUME_OUTPUT_MAX_SIZE = 256
@@ -1405,9 +1434,14 @@ def build_volume_output_pane_content(root, rel_path, pointer_class='Volume'):
             'label': os.path.basename(rel_path),
         }
         title = f'Mask {rel_path} over {source}'
-    return build_volume_viewer_pane_content(
+    content = build_volume_viewer_pane_content(
         root, vol_rel, title=title, slices=False, density='lazy',
         max_size=VOLUME_OUTPUT_MAX_SIZE, viewer_config=config)
+    # A Relion map (Refine3D, InitialModel...): its iterations can be played
+    if pointer_class != 'VolumeMask' and (its := map_iterations_source(root, vol_rel)):
+        its['payload']['maxSize'] = VOLUME_OUTPUT_MAX_SIZE
+        content['iterations'] = its
+    return content
 
 
 def resolve_table_view_type_hint(attrs, row_cells):

@@ -1241,6 +1241,24 @@ def fetch_volume_crop():
     return _handle_item(_handle, 'crop')
 
 
+@api_bp.route('/fetch_map_iterations', methods=['POST'])
+@flask_login.login_required
+def fetch_map_iterations():
+    """ The iterations of a Relion map of a project (its class at every
+    iteration of the job, with their resolution, class share and FSC, and
+    the density request of each map; see build_map_iterations), for the 3D
+    volume tab of emflow's VolumeViewer. attrs: root, path and, optional,
+    maxSize (of the density grids, as the map's). None when the map has no
+    iterations. """
+    def _handle(**attrs):
+        from .api_viewers import build_map_iterations
+
+        root = resolve_project_root(attrs['root'])
+        return build_map_iterations(root, attrs['path'], attrs.get('maxSize'))
+
+    return _handle_item(_handle, 'iterations')
+
+
 @api_bp.route('/get_volume_viewer', methods=['POST'])
 @flask_login.login_required
 def get_volume_viewer():

@@ -88,6 +88,34 @@ export type VolumeData = {
   /** Request of the full-resolution crops of the sections (VolumeCrop); the
    * viewer adds a CropRequest to its payload. */
   crop?: DensitySource | null;
+  /** Request of the iterations of the map (a Relion class at every iteration
+   * of its job; answers `{iterations: MapIterations | null}`), to play the
+   * 3D volume through them. */
+  iterations?: DensitySource | null;
+};
+
+/** One iteration of a map: its density request and the stats of its model. */
+export type MapIteration = {
+  /** Iteration number; null for the final map. */
+  iteration: number | null;
+  label: string;
+  file: string;
+  density: DensitySource;
+  /** Resolution of the iteration (Å). */
+  resolution?: number | null;
+  /** Share of the particles in the class (0-1). */
+  classDistribution?: number | null;
+  /** Estimated resolution of the class (Å). */
+  classResolution?: number | null;
+  /** Gold-standard FSC (refinements): per shell, resolution in 1/Å. */
+  fsc?: { resolution: number[]; fsc: number[] } | null;
+};
+
+export type MapIterations = {
+  classId: number;
+  items: MapIteration[];
+  /** Index of the map of the pane. */
+  current: number;
 };
 
 /** A window of a section asked to the host (section voxels: horizontal,
@@ -240,5 +268,6 @@ export function volumeDataFromPane(input: any): VolumeData | null {
     density,
     levels: Object.keys(levels).length ? levels : null,
     crop: axes && pane.crop && pane.crop.path ? pane.crop : null,
+    iterations: pane.iterations && pane.iterations.path ? pane.iterations : null,
   };
 }

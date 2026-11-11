@@ -243,6 +243,17 @@ table: TableViewerData = {
   The crop keeps the thumbnail's contrast (its levels, scaled by the ratio
   of the spread of the crop to the window binned as the thumbnail). Z
   sections are kept in server memory (≤ 512 MB) after the first crop.
+  A Relion map (Class3D class rows: `build_class3d_volume_pane_content`;
+  Volume outputs, e.g. Refine3D `run_class001.mrc`:
+  `build_volume_output_pane_content`) gets `iterations` `{path, payload}`
+  (EMhub: `/api/fetch_map_iterations` with `{root, path, maxSize?}`,
+  answering `{iterations: {classId, current, items: [{iteration (null:
+  final), label, file, density (request, as the map's), resolution,
+  classDistribution, classResolution, fsc {resolution (1/Å), fsc} | null}]}
+  | null}`, from `data/relion_iterations.py`: the same class (half 1 of
+  Refine3D iterations) at every iteration of the job, continued runs after,
+  the final map last; stats from each `_model.star`, kept in server memory
+  per file; non-finite values are null; Class3D has no FSC).
   EMhub builds these panes with `build_volume_viewer_pane_content(root, rel,
   slices=, density='lazy' | 'inline' | None, max_voxels=, max_size=,
   viewer_config=)` (with slices: `levels` and `crop` too); tomograms of the

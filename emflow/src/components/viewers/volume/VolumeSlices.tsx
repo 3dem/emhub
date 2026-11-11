@@ -361,13 +361,14 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     drawAll();
   }, [props.pos, props.sel, props.mode, props.partsOn, props.hideLines, props.rulers, props.tolerance,
       props.particleColor, props.mask, props.filterSigma, drawAll]);
-  // A new crop source: forget the crops and filtered images and draw again
+  // New slice images (e.g. another iteration of a map) or crop source:
+  // forget the crops and filtered images and draw again
   useEffect(() => {
     crops.current = {};
     filteredImages.current.clear();
     for (const a of VIEW_ORDER) if (views.current[a]) views.current[a]!.drawn = null;
     drawAll();
-  }, [props.loadCrop, drawAll]);
+  }, [props.loadCrop, props.loadImage, drawAll]);
   useEffect(() => () => {
     for (const a of VIEW_ORDER) window.clearTimeout(cropTimers.current[a]);
   }, []);

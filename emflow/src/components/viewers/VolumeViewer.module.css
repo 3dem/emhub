@@ -437,6 +437,7 @@
 .histLegend {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 2px 10px;
   color: var(--vv-muted);
   margin: 0 0 8px;
@@ -487,8 +488,9 @@
 }
 
 .isoValue {
-  width: 34px;
+  min-width: 34px;
   text-align: right;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
@@ -501,6 +503,62 @@
   line-height: 1.35;
   white-space: normal;
   word-break: break-word;
+}
+
+/* Iterations of a map (3D volume tab) */
+.iterBar {
+  margin: 8px 0 0;
+}
+
+/* One line (no wrap): its height must not depend on the width or on the
+   label, as the scene is sized from the height of what is around it */
+.iterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  height: 30px;
+}
+
+.iterPlay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--vv-border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.iterSlider {
+  flex: 1 1 160px;
+  min-width: 60px;
+  margin: 0;
+}
+
+.iterLabel {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.iterLoaded {
+  font-size: 11px;
+  color: var(--vv-muted);
+  white-space: nowrap;
+}
+
+.iterCharts {
+  display: flex;
+  gap: 12px;
+  margin: 6px 0 0;
 }
 
 /* Loading of the 3D planes volume: over the scene, easy to see */
@@ -547,4 +605,27 @@
   margin: 0 0 6px;
   color: var(--vv-accent);
   font-weight: 600;
+}
+
+.iterSelect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 4px;
+  font-size: 12px;
+}
+
+/* The surface color, at the end of the histogram legend line */
+.histColor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 0 auto;
+  font-weight: normal;
+}
+
+/* The 3D volume scene and what is under it (the iterations bar) */
+.isoCol {
+  display: flex;
+  flex-direction: column;
 }
