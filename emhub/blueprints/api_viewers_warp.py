@@ -1,12 +1,17 @@
 """Table viewer of a Warp/M population (WarpPopulation output).
 
 The table has one row per volume (3D .mrc) of each species of the population
-(the sharpened map first). Its panes:
+(the sharpened map first, shown when the table is opened), except its mask
+(*_mask.mrc), shown over the volumes instead, and its local resolution map
+(*_localres.mrc), that colors them instead. Its panes:
 
 - volume (selecting a row): the volume in emflow's VolumeViewer (scaled to at
-  most WARP_MAX_SIZE voxels per side, loaded by the viewer) in the left
-  column, over both rows, beside the FSC curves above the local resolution
-  histogram of its species.
+  most WARP_MAX_SIZE voxels per side, loaded by the viewer) with the mask of
+  its species (hidden at first, the viewer's mask button shows it) and its
+  local resolution map (the viewer's resolution button colors the surface
+  with it, with a color key) in the
+  left column, over both rows, beside the FSC curves above the local
+  resolution histogram of its species.
 - refinement: the species summary and its refinement history (resolution
   and B-factor of each round, see emhub.data.warp_m.refinement_history).
 - series: per tilt series particles, score gain and time of the last M
@@ -26,6 +31,7 @@ from .api_viewers import (
     _table_view_action_payload,
     _table_view_column_actions,
     build_volume_viewer_pane_content,
+    volume_density_source,
     MAP_VIEWER_CONFIG,
 )
 
@@ -118,8 +124,19 @@ def build_warp_population_table(full_path, root):
             resolution = round(float(params.get('GlobalResolution')), 2)
         except (TypeError, ValueError):
             resolution = ''
-        volumes = sorted((f for f in os.listdir(species_dir) if f.endswith('.mrc')),
+        files = [f for f in os.listdir(species_dir) if f.endswith('.mrc')]
+        # The mask and the local resolution map are not rows: the mask is
+        # shown over the volumes of the species, the resolution colors them
+        masks = [f for f in files if f.endswith('_mask.mrc')]
+        localres = [f for f in files if f.endswith('_localres.mrc')]
+        volumes = sorted((f for f in files if f not in masks and f not in localres),
                          key=_volume_order)
+        res_path = os.path.join(species_dir, localres[0]) if localres else None
+        res_header = _volume_header(res_path) if res_path else None
+        mask = (f'{name}_mask.mrc' if f'{name}_mask.mrc' in masks
+                else masks[0] if masks else None)
+        mask_path = os.path.join(species_dir, mask) if mask else None
+        mask_header = _volume_header(mask_path) if mask_path else None
         species_cells = {
             'species': name,
             'fscPath': os.path.relpath(fsc, root_abs) if os.path.exists(fsc) else '',
@@ -140,6 +157,11 @@ def build_warp_population_table(full_path, root):
                 species_cells,
                 volume=volume,
                 volumePath=os.path.relpath(path, root_abs),
+                # Only on the same box (the viewer scales both alike)
+                maskPath=(os.path.relpath(mask_path, root_abs)
+                          if mask_header and mask_header[0] == dims else ''),
+                resolutionPath=(os.path.relpath(res_path, root_abs)
+                                if res_header and res_header[0] == dims else ''),
                 box=' × '.join(str(d) for d in dims) if len(set(dims)) > 1 else f'{dims[0]}³',
                 pixelSize=round(vs, 4) if vs else species_cells['pixelSize'],
             )
@@ -154,9 +176,13 @@ def build_warp_population_table(full_path, root):
     n = len(wp.Species)
     n_volumes = sum(1 for r in rows if r['cells']['volumePath'])
     title = f"{spec['title']} {wp.Name} ({n} species, {n_volumes} volumes)"
-    return {'title': title,
-            'columns': _table_view_column_actions(spec),
-            'rows': rows}
+    table = {'title': title,
+             'columns': _table_view_column_actions(spec),
+             'rows': rows}
+    # The first map (the sharpened one of the first species) when opened
+    if first := next((r for r in rows if r['cells']['volumePath']), None):
+        table['initialAction'] = {'rowId': first['id'], 'actionId': _ACTION_VOLUME['id']}
+    return table
 
 
 def build_warp_fsc_plot_content(full_path, title=None):
@@ -236,10 +262,27 @@ def build_warp_volume_pane_content(root, row_cells):
         return {'kind': 'empty', 'title': row_cells.get('species', ''),
                 'message': 'This species has no maps; see its refinement and tilt series'}
     name = row_cells.get('volume') or os.path.basename(volume)
+    config = dict(MAP_VIEWER_CONFIG)
+    if mask := row_cells.get('maskPath'):
+        # The mask of the species over the volume, hidden at first
+        config['mask'] = {
+            'type': 'map',
+            'density': volume_density_source(root, mask, WARP_MAX_SIZE),
+            'label': os.path.basename(mask),
+            'show': False,
+        }
+    if res := row_cells.get('resolutionPath'):
+        # The local resolution of the species colors the surface (button)
+        config['resolution'] = {
+            'density': volume_density_source(root, res, WARP_MAX_SIZE),
+            'label': os.path.basename(res),
+            'title': 'Local resolution (Å)',
+            'unit': 'Å',
+        }
     try:
         viewer = build_volume_viewer_pane_content(
             root, volume, title=name, slices=False, density='lazy',
-            max_size=WARP_MAX_SIZE, viewer_config=MAP_VIEWER_CONFIG)
+            max_size=WARP_MAX_SIZE, viewer_config=config)
     except Exception as e:
         viewer = {'kind': 'empty', 'title': name, 'message': str(e)}
 
