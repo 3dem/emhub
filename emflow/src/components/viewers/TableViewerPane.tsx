@@ -376,13 +376,21 @@ export default function TableViewerPane({
         return scopes;
     };
 
+    // The last action chosen (row, cell or column action), run again when
+    // another row is clicked if that row has it (see handleRowClick)
+    const lastActionRef = useRef<{ actionId: string; columnId?: string } | null>(null);
+
     const handleAction = async (
         action: TableViewerAction,
         row?: TableViewerRow,
         columnId?: string,
         cellContext?: TableViewerCellContext,
+        remember = true,
     ) => {
         if (action.disabled) return;
+        if (remember && row) {
+            lastActionRef.current = { actionId: action.id, columnId };
+        }
 
         const requestId = ++paneRequestRef.current;
 
@@ -434,6 +442,21 @@ export default function TableViewerPane({
             if (requestId === paneRequestRef.current) {
                 setPaneLoading(false);
             }
+        }
+    };
+
+    // A click on a row: the last action chosen, if the row has it, or its
+    // default action (the last action is still remembered for other rows)
+    const handleRowClick = (row: TableViewerRow) => {
+        setSelectedRowId(row.id);
+        const last = lastActionRef.current;
+        const found = last
+            ? findInitialAction(table, { rowId: row.id, ...last })
+            : null;
+        if (found) {
+            void handleAction(found.action, row, found.columnId, found.cellContext);
+        } else if (row.defaultAction) {
+            void handleAction(row.defaultAction, row, undefined, undefined, false);
         }
     };
 
@@ -1886,18 +1909,9 @@ export default function TableViewerPane({
                                                         row,
                                                     )
                                                 }
-                                                onClick={() => {
-                                                    setSelectedRowId(
-                                                        row.id,
-                                                    );
-
-                                                    if (row.defaultAction) {
-                                                        void handleAction(
-                                                            row.defaultAction,
-                                                            row,
-                                                        );
-                                                    }
-                                                }}
+                                                onClick={() =>
+                                                    handleRowClick(row)
+                                                }
                                                 sx={{
                                                     cursor:
                                                         "pointer",

@@ -163,6 +163,13 @@ function GridCell({
     );
 }
 
+/** Cells that keep their state when the grid cell is expanded or collapsed
+ * (not remounted): viewers that fit their new size by themselves. */
+function keepsState(cell: TableViewerPaneContent | undefined): boolean {
+    return cell?.kind === "tiltSeries"
+        || (cell?.kind === "imageSlider" && cell.layout === "volume");
+}
+
 /**
  * Up to 4 panes in a 2 x 2 grid, a pane may span two columns or two rows
  * (see TableViewerGridLayout). Each pane can be expanded to the whole grid.
@@ -216,9 +223,11 @@ export default function TableViewerGrid({
             {layout.slots.map((slot) => (
                 <GridCell
                     // Remount when expanding/collapsing so plots fit the new
-                    // size; a tilt series viewer keeps its state (the tilt,
-                    // the alignment applied, zoom) and fits by itself
-                    key={content.cells[slot]?.kind === "tiltSeries"
+                    // size; a tilt series viewer or a volume viewer keeps its
+                    // state (the tilt, the alignment applied, zoom; the
+                    // threshold, mask, resolution coloring...) and fits by
+                    // itself
+                    key={keepsState(content.cells[slot])
                         ? slot
                         : `${slot}-${expanded ? "expanded" : "grid"}`}
                     slot={slot}
