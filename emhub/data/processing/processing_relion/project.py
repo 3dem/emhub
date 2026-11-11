@@ -374,9 +374,8 @@ class RelionSessionData(SessionData):
                 })
 
             # Views of the whole job (e.g. CTF plots), as extra outputs
-            if job['status'] == 'Succeeded':
-                outputs.extend(job_view_outputs(job.id, job['jobtype'],
-                                                self.join(job.id)))
+            outputs.extend(job_view_outputs(job.id, job['jobtype'],
+                                            self.join(job.id), job['status']))
 
             prot = {
                 'id': job.id,

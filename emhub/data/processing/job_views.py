@@ -18,6 +18,8 @@ import os
 from . import project_file_path, resolve_project_root
 from .star_columns import (load_star_columns, build_star_columns_table,
                            build_star_column_pane)
+from .relion_iterations import (load_relion_iterations, build_iterations_table,
+                                build_iteration_pane)
 
 
 JOB_VIEW_CLASS = 'JobView'
@@ -43,12 +45,14 @@ def register_job_view(view):
     return view
 
 
-def job_view_outputs(job_id, jobtype, job_dir):
-    """ The extra outputs (widget format) of a job with the given type, for
-    the views whose source file exists in job_dir (absolute path). """
+def job_view_outputs(job_id, jobtype, job_dir, status='Succeeded'):
+    """ The extra outputs (widget format) of a job with the given type and
+    status, for the views whose source file exists in job_dir (absolute
+    path). """
     outputs = []
     for view in _JOB_VIEWS.values():
-        if jobtype in view.jobtypes and view.available(job_dir):
+        if (jobtype in view.jobtypes and status in view.statuses
+                and view.available(job_dir)):
             outputs.append({
                 'outputName': view.label,
                 'pointerClass': JOB_VIEW_CLASS,
@@ -85,6 +89,8 @@ class JobView:
     jobtypes = ()
     # File of the job folder needed by the view (it is listed only if it exists)
     source = None
+    # Statuses of the jobs with the view
+    statuses = ('Succeeded',)
 
     def available(self, job_dir):
         return os.path.exists(os.path.join(job_dir, self.source))
@@ -161,5 +167,36 @@ class MotionPlotsView(StarColumnsPlotsView):
     ]
 
 
+class RelionIterationsView(JobView):
+    """ Results of the iterations of a Relion 3D classification or 3D
+    auto-refine (SPA and tomography): a row per iteration with its plots and
+    maps, see relion_iterations. Also while running (or after a failure),
+    to follow the intermediate results. """
+    id = 'relion-iterations'
+    label = 'Analyze Results'
+    jobtypes = ('relion.class3d', 'relion.class3d.tomo',
+                'relion.refine3d', 'relion.refine3d.tomo')
+    statuses = ('Succeeded', 'Running', 'Failed', 'Aborted')
+
+    def available(self, job_dir):
+        try:
+            return any(f.endswith('_optimiser.star') for f in os.listdir(job_dir))
+        except OSError:
+            return False
+
+    def _load(self, root, job_dir):
+        # Only auto-refine jobs write the models of the half sets
+        refine = any(f.endswith('_half1_model.star') for f in os.listdir(job_dir))
+        return load_relion_iterations(root, job_dir, refine=refine)
+
+    def table(self, root, job_dir):
+        job_id = os.path.relpath(job_dir, root)
+        return build_iterations_table(self._load(root, job_dir), f'{self.label} — {job_id}')
+
+    def pane(self, root, job_dir, action_id, row_cells):
+        return build_iteration_pane(root, self._load(root, job_dir), action_id, row_cells)
+
+
 register_job_view(CtfPlotsView())
 register_job_view(MotionPlotsView())
+register_job_view(RelionIterationsView())
