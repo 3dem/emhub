@@ -7735,6 +7735,10 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     setViewport(vp);
     writePersistedViewport(vp);
   }, [writePersistedViewport]);
+  // The minimap moves the view programmatically (no onMoveEnd from React Flow)
+  const handleMiniMapMoveEnd = useCallback(
+    (vp: { x: number; y: number; zoom: number }) => handleOnMoveEnd(null, vp),
+    [handleOnMoveEnd]);
 
   const onSelectionChange = useCallback(({ nodes: selNodes }: { nodes: Node[]; edges: Edge[] }) => {
     if (suppressNextSyncRef.current) {
@@ -9180,6 +9184,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
                 {miniMapEnabled && (
                   <GraphMiniMap
                     position="bottom-left"
+                    onMoveEnd={handleMiniMapMoveEnd}
                     nodeColor={getMiniMapNodeColor}
                     nodeStrokeColor={getMiniMapNodeStroke}
                     nodeStrokeWidth={2}
