@@ -11,11 +11,15 @@
 // An optional mask is drawn over it, translucent: a sphere (mesh) or another
 // map (ray-cast as the density, only its front surface, so it does not hide
 // the map behind it).
+// The surface may be colored by another map on the same box, as ChimeraX's
+// "color sample" does: a local resolution map, sampled (trilinear) where each
+// ray hits the surface and colored with RESOLUTION_PALETTE over a range
+// (out of the range: the end colors; outside the map or no value: gray).
 // The world is the voxel space of the full volume with y flipped.
 import * as THREE from "three";
 import { Trackball } from "./trackball";
 import { densityValues } from "./densityGrid";
-import type { Vec3, VolumeDensity } from "./volumeMath";
+import { RESOLUTION_PALETTE, type Vec3, type VolumeDensity } from "./volumeMath";
 
 /** Mask drawn over the density: a sphere (voxels) or another map. */
 export type IsoMask =
@@ -53,9 +57,11 @@ const VERTEX = [
 
 const FRAGMENT = [
   "precision highp float; precision highp sampler3D;",
-  "uniform sampler3D uTex;",
-  "uniform vec3 uCam, uSize, uColor, uLight, uTexel;",
-  "uniform float uThr, uSign, uOpacity, uStep, uFirst;",
+  "uniform sampler3D uTex, uRes;",
+  "uniform vec3 uCam, uSize, uColor, uLight, uTexel, uResSize;",
+  "uniform float uThr, uSign, uOpacity, uStep, uFirst, uColorBy, uResMin;",
+  "uniform vec2 uResRange;",
+  "uniform vec3 uPal[5];",
   "uniform mat4 uMVP;",
   "varying vec3 vP;",
   "",
@@ -63,11 +69,23 @@ const FRAGMENT = [
   "  return uSign * (texture(uTex, vec3(p.x / uSize.x + 0.5, 0.5 - p.y / uSize.y, p.z / uSize.z + 0.5)).r - uThr);",
   "}",
   "",
+  "// The surface color: uColor, or the palette color of the resolution map",
+  "vec3 surfColor(vec3 p) {",
+  "  if (uColorBy < 0.5) return uColor;",
+  "  vec3 q = vec3(p.x / uResSize.x + 0.5, 0.5 - p.y / uResSize.y, p.z / uResSize.z + 0.5);",
+  "  if (any(lessThan(q, vec3(0.0))) || any(greaterThan(q, vec3(1.0)))) return vec3(0.5);",
+  "  float r = texture(uRes, q).r;",
+  "  if (r < uResMin) return vec3(0.5);",
+  "  float t = clamp((r - uResRange.x) / max(uResRange.y - uResRange.x, 1e-6), 0.0, 1.0) * 4.0;",
+  "  int i = int(min(floor(t), 3.0));",
+  "  return mix(uPal[i], uPal[i + 1], t - float(i));",
+  "}",
+  "",
   "vec3 shade(vec3 p, vec3 n, vec3 dir) {",
   "  if (dot(n, dir) > 0.0) n = -n;",
   "  float diff = max(dot(n, uLight), 0.0);",
   "  float spec = pow(max(dot(n, normalize(uLight - dir)), 0.0), 48.0);",
-  "  return uColor * (0.28 + 0.72 * diff) + vec3(0.22 * spec);",
+  "  return surfColor(p) * (0.28 + 0.72 * diff) + vec3(0.22 * spec);",
   "}",
   "",
   "void main() {",
@@ -146,16 +164,34 @@ const SPHERE_FRAGMENT = [
 
 type RayMesh = THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial>;
 
-/** A box ray-cast with the iso-surface shader, over the grid of `d`. */
-function rayMesh(d: VolumeDensity, values: Uint8Array, color: string): RayMesh {
-  const [nz, ny, nx] = d.shape;
-  const f = d.binning || 1;
+export { RESOLUTION_PALETTE };
+
+/** Coloring of the surface by a resolution map on the same box. */
+export type IsoColorBy = {
+  density: VolumeDensity;
+  /** Range in map units: the palette ends. */
+  range: [number, number];
+};
+
+/** A 3D texture of a grid (uint8, linear filtering). */
+function gridTexture(values: Uint8Array, nx: number, ny: number, nz: number): THREE.Data3DTexture {
   const tex = new THREE.Data3DTexture(values, nx, ny, nz);
   tex.format = THREE.RedFormat;
   tex.type = THREE.UnsignedByteType;
   tex.minFilter = tex.magFilter = THREE.LinearFilter;
   tex.unpackAlignment = 1;
   tex.needsUpdate = true;
+  return tex;
+}
+
+/** Bound to uRes while the surface is not colored by a map. */
+const EMPTY_RES = () => gridTexture(new Uint8Array(1), 1, 1, 1);
+
+/** A box ray-cast with the iso-surface shader, over the grid of `d`. */
+function rayMesh(d: VolumeDensity, values: Uint8Array, color: string): RayMesh {
+  const [nz, ny, nx] = d.shape;
+  const f = d.binning || 1;
+  const tex = gridTexture(values, nx, ny, nz);
   // The grid covers whole blocks: it may pass the volume by < f voxels
   const size = new THREE.Vector3(nx * f, ny * f, nz * f);
   const mat = new THREE.ShaderMaterial({
@@ -174,6 +210,12 @@ function rayMesh(d: VolumeDensity, values: Uint8Array, color: string): RayMesh {
       uStep: { value: f * 0.5 },
       uFirst: { value: 0 },
       uMVP: { value: new THREE.Matrix4() },
+      uRes: { value: EMPTY_RES() },
+      uResSize: { value: size.clone() },
+      uColorBy: { value: 0 },
+      uResMin: { value: 0 },
+      uResRange: { value: new THREE.Vector2(0, 1) },
+      uPal: { value: RESOLUTION_PALETTE.map(rgb) },
     },
     vertexShader: VERTEX,
     fragmentShader: FRAGMENT,
@@ -187,6 +229,7 @@ function rayMesh(d: VolumeDensity, values: Uint8Array, color: string): RayMesh {
 function disposeMesh(mesh: THREE.Mesh) {
   const mat = mesh.material as THREE.ShaderMaterial;
   (mat.uniforms?.uTex?.value as THREE.Texture | undefined)?.dispose();
+  (mat.uniforms?.uRes?.value as THREE.Texture | undefined)?.dispose();
   mat.dispose();
   mesh.geometry.dispose();
 }
@@ -249,6 +292,7 @@ export class IsoSurfaceScene {
   private mask: IsoMask | null = null;
   private maskMesh: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null;
   private maskStyle: MaskStyle = { show: false, color: "#5fd38d", opacity: 0.3 };
+  private colorBy: IsoColorBy | null = null;
   private raf = 0;
   private fineTimer = 0;
   private coarse = false;
@@ -310,7 +354,42 @@ export class IsoSurfaceScene {
     mesh.renderOrder = 1;
     this.scene.add(mesh);
     this.mesh = mesh;
+    this.syncColorBy(true);
     this.sync();
+  }
+
+  /** Color the surface by a map on the same box (e.g. local resolution),
+   * decoded first (prepareDensity); null: the plain color. */
+  setColorBy(colorBy: IsoColorBy | null) {
+    const changed = colorBy?.density !== this.colorBy?.density;
+    this.colorBy = colorBy;
+    this.syncColorBy(changed);
+    this.render();
+  }
+
+  /** The texture (when the map changed or the mesh is new) and the range. */
+  private syncColorBy(newTexture: boolean) {
+    if (!this.mesh) return;
+    const u = this.mesh.material.uniforms;
+    const c = this.colorBy;
+    if (newTexture) {
+      (u.uRes.value as THREE.Texture).dispose();
+      if (c) {
+        const [nz, ny, nx] = c.density.shape;
+        const f = c.density.binning || 1;
+        u.uRes.value = gridTexture(densityValues(c.density), nx, ny, nz);
+        u.uResSize.value = new THREE.Vector3(nx * f, ny * f, nz * f);
+      } else {
+        u.uRes.value = EMPTY_RES();
+      }
+    }
+    u.uColorBy.value = c ? 1 : 0;
+    if (c) {
+      const lvl = (v: number) => level(c.density, v);
+      u.uResRange.value.set(lvl(c.range[0]), lvl(c.range[1]));
+      // Values <= 0 are no resolution (outside the mask of the map)
+      u.uResMin.value = Math.max(lvl(0) + 0.5 / 255, 0);
+    }
   }
 
   /** The mask (replaces the previous one); null removes it. A map mask must

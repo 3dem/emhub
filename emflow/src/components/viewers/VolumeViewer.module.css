@@ -496,3 +496,50 @@
   white-space: normal;
   word-break: break-word;
 }
+
+/* Color key of a surface colored by a map (local resolution), as ChimeraX
+   draws it: a bordered horizontal bar at the bottom right, labels below */
+.colorKey {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 190px;
+  padding: 6px 8px 5px;
+  border-radius: 6px;
+  background: rgba(17, 20, 24, 0.72);
+  color: #e5e7eb;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.colorKeyTitle {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.colorKeyBar {
+  height: 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 2px;
+}
+
+.colorKeyLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The key beside the slices (the free cell right of the Y section) */
+.colorKeyInline {
+  position: static;
+  align-self: end;
+  margin-bottom: 6px;
+}
+
+.gridCorner {
+  display: flex;
+  align-self: stretch;
+  align-items: flex-end;
+}

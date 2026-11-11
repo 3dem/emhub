@@ -204,3 +204,43 @@ export function volumeDataFromPane(input: any): VolumeData | null {
     density,
   };
 }
+
+/** Colors of a local resolution map, from the best resolution (lowest value,
+ * blue) to the worst (red), evenly spaced: the usual rainbow of local
+ * resolution maps (ChimeraX: color sample ... palette ^rainbow). Shared by
+ * the 3D volume (shader) and the slices, so both color a value alike. */
+export const RESOLUTION_PALETTE = ["#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"];
+
+const PALETTE_RGB = RESOLUTION_PALETTE.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
+
+/** RGB (0-255) of t (0-1, clamped) in RESOLUTION_PALETTE, linear between
+ * the colors (as the 3D shader). */
+export function resolutionRgb(t: number): [number, number, number] {
+  const x = Math.min(1, Math.max(0, t)) * (PALETTE_RGB.length - 1);
+  const i = Math.min(Math.floor(x), PALETTE_RGB.length - 2), f = x - i;
+  const [a, b] = [PALETTE_RGB[i], PALETTE_RGB[i + 1]];
+  return [0, 1, 2].map((k) => Math.round(a[k] + (b[k] - a[k]) * f)) as [number, number, number];
+}
+
+/**
+ * Range of the values of a map (e.g. a local resolution map): the values > 0
+ * (<= 0: no value, outside its mask) without `tail` of each end, in map
+ * units; null if it has none. The fallback of the coloring range when the
+ * surface one (3D volume) is not known.
+ */
+export function mapValueRange(d: VolumeDensity, values: Uint8Array, tail = 0.01): [number, number] | null {
+  const [v0, v1] = d.valueRange;
+  const counts = new Array<number>(256).fill(0);
+  let n = 0;
+  for (let i = 0; i < values.length; i++) {
+    if (v0 + (values[i] / 255) * (v1 - v0) > 0) { counts[values[i]]++; n++; }
+  }
+  if (!n) return null;
+  const at = (q: number) => {
+    let acc = 0;
+    for (let k = 0; k < 256; k++) { acc += counts[k]; if (acc > q * (n - 1)) return v0 + (k / 255) * (v1 - v0); }
+    return v1;
+  };
+  const lo = at(tail), hi = at(1 - tail);
+  return hi > lo ? [lo, hi] : [lo, lo + (v1 - v0) / 255];
+}

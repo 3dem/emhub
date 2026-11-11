@@ -7,7 +7,7 @@
 // Also the colored sections of a mask map, and the display filters of the
 // surface: smoothing and hiding the small blobs of noise ("dust") at a
 // threshold.
-import type { Axis, VolumeDensity } from "./volumeMath";
+import { resolutionRgb, type Axis, type VolumeDensity } from "./volumeMath";
 
 const decoded = new WeakMap<VolumeDensity, Uint8Array>();
 const decoding = new WeakMap<VolumeDensity, Promise<number>>();
@@ -86,6 +86,25 @@ export function maskSlice(d: VolumeDensity, a: Axis, key: number, level: number,
   return paintSlice(d, a, key, (px, o, value) => {
     if (value <= level) return;
     [px[o], px[o + 1], px[o + 2]] = rgb;
+    px[o + 3] = 255;
+  });
+}
+
+/** Canvas of a section of a map colored with RESOLUTION_PALETTE over `range`
+ * (map units, the end colors beyond it); the values <= 0 (no value) are
+ * transparent. */
+export function resolutionSlice(d: VolumeDensity, a: Axis, key: number, range: [number, number]): HTMLCanvasElement {
+  const [v0, v1] = d.valueRange;
+  const [lo, hi] = range;
+  // The color of each grid level, computed once
+  const lut = Array.from({ length: 256 }, (_, k) => {
+    const v = v0 + (k / 255) * (v1 - v0);
+    return v > 0 ? resolutionRgb((v - lo) / (hi - lo || 1)) : null;
+  });
+  return paintSlice(d, a, key, (px, o, value) => {
+    const c = lut[value];
+    if (!c) return;
+    [px[o], px[o + 1], px[o + 2]] = c;
     px[o + 3] = 255;
   });
 }
