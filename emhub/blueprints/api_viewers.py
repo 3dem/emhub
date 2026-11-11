@@ -1242,7 +1242,8 @@ MAP_VIEWER_CONFIG = {
 }
 
 # Tomograms in the TableViewer (Tomograms, TomoCoordinates, TomoParticles):
-# slices and 3D planes, no 3D volume tab
+# slices and 3D planes, no 3D volume tab (the density, a block-mean grid, is
+# only the volume drawn in the 3D planes)
 TOMOGRAM_VIEWER_CONFIG = {
     'tabs': {'volume3d': False},
 }
@@ -1312,9 +1313,11 @@ def build_tomogram_volume_slider_pane_content(
     coordinates=None,
 ):
     """ VolumeViewer pane of a reconstructed tomogram: its slices and 3D
-    planes, without the 3D volume tab (no density is sent). """
+    planes, without the 3D volume tab. The density request (block means,
+    loaded when the volume is shown in the 3D planes) is sent: the slice
+    images are too few and too noisy to draw the volume from. """
     return build_volume_viewer_pane_content(
-        root, tomo_rel, title=title, density=None,
+        root, tomo_rel, title=title, density='lazy',
         viewer_config=TOMOGRAM_VIEWER_CONFIG, coordinates=coordinates)
 
 

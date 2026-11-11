@@ -233,7 +233,8 @@ table: TableViewerData = {
   EMhub builds these panes with `build_volume_viewer_pane_content(root, rel,
   slices=, density='lazy' | 'inline' | None, max_voxels=, max_size=,
   viewer_config=)`; tomograms of the table viewer (Tomograms,
-  TomoCoordinates, TomoParticles) get slices only and
+  TomoCoordinates, TomoParticles) get slices, a
+  lazy density (block means, for the 3D planes volume) and
   `TOMOGRAM_VIEWER_CONFIG` (`tabs {volume3d: false}`). A WarpPopulation output (EMhub `api_viewers_warp.py`,
   data from `data/warp_m.py`) is a table of the 3D volumes of its species
   (sharpened map first; species, volume, box, Å/px, resolution, particles; a

@@ -496,3 +496,49 @@
   white-space: normal;
   word-break: break-word;
 }
+
+/* Loading of the 3D planes volume: over the scene, easy to see */
+.volNotice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(17, 20, 24, 0.85);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.volNotice[data-error] {
+  border-color: #f28b82;
+  color: #f28b82;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: vvSpin 0.8s linear infinite;
+}
+
+@keyframes vvSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ... and in the panel */
+.volStatus {
+  margin: 0 0 6px;
+  color: var(--vv-accent);
+  font-weight: 600;
+}

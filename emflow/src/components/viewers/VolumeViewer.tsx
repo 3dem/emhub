@@ -4,8 +4,9 @@
 //   - Slices: linked X/Y/Z sections (volume/VolumeSlices.tsx) with select,
 //     ruler, zoom and pan tools, contrast, crosshair and particles.
 //   - 3D planes: three orthogonal planes in a rotatable scene, at most two
-//     shown, the faint whole volume and the particles as dots, spheres
-//     (oriented by an arrow) or their template (volume/VolumeScene3D.ts).
+//     shown, the volume around them (its densest voxels, from the `density`
+//     grid) and the particles as dots, spheres (oriented by an arrow) or
+//     their template (volume/VolumeScene3D.ts).
 //   - 3D volume: the density as an iso-surface with its histogram, threshold,
 //     opacity and inverted contrast (volume/IsoSurfaceView.tsx); only with a
 //     `density`.
@@ -215,7 +216,13 @@ export type VolumeViewerHandle = {
 };
 
 const MODES: Exclude<Mode, null>[] = ["select", "ruler", "zoom", "pan"];
-const VOL_OPACITY = 0.35;
+// Volume of the 3D planes: opacity and share of the voxels start in the
+// middle of their sliders (5-100%, 1-40%)
+const VOL_OPACITY = 0.52;
+/** Share of the voxels drawn as the volume in the 3D planes. */
+const VOL_SHARE = 0.2;
+/** Distance (voxels) of the volume drawn near the planes. */
+const VOL_TOLERANCE = 20;
 const MASK_COLOR = "#5fd38d";
 const MASK_COLOR_ALT = "#ffd166";
 const MASK_OPACITY = 0.3;
@@ -284,8 +291,9 @@ export function ToolButton({ title, active, onClick, children, hidden }: {
 /** The response of a density request: VolumeDensity or {density}. */
 const unwrapDensity = (r: any): VolumeDensity | null => (r && r.density ? r.density : r?.data ? r : null);
 
-/** The grid of a map mask, inline or loaded, decoded; or why it is not. */
-function useMaskDensity(given: VolumeDensity | DensitySource | null): { density: VolumeDensity | null; status: string | null } {
+/** A density grid, inline or loaded, decoded; or why it is not (`what`:
+ * "the mask", "the volume"). */
+function useDensityGrid(given: VolumeDensity | DensitySource | null, what: string): { density: VolumeDensity | null; status: string | null } {
   const source = given && isDensitySource(given) ? given : null;
   const loaded = useLoad<unknown>(source?.path, source?.payload);
   const d = !given ? null : !source ? given as VolumeDensity : loaded.status === "ready" ? unwrapDensity(loaded.data) : null;
@@ -298,10 +306,10 @@ function useMaskDensity(given: VolumeDensity | DensitySource | null): { density:
   }, [d]);
   if (!given) return { density: null, status: null };
   if (ready && "d" in ready && ready.d === d) return { density: d, status: null };
-  if (ready && "error" in ready) return { density: null, status: `Could not read the mask: ${ready.error}` };
-  if (source && loaded.status === "error") return { density: null, status: `Could not load the mask: ${loaded.error.message}` };
-  if (source && loaded.status === "ready" && !d) return { density: null, status: "The mask has no density." };
-  return { density: null, status: "Loading the mask…" };
+  if (ready && "error" in ready) return { density: null, status: `Could not read ${what}: ${ready.error}` };
+  if (source && loaded.status === "error") return { density: null, status: `Could not load ${what}: ${loaded.error.message}` };
+  if (source && loaded.status === "ready" && !d) return { density: null, status: `${what[0].toUpperCase()}${what.slice(1)} has no density.` };
+  return { density: null, status: `Loading ${what}…` };
 }
 
 const VolumeViewer = forwardRef<VolumeViewerHandle, VolumeViewerProps>(function VolumeViewer(props, ref) {
@@ -449,6 +457,17 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       return p.length ? p : ["z", "y"];
     });
     const [volOpacity, setVolOpacity] = useState(VOL_OPACITY);
+    // 3D planes volume: the darkest (or brightest) share of the voxels
+    const [volShare, setVolShare] = useState(VOL_SHARE);
+    const [volDark, setVolDark] = useState(defaults.iso?.below ?? false);
+    // ... only near the shown planes (± voxels), as the particles
+    const [volNear, setVolNear] = useState(true);
+    const [volTolerance, setVolTolerance] = useState(VOL_TOLERANCE);
+    // Its density grid (when the host sends one), loaded once it is shown
+    const [volWanted, setVolWanted] = useState(false);
+    useEffect(() => { if (volOn) setVolWanted(true); }, [volOn]);
+    const hasVolDensity = Boolean(volume.density);
+    const volGrid = useDensityGrid(volWanted && volume.density ? volume.density : null, "the volume");
     const [rulers, setRulers] = useState<Record<Axis, Ruler | null>>({ x: null, y: null, z: null });
     const shownTabs = (["slices", "view3d", "volume3d"] as VolumeViewerTab[]).filter((t) => tabsCfg[t]);
     const [tab, setTab] = useState<VolumeViewerTab>(() =>
@@ -480,7 +499,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       };
     });
     // A map mask is loaded once, for both tabs
-    const maskMap = useMaskDensity(maskCfg?.type === "map" ? maskCfg.density : null);
+    const maskMap = useDensityGrid(maskCfg?.type === "map" ? maskCfg.density : null, "the mask");
     const [maskOpen, setMaskOpen] = useState(false);
     const maskPanelRef = useRef<HTMLDivElement>(null);
     const isoMask = useMemo<IsoMaskInput | null>(() => {
@@ -860,7 +879,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         {modeButton("select", "Select a point: moves the sliders there", <Crosshair size={16} />)}
         <span className={styles.sep} />
         {toolsCfg.volume && (
-          <ToolButton title="Show the whole volume as a faint haze" active={volOn} onClick={() => setVolOn((v) => !v)}>
+          <ToolButton title="Show the volume around the planes (its densest voxels)" active={volOn} onClick={() => setVolOn((v) => !v)}>
             {ICON_VOLUME}
           </ToolButton>
         )}
@@ -884,8 +903,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const sceneHost = useRef<HTMLDivElement>(null);
     const [sceneError, setSceneError] = useState<string | null>(null);
     const sceneState: SceneState = {
-      pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, mode, nearOnly: near3d, tolerance,
-      templateLevel, particleColor,
+      pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance,
+      mode, nearOnly: near3d, tolerance, templateLevel, particleColor,
     };
     const sceneStateRef = useRef(sceneState);
     sceneStateRef.current = sceneState;
@@ -907,6 +926,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
           voxelSize: vs,
           getImage,
           loadImage,
+          density: hasVolDensity,
           onPickParticle: (i) => pickRef.current.selectParticle(i),
           onPickPoint: (p) => {
             pickRef.current.setSel(-1);
@@ -924,13 +944,16 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         scene.canvas.remove();
         sceneRef.current = null;
       };
-    }, [built3d, dim, keys, particles, vs, getImage, loadImage]);
+    }, [built3d, dim, keys, particles, vs, getImage, loadImage, hasVolDensity]);
     useEffect(() => {
       sceneRef.current?.setState(sceneState);
       // the fields are the dependencies
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, mode, near3d, tolerance,
-        templateLevel, particleColor]);
+    }, [pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance,
+        mode, near3d, tolerance, templateLevel, particleColor]);
+    useEffect(() => {
+      sceneRef.current?.setDensity(volGrid.density);
+    }, [volGrid.density, built3d, sceneError]);
     useEffect(() => {
       sceneRef.current?.resize(size3d[0], size3d[1]);
     }, [size3d]);
@@ -1022,7 +1045,16 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
             {view3dToolbar}
             {sceneError ? <div className={styles.msg}>{sceneError}</div> : (
               <div ref={view3dBox} className={styles.wrap3d}>
-                <div ref={sceneHost} className={styles.canvas3d} />
+                <div ref={sceneHost} className={styles.canvas3d}>
+                  {/* Over the scene while the volume loads (or why it does not show) */}
+                  {volOn && volGrid.status && (
+                    <div className={styles.volNotice} role="status"
+                         data-error={volGrid.status.startsWith("Could") || volGrid.status.includes("no density") || undefined}>
+                      {!volGrid.status.startsWith("Could") && <span className={styles.spinner} aria-hidden />}
+                      {volGrid.status}
+                    </div>
+                  )}
+                </div>
                 <div className={styles.ctrl3d}>
                   <div className={styles.row}
                        title="Drag to rotate in any direction, right-drag or shift+drag to move, wheel to zoom">
@@ -1043,11 +1075,40 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                     </div>
                   ))}
                   {volOn && (
-                    <div className={styles.row}>
-                      Volume opacity
-                      <input type="range" min={5} max={100} value={Math.round(volOpacity * 100)}
-                             onChange={(e) => setVolOpacity(Number(e.target.value) / 100)} />
-                    </div>
+                    <>
+                      {volGrid.status && <div className={styles.volStatus}>{volGrid.status}</div>}
+                      <label className={styles.row}>
+                        <span>
+                          <input type="checkbox" checked={volDark} onChange={(e) => setVolDark(e.target.checked)} />
+                          {" "}Dark density
+                        </span>
+                      </label>
+                      <div className={styles.row}
+                           title="Share of the voxels drawn: the darkest (dark density) or the brightest">
+                        Volume density: {Math.round(volShare * 100)}%
+                        <input type="range" min={1} max={40} value={Math.round(volShare * 100)}
+                               onChange={(e) => setVolShare(Number(e.target.value) / 100)} />
+                      </div>
+                      <div className={styles.row}>
+                        Volume opacity
+                        <input type="range" min={5} max={100} value={Math.round(volOpacity * 100)}
+                               onChange={(e) => setVolOpacity(Number(e.target.value) / 100)} />
+                      </div>
+                      <div className={styles.row} title="Draw the volume only this close to the shown planes, or all of it">
+                        <select value={volNear ? "near" : "all"} onChange={(e) => setVolNear(e.target.value === "near")}>
+                          <option value="near">Near the shown planes</option>
+                          <option value="all">All the volume</option>
+                        </select>
+                      </div>
+                      {volNear && (
+                        <div className={styles.row} style={{ marginTop: 8 }}>
+                          Distance: ± {volTolerance} voxels
+                          <input type="range" min={1} max={Math.max(50, Math.round(Math.max(dim.x, dim.y, dim.z) / 2))}
+                                 step={1} value={volTolerance}
+                                 onChange={(e) => setVolTolerance(Number(e.target.value))} />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
