@@ -132,6 +132,14 @@ A new component that portals must use one of these targets. A nested MUI
   scans `src/` (`source("../../..")` in ProjectPage.css).
 - `dark:` utilities follow the `dark` class (`@custom-variant dark`), never
   the OS preference.
+- Dialogs and viewers use the neutral color tokens of `ProjectPage.css`
+  (`--emf-white`, `--emf-slate-50..900`, `--emf-gray-50..900` and the accents
+  `--emf-teal-*`, `--emf-indigo-*`, `--emf-error-*`, `--emf-pane-bg`...):
+  their light values are the Tailwind colors they replaced, reversed in
+  `.emflow-root.dark` (with `color-scheme: dark` for scrollbars and native
+  inputs). Use them instead of literal light greys, so a component follows
+  the widget theme; keep literal colors for surfaces dark in both themes
+  (dialog headers) and canvas drawing (CSS variables do not work there).
 - EMhub's `static/libs/css/style.css` hid every radio button until 2026-11
   (`.product-colors input[type=checkbox], input[type=radio] { display: none }`,
   the second selector unscoped; now scoped to `.product-colors`). Older EMhub
