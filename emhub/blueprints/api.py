@@ -1212,6 +1212,53 @@ def fetch_volume_density():
     return _handle_item(_handle, 'density')
 
 
+@api_bp.route('/fetch_volume_crop', methods=['POST'])
+@flask_login.login_required
+def fetch_volume_crop():
+    """ Full-resolution crop of a section of a volume of a project, for the
+    Slices tab of emflow's VolumeViewer (see emhub.data.volume_crop).
+    attrs: root, path, axis, index, x0, y0, w, h (section voxels), maxW,
+    maxH (pixels) and, optional, levels ([low, high]), sigma (voxels) and
+    thumbBinning (voxels per pixel of the slice image of the levels). """
+    def _handle(**attrs):
+        from emhub.data.volume_crop import CropTooLarge, volume_crop
+
+        root = resolve_project_root(attrs['root'])
+        path = project_file_path(root, attrs['path'])
+        if not os.path.exists(path):
+            raise Exception(f"Volume not found: {attrs['path']}")
+        try:
+            return volume_crop(
+                path, attrs['axis'], attrs['index'],
+                float(attrs['x0']), float(attrs['y0']), float(attrs['w']), float(attrs['h']),
+                attrs.get('maxW') or 1024, attrs.get('maxH') or 1024,
+                levels=attrs.get('levels'), sigma=attrs.get('sigma') or 0,
+                thumb_binning=attrs.get('thumbBinning') or 1)
+        except CropTooLarge as e:
+            # Not an error: the viewer keeps the slice image
+            return {'skipped': str(e)}
+
+    return _handle_item(_handle, 'crop')
+
+
+@api_bp.route('/fetch_map_iterations', methods=['POST'])
+@flask_login.login_required
+def fetch_map_iterations():
+    """ The iterations of a Relion map of a project (its class at every
+    iteration of the job, with their resolution, class share and FSC, and
+    the density request of each map; see build_map_iterations), for the 3D
+    volume tab of emflow's VolumeViewer. attrs: root, path and, optional,
+    maxSize (of the density grids, as the map's). None when the map has no
+    iterations. """
+    def _handle(**attrs):
+        from .api_viewers import build_map_iterations
+
+        root = resolve_project_root(attrs['root'])
+        return build_map_iterations(root, attrs['path'], attrs.get('maxSize'))
+
+    return _handle_item(_handle, 'iterations')
+
+
 @api_bp.route('/get_volume_viewer', methods=['POST'])
 @flask_login.login_required
 def get_volume_viewer():

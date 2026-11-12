@@ -142,6 +142,8 @@ type Props = DensityOptions & {
   onChange: (patch: Partial<DensityOptions>) => void;
   /** Most height (it scrolls when longer). */
   maxHeight?: number;
+  /** Also the grid size and the full-volume statistics (debug). */
+  debug?: boolean;
   /** Below the scene: this width, the two groups side by side. */
   width?: number;
   /** The height the panel needs to show without scrolling. */
@@ -179,9 +181,24 @@ export default function DensityPanel(props: Props) {
             <div className={styles.histLegend}>
               <span><i className={styles.keyFull} /> Full volume</span>
               {d.binning > 1 && h.shown && <span><i className={styles.keyShown} /> Scaled grid (surface)</span>}
+              {/* The surface color, on the legend line (saves a line) */}
+              <label className={styles.histColor} title="Color of the surface">
+                <span>Color</span>
+                <input type="color" className={styles.panelColor} style={{ marginLeft: 0 }} value={color}
+                       onChange={(e) => onChange({ color: e.target.value })} />
+              </label>
             </div>
           </>
-        ) : <div className={styles.msg}>No histogram from the host.</div>}
+        ) : (
+          <>
+            <div className={styles.msg}>No histogram from the host.</div>
+            <div className={styles.histLegend}><label className={styles.histColor} title="Color of the surface">
+                <span>Color</span>
+                <input type="color" className={styles.panelColor} style={{ marginLeft: 0 }} value={color}
+                       onChange={(e) => onChange({ color: e.target.value })} />
+              </label></div>
+          </>
+        )}
 
         <label className={styles.panelSelect}>
           <span>Threshold</span>
@@ -194,38 +211,35 @@ export default function DensityPanel(props: Props) {
           {sigma !== null && <>{sigma >= 0 ? "mean + " : "mean − "}{Math.abs(sigma).toFixed(2)} σ</>}
           {frac !== null && <>{sigma !== null && " · "}encloses {(frac * 100).toPrecision(2)}% of the voxels</>}
         </div>
-        <label className={styles.panelRow} title="Linked to the Invert button of the toolbar">
+        <label className={styles.panelRow} title="Enclose the values below the threshold (linked to the Invert button of the toolbar)">
           <input type="checkbox" checked={below} onChange={(e) => onChange({ below: e.target.checked })} />
-          Dark density (enclose values below)
+          Dark density
         </label>
       </div>
 
       <div className={styles.isoGroup}>
-        <label className={styles.panelRow}>
-          <input type="checkbox" checked={props.dust > 0}
-                 onChange={(e) => onChange({ dust: e.target.checked ? 20 : 0 })} />
-          Hide dust{props.dust > 0 && props.hidden ? ` (${props.hidden} blobs)` : ""}
+        {/* One line, as the opacity: None (the first position) or the
+            smallest blob kept, in grid voxels */}
+        <label className={styles.panelSelect}
+               title={props.dust > 0 ? `Blobs smaller than ${props.dust} grid voxels are hidden${props.hidden ? ` (${props.hidden} now)` : ""}`
+                 : "Hide the small blobs of noise (dust) around the surface"}>
+          <span>Hide dust</span>
+          <input type="range" min={0} max={DUST_SIZES.length} step={1} style={{ flex: 1, minWidth: 0 }}
+                 value={props.dust > 0
+                   ? 1 + DUST_SIZES.reduce((b, v, i) => (Math.abs(v - props.dust) < Math.abs(DUST_SIZES[b] - props.dust) ? i : b), 0)
+                   : 0}
+                 onChange={(e) => {
+                   const i = Number(e.target.value);
+                   onChange({ dust: i === 0 ? 0 : DUST_SIZES[i - 1] });
+                 }} />
+          <span className={styles.isoValue}>{props.dust > 0 ? `${props.dust} vx` : "None"}</span>
         </label>
-        {props.dust > 0 && (
-          <div className={styles.panelSub}>
-            <span>Blobs smaller than {props.dust} voxels</span>
-            <input type="range" min={0} max={DUST_SIZES.length - 1} step={1}
-                   value={DUST_SIZES.reduce((b, v, i) => (Math.abs(v - props.dust) < Math.abs(DUST_SIZES[b] - props.dust) ? i : b), 0)}
-                   onChange={(e) => onChange({ dust: DUST_SIZES[Number(e.target.value)] })} />
-          </div>
-        )}
 
         <label className={styles.panelSelect}>
           <span>Opacity</span>
           <input type="range" min={5} max={100} step={1} value={Math.round(opacity * 100)} style={{ flex: 1, minWidth: 0 }}
                  onChange={(e) => onChange({ opacity: Number(e.target.value) / 100 })} />
           <span className={styles.isoValue}>{Math.round(opacity * 100)}%</span>
-        </label>
-
-        <label className={styles.panelSelect}>
-          <span>Color</span>
-          <input type="color" className={styles.panelColor} style={{ marginLeft: 0 }} value={color}
-                 onChange={(e) => onChange({ color: e.target.value })} />
         </label>
 
         {props.onDetail && (
@@ -238,17 +252,16 @@ export default function DensityPanel(props: Props) {
           </label>
         )}
 
-        <div className={styles.isoNote}>
-          {props.loading ? "Loading the grid…" : (
-            <>
-              Grid {nx} × {ny} × {nz}
-              {d.binning > 1
-                ? <> ({d.method ?? `binned ×${d.binning}`} from {props.dims.join(" × ")})</>
-                : " (full resolution)"}
-            </>
-          )}
-          {s && <><br />Full volume: min {fmt(s.min)}, max {fmt(s.max)}, mean {fmt(s.mean)}, σ {fmt(s.std)}</>}
-        </div>
+        {/* Grid and statistics: only with the viewer's debug line */}
+        {props.debug && !props.loading && (
+          <div className={styles.isoNote}>
+            Grid {nx} × {ny} × {nz}
+            {d.binning > 1
+              ? <> ({d.method ?? `binned ×${d.binning}`} from {props.dims.join(" × ")})</>
+              : " (full resolution)"}
+            {s && <><br />Full volume: min {fmt(s.min)}, max {fmt(s.max)}, mean {fmt(s.mean)}, σ {fmt(s.std)}</>}
+          </div>
+        )}
       </div>
     </div>
   );

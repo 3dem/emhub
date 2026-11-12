@@ -45,6 +45,22 @@
           <h6>VolumeViewer, a 3D class with a map mask (a soft 0-1 ellipsoid, loaded with the DataLoader)</h6>
           <div id="vol-mask-map"></div>
         </div></div></div>
+        <div class="col-6"><div class="card"><div class="card-body">
+          <h6>VolumeViewer, a real tomogram with its density for the 3D planes volume
+            (node_modules/.dev-data/tomo87.json and tomo87_density.json, not in the repository)</h6>
+          <div id="vol-tomo-real"></div>
+        </div></div></div>
+      </div>
+      <div class="row mt-3">
+        <div class="col-6"><div class="card"><div class="card-body">
+          <h6>VolumeViewer, a Relion 3D class played through its iterations
+            (node_modules/.dev-data/iterations.json, not in the repository)</h6>
+          <div id="vol-iter-class"></div>
+        </div></div></div>
+        <div class="col-6"><div class="card"><div class="card-body">
+          <h6>VolumeViewer, a Relion Refine3D map played through its iterations, with the FSC</h6>
+          <div id="vol-iter-refine"></div>
+        </div></div></div>
       </div>
       <div class="card mt-3"><div class="card-body">
         <h6>WarpPopulation pane (TableViewerGrid): a species map (real data in node_modules/.dev-data, see below) beside its FSC</h6>
@@ -229,6 +245,43 @@
                  tools: { crosshair: false, particles: false }, defaults: { iso: { dust: 100 } },
                  mask: { type: "map", label: "mask.mrc",
                          density: { path: "/api/fetch_volume_density", payload: { root: "/dev", path: "mask.mrc" } } } },
+      });
+      // A real tomogram as build_tomogram_volume_slider_pane_content sends it:
+      // slices and the density request (loaded when the volume is shown)
+      fetch("/node_modules/.dev-data/tomo87.json").then((r) => (r.ok ? r.json() : null)).catch(() => null).then((tomo) => {
+        if (!tomo) return;
+        window.devTomoReal = EMFlow.mount("VolumeViewer", {
+          container: "#vol-tomo-real",
+          loader: new EMFlow.DataLoader({
+            // The density from its file; the crops (if tomo87.json has a crop
+            // source) from a local server running emhub.data.volume_crop
+            request: (path, payload) => (path.includes("volume_density")
+              ? fetch("/node_modules/.dev-data/tomo87_density.json").then((r) => r.json())
+              : fetch(path, { method: "POST", headers: { "content-type": "application/json" },
+                              body: JSON.stringify(payload) }).then((r) => r.json())),
+          }),
+          props: { data: { ...tomo, density: { path: "/api/fetch_volume_density", payload: { root: "/dev", path: "tomo87.mrc" } } },
+                   ...tomo.viewerConfig },
+        });
+      });
+      // Relion maps with their iterations: the pane, the iterations request
+      // and every density request answered from one file (written with
+      // EMhub's build_class3d_volume_pane_content / build_map_iterations)
+      fetch("/node_modules/.dev-data/iterations.json").then((r) => (r.ok ? r.json() : null)).catch(() => null).then((all) => {
+        if (!all) return;
+        for (const [key, el] of [["class3d", "#vol-iter-class"], ["refine3d", "#vol-iter-refine"]]) {
+          const sample = all[key];
+          EMFlow.mount("VolumeViewer", {
+            container: el,
+            loader: new EMFlow.DataLoader({
+              // a little latency, as a server
+              request: (path, payload) => new Promise((resolve) => setTimeout(() => resolve(
+                path.includes("map_iterations") ? { iterations: sample.iterations }
+                  : { density: sample.densities[payload.path] }), 150)),
+            }),
+            props: { data: sample.pane, ...sample.pane.viewerConfig },
+          });
+        }
       });
       // The tomogram list (processing_tomogram_card.html)
       window.devList = EMFlow.mount("VolumeViewer", {

@@ -377,6 +377,8 @@ export default function ImageSlider({
       axisEntries.some(([axis]) => axis === "z"));
 
   const fitSingle = fit && !useVolumeLayout && axisEntries.length === 1;
+  // A small cell: the viewer takes it (see content.compact)
+  const compact = Boolean(content.compact);
   const hasParticles = (content.coordinates?.x.length ?? 0) > 0;
   const [showParticles, setShowParticles] = useState(true);
 
@@ -398,17 +400,17 @@ export default function ImageSlider({
   return (
     <Box
       sx={{
-        p: fitSingle ? 1 : 2,
+        p: fitSingle || compact ? 1 : 2,
         height: "100%",
         minHeight: 0,
         overflow: useVolumeLayout || fitSingle ? "hidden" : "auto",
         display: "flex",
         flexDirection: "column",
         alignItems: useVolumeLayout || fitSingle ? "stretch" : "flex-start",
-        gap: fitSingle ? 1 : 2,
+        gap: fitSingle || compact ? 1 : 2,
       }}
     >
-      {content.dimensions ? (
+      {content.dimensions && !compact ? (
         <Box
           sx={{
             display: "flex",

@@ -2,13 +2,19 @@
 //
 // Config-driven volume viewer (tomograms, maps) with up to three tabs:
 //   - Slices: linked X/Y/Z sections (volume/VolumeSlices.tsx) with select,
-//     ruler, zoom and pan tools, contrast, crosshair and particles.
+//     ruler, zoom and pan tools, contrast, crosshair and particles; zoomed,
+//     the host's full-resolution crop of the view (`crop`) is drawn over the
+//     slice image.
 //   - 3D planes: three orthogonal planes in a rotatable scene, at most two
-//     shown, the faint whole volume and the particles as dots, spheres
-//     (oriented by an arrow) or their template (volume/VolumeScene3D.ts).
+//     shown, the volume around them (its densest voxels, from the `density`
+//     grid) and the particles as dots, spheres (oriented by an arrow) or
+//     their template (volume/VolumeScene3D.ts).
 //   - 3D volume: the density as an iso-surface with its histogram, threshold,
 //     opacity and inverted contrast (volume/IsoSurfaceView.tsx); only with a
-//     `density`.
+//     `density`. A Relion map (`iterations`) can be played through the
+//     iterations of its job, with their resolution and FSC
+//     (volume/IterationsBar.tsx); the Slices of a map have an iteration select.
+// Slice images (Slices, 3D planes) can be denoised (volume/DenoisePanel.tsx).
 // Each tab fits the room it has (the container, the window below it or the
 // whole window when expanded): the rest of the tab is measured.
 // An optional `mask` (a sphere or another map) is drawn over the 3D volume
@@ -34,6 +40,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  ChartLine,
   Contrast,
   Crosshair,
   EyeOff,
@@ -44,6 +51,7 @@ import {
   Rainbow,
   RefreshCw,
   Ruler as RulerIcon,
+  Sparkles,
   Undo2,
   ZoomIn,
 } from "lucide-react";
@@ -58,6 +66,9 @@ import VolumeSlices, {
 } from "./volume/VolumeSlices";
 import { VolumeScene3D, type ParticleDraw, type SceneState } from "./volume/VolumeScene3D";
 import ParticlesPanel, { type ParticleOptions } from "./volume/ParticlesPanel";
+import DenoisePanel from "./volume/DenoisePanel";
+import { DETAILS } from "./volume/DensityPanel";
+import IterationsBar from "./volume/IterationsBar";
 import MaskPanel, { type MaskOptions } from "./volume/MaskPanel";
 import ResolutionPanel, { type ResolutionStats } from "./volume/ResolutionPanel";
 import IsoSurfaceView, {
@@ -85,7 +96,10 @@ import {
   type DensitySource,
   type Ruler,
   type SliceImage,
+  type CropRequest,
+  type MapIterations,
   type Vec3,
+  type VolumeCrop,
   type VolumeData,
   type VolumeDensity,
 } from "./volume/volumeMath";
@@ -245,7 +259,15 @@ export type VolumeViewerHandle = {
 };
 
 const MODES: Exclude<Mode, null>[] = ["select", "ruler", "zoom", "pan"];
-const VOL_OPACITY = 0.35;
+// Volume of the 3D planes: opacity and share of the voxels start in the
+// middle of their sliders (5-100%, 1-40%)
+const VOL_OPACITY = 0.52;
+/** Share of the voxels drawn as the volume in the 3D planes. */
+const VOL_SHARE = 0.2;
+/** Distance (voxels) of the volume drawn near the planes. */
+const VOL_TOLERANCE = 20;
+/** Default sigma (voxels) of the low-pass filter of the sections. */
+const FILTER_SIGMA = 1.5;
 const MASK_COLOR = "#5fd38d";
 const MASK_COLOR_ALT = "#ffd166";
 const MASK_OPACITY = 0.3;
@@ -261,6 +283,22 @@ const FULL_PADDING = 24;
 /** Default of the `debug` line (timing of the volume); true to show it
  * everywhere while debugging. */
 export const DEBUG_TIMING = false;
+
+/** A measured height (px) to size the view from, and its last applied
+ * values (with their times): true when it is not to be applied, as the
+ * last one, or as a flip between two values (something that wraps at one
+ * size and not at the other would size the view forever): after A, B, A
+ * within a second, B again. Other changes, also a slower return, are
+ * applied (and kept in seen). */
+function skipFlip(seen: { e: number; t: number }[], e: number): boolean {
+  const n = seen.length, now = performance.now();
+  if (n && Math.abs(seen[n - 1].e - e) <= 1) return true;
+  if (n >= 3 && now - seen[n - 3].t < 1000 && Math.abs(seen[n - 1].e - seen[n - 3].e) <= 1
+      && Math.abs(seen[n - 2].e - e) <= 1) return true;
+  seen.push({ e, t: now });
+  if (seen.length > 4) seen.shift();
+  return false;
+}
 
 /** The debug line: host steps, request, size, decoding and filters. */
 function debugText(info: DensityDebug): string {
@@ -319,8 +357,9 @@ export function ToolButton({ title, active, onClick, children, hidden }: {
 /** The response of a density request: VolumeDensity or {density}. */
 const unwrapDensity = (r: any): VolumeDensity | null => (r && r.density ? r.density : r?.data ? r : null);
 
-/** The grid of a map mask, inline or loaded, decoded; or why it is not. */
-function useMaskDensity(given: VolumeDensity | DensitySource | null, what = "mask"): { density: VolumeDensity | null; status: string | null } {
+/** A density grid, inline or loaded, decoded; or why it is not (`what`:
+ * "the mask", "the volume"). */
+function useDensityGrid(given: VolumeDensity | DensitySource | null, what: string): { density: VolumeDensity | null; status: string | null } {
   const source = given && isDensitySource(given) ? given : null;
   const loaded = useLoad<unknown>(source?.path, source?.payload);
   const d = !given ? null : !source ? given as VolumeDensity : loaded.status === "ready" ? unwrapDensity(loaded.data) : null;
@@ -333,10 +372,10 @@ function useMaskDensity(given: VolumeDensity | DensitySource | null, what = "mas
   }, [d]);
   if (!given) return { density: null, status: null };
   if (ready && "d" in ready && ready.d === d) return { density: d, status: null };
-  if (ready && "error" in ready) return { density: null, status: `Could not read the ${what}: ${ready.error}` };
-  if (source && loaded.status === "error") return { density: null, status: `Could not load the ${what}: ${loaded.error.message}` };
-  if (source && loaded.status === "ready" && !d) return { density: null, status: `The ${what} has no density.` };
-  return { density: null, status: `Loading the ${what}…` };
+  if (ready && "error" in ready) return { density: null, status: `Could not read ${what}: ${ready.error}` };
+  if (source && loaded.status === "error") return { density: null, status: `Could not load ${what}: ${loaded.error.message}` };
+  if (source && loaded.status === "ready" && !d) return { density: null, status: `${what[0].toUpperCase()}${what.slice(1)} has no density.` };
+  return { density: null, status: `Loading ${what}…` };
 }
 
 const VolumeViewer = forwardRef<VolumeViewerHandle, VolumeViewerProps>(function VolumeViewer(props, ref) {
@@ -484,6 +523,17 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       return p.length ? p : ["z", "y"];
     });
     const [volOpacity, setVolOpacity] = useState(VOL_OPACITY);
+    // 3D planes volume: the darkest (or brightest) share of the voxels
+    const [volShare, setVolShare] = useState(VOL_SHARE);
+    const [volDark, setVolDark] = useState(defaults.iso?.below ?? false);
+    // ... only near the shown planes (± voxels), as the particles
+    const [volNear, setVolNear] = useState(true);
+    const [volTolerance, setVolTolerance] = useState(VOL_TOLERANCE);
+    // Its density grid (when the host sends one), loaded once it is shown
+    const [volWanted, setVolWanted] = useState(false);
+    useEffect(() => { if (volOn) setVolWanted(true); }, [volOn]);
+    const hasVolDensity = Boolean(volume.density);
+    const volGrid = useDensityGrid(volWanted && volume.density ? volume.density : null, "the volume");
     const [rulers, setRulers] = useState<Record<Axis, Ruler | null>>({ x: null, y: null, z: null });
     const shownTabs = (["slices", "view3d", "volume3d"] as VolumeViewerTab[]).filter((t) => tabsCfg[t]);
     const [tab, setTab] = useState<VolumeViewerTab>(() =>
@@ -515,7 +565,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       };
     });
     // A map mask is loaded once, for both tabs
-    const maskMap = useMaskDensity(maskCfg?.type === "map" ? maskCfg.density : null);
+    const maskMap = useDensityGrid(maskCfg?.type === "map" ? maskCfg.density : null, "the mask");
     const [maskOpen, setMaskOpen] = useState(false);
     const maskPanelRef = useRef<HTMLDivElement>(null);
     const isoMask = useMemo<IsoMaskInput | null>(() => {
@@ -563,7 +613,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const resCfg = tabsCfg.volume3d || tabsCfg.slices ? props.resolution ?? null : null;
     const [resOn, setResOn] = useState(Boolean(resCfg?.show));
     const [resWanted, setResWanted] = useState(Boolean(resCfg?.show));
-    const resMap = useMaskDensity(resCfg && resWanted ? resCfg.density : null, "resolution map");
+    const resMap = useDensityGrid(resCfg && resWanted ? resCfg.density : null, "the resolution map");
     // The values of the map (its resolutions: without the values <= 0 nor
     // the fill outside the mask, see resolutionValidLevels)
     const resStats = useMemo<ResolutionStats | null>(() => {
@@ -669,14 +719,67 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       setTool,
     }), [setPos, setTool]);
 
+    // Iterations of the map (a Relion class at every iteration of its job):
+    // played in the 3D volume (the other maps are loaded in the background,
+    // IsoSurfaceView preload); chosen in the Slices (sliceIter, below)
+    const iterSrc = volume.iterations ?? null;
+    const iterLoad = useLoad<any>(iterSrc ? iterSrc.path : null, iterSrc?.payload);
+    const iters: MapIterations | null = useMemo(() => {
+      const r = iterLoad.status === "ready" ? iterLoad.data : null;
+      const it = r && "iterations" in r ? r.iterations : r;
+      return it && Array.isArray(it.items) && it.items.length > 1 ? it : null;
+    }, [iterLoad]);
+    const [iterIdx, setIterIdx] = useState<number | null>(null);
+    const [iterLoaded, setIterLoaded] = useState<boolean[]>([]);
+    const [playing, setPlaying] = useState(false);
+    const [iterFps, setIterFps] = useState(2);
+    // The play bar and charts of the iterations (3D volume): the toolbar's
+    // charts button, off at first
+    const [iterCharts, setIterCharts] = useState(false);
+    useEffect(() => {
+      setIterIdx(iters ? iters.current : null);
+      setIterLoaded(iters ? iters.items.map((_, i) => i === iters.current) : []);
+      setPlaying(false);
+    }, [iters]);
+    const isoDensity: VolumeDensity | DensitySource | null = iters && iterIdx !== null && iterIdx !== iters.current
+      ? iters.items[iterIdx].density : volume.density ?? null;
+    const iterPreload = useMemo(
+      () => (iters ? iters.items.map((it, i) => (i === iters.current ? null : it.density)) : undefined), [iters]);
+    const onIterPreloaded = useCallback((i: number) => {
+      setIterLoaded((cur) => (cur[i] ? cur : cur.map((v, j) => v || j === i)));
+    }, []);
+    // Playback: the next iteration once the shown one is drawn, after 1/fps
+    const [isoShown, setIsoShown] = useState<VolumeDensity | DensitySource | null>(null);
+    useEffect(() => {
+      if (!playing || !iters || iterIdx === null || isoShown !== isoDensity) return undefined;
+      const timer = window.setTimeout(() => setIterIdx((i) => ((i ?? 0) + 1) % iters.items.length), 1000 / iterFps);
+      return () => window.clearTimeout(timer);
+    }, [playing, iters, iterIdx, isoShown, isoDensity, iterFps]);
+
+    // The Slices of a map have their own iteration (a select, no playback:
+    // the 3D volume playing does not change them), drawn from its grid once
+    // it is loaded (with the detail the 3D volume asks first, so the request
+    // is shared); the pane's map until then
+    const [sliceIter, setSliceIter] = useState<number | null>(null);
+    useEffect(() => setSliceIter(iters ? iters.current : null), [iters]);
+    const iterGridSrc = useMemo<DensitySource | null>(() => {
+      const d = gridSlices && iters && sliceIter !== null && sliceIter !== iters.current
+        ? iters.items[sliceIter].density : null;
+      return d ? { path: d.path, payload: { ...d.payload, maxVoxels: defaults.iso?.maxVoxels ?? DETAILS[1][0] } } : null;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gridSlices, iters, sliceIter]);
+    const iterGrid = useDensityGrid(iterGridSrc, "the iteration");
+    const sliceGrid = (iterGridSrc && iterGrid.density) || gridSlices;
+
     /* ---------- images (decoded once, shared by both tabs) ---------- */
     const loader = useDataLoader();
-    const images = useRef(new Map<string, SliceImage>());
-    useEffect(() => images.current.clear(), [volume.axes, gridSlices]);
-    const getImage = useCallback((a: Axis, key: number) => images.current.get(`${a}:${key}`) ?? null, []);
+    // A new cache with new slices (another iteration), not cleared after
+    // the render: the sections redraw (an effect of VolumeSlices) before
+    const images = useMemo(() => ({ current: new Map<string, SliceImage>() }), [volume.axes, sliceGrid]);
+    const getImage = useCallback((a: Axis, key: number) => images.current.get(`${a}:${key}`) ?? null, [images]);
     const loadImage = useCallback((a: Axis, key: number): Promise<SliceImage> => {
-      if (gridSlices) {
-        const img = densitySlice(gridSlices, a, key);
+      if (sliceGrid) {
+        const img = densitySlice(sliceGrid, a, key);
         images.current.set(`${a}:${key}`, img);
         return Promise.resolve(img);
       }
@@ -686,7 +789,29 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         images.current.set(`${a}:${key}`, img);
         return img;
       });
-    }, [loader, volume.axes, gridSlices]);
+    }, [loader, volume.axes, sliceGrid, images]);
+
+    // Full-resolution crops of the sections (when the host sends their
+    // request), with the contrast of their slice image
+    const cropSrc = volume.crop ?? null;
+    const loadCrop = useMemo(() => {
+      if (!cropSrc) return null;
+      return (r: CropRequest): Promise<VolumeCrop> => loader.load<any>(cropSrc.path, {
+        ...cropSrc.payload, ...r, levels: volume.levels?.[r.axis]?.[String(r.index)] ?? null,
+      }).then((res) => {
+        const c = res?.crop ?? res;
+        // No image: the host skipped it (e.g. too slow to read), the slice
+        // image stays
+        if (!c?.image) throw new Error(c?.skipped || "The crop has no image");
+        return loader.image(c.image).then((image) => ({ image, x0: c.x0, y0: c.y0, w: c.w, h: c.h, binning: c.binning || 1 }));
+      });
+    }, [cropSrc, loader, volume.levels]);
+    // Denoise: Gaussian low-pass of the sections (Slices and 3D planes)
+    const [filterOn, setFilterOn] = useState(false);
+    const [filterSigma, setFilterSigma] = useState(FILTER_SIGMA);
+    const [denoiseOpen, setDenoiseOpen] = useState(false);
+    const denoiseRef = useRef<HTMLDivElement>(null);
+    const shownSigma = filterOn ? filterSigma : 0;
 
     /* ---------- undo, invert, lines ---------- */
     const pushHistory = useCallback((e: HistoryEntry) => history.current.push(e), []);
@@ -755,6 +880,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     // take the rest of the room and nothing scrolls. Expanded, there is no
     // zoom cap: they take all the window
     const [extra, setExtra] = useState<Record<VolumeViewerTab, number>>({ slices: 240, view3d: 220, volume3d: 220 });
+    // The last measured values of extra, per tab (see the measure below)
+    const extraSeen = useRef<Record<VolumeViewerTab, { e: number; t: number }[]>>({ slices: [], view3d: [], volume3d: [] });
     const avail = (t: VolumeViewerTab) => Math.max(40, box.room - extra[t] - 4);
     // Screen px per voxel of the sections
     const scale = useMemo(() => {
@@ -784,22 +911,48 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     // to 1.4 times as wide as high), as the Slices do.
     // [width, height, panel max height, panel width (below only)]
     const [isoPanelNeed, setIsoPanelNeed] = useState(260);
+    // The iterations bar under the scene (in its column): the scene is that
+    // much lower, the panel beside it keeps the whole height
+    const [iterBarH, setIterBarH] = useState(0);
+    const iterBarObs = useRef<ResizeObserver | null>(null);
+    const iterBarRef = useCallback((el: HTMLDivElement | null) => {
+      iterBarObs.current?.disconnect();
+      iterBarObs.current = null;
+      if (!el) {
+        setIterBarH(0);
+        return;
+      }
+      const fit = () => setIterBarH((cur) => (Math.abs(cur - el.offsetHeight) > 1 ? el.offsetHeight : cur));
+      fit();
+      iterBarObs.current = new ResizeObserver(fit);
+      iterBarObs.current.observe(el);
+    }, []);
     const sizeIso = useMemo<[number, number, number, number | undefined]>(() => {
       const room = avail("volume3d");
-      const h = Math.max(120, room);
-      if (box.width - 290 >= 320) {
-        const w = Math.min(h * 1.4, box.width - 290);
-        return [Math.round(w), Math.round(h), Math.round(h), undefined];
-      }
+      const h = Math.max(120, room - iterBarH);
+      // Beside: the scene takes the width the panel (250 + padding and
+      // scrollbar gutter, the gap: 290) leaves
+      const sideW = Math.min(h * 1.4, box.width - 290);
+      // Below: as wide as it can, the panel under it in two columns.
       const w = Math.round(Math.max(200, Math.min(box.width - 24, h * 1.2)));
-      // 14: the gap of .wrap3d between the scene and the panel
-      const sh = Math.round(Math.max(120, Math.min(w, room - isoPanelNeed - 14)));
-      // .isoPanel has a 4 px right padding (content box)
-      return [w, sh, Math.max(120, Math.round(room - sh - 14)), w - 4];
+      // 14: the gap of .wrap3d between the scene and the panel. Rounded
+      // down, so the panel gets at least the height it needs: a pixel less
+      // and it would scroll
+      const sh = Math.floor(Math.max(120, Math.min(w, room - iterBarH - isoPanelNeed - 14)));
+      // The panel goes below only when the scene is larger so (its shorter
+      // side, the map fits it): a short and narrow cell (e.g. the 2 x 2 grid
+      // of the classes of an iteration) keeps it beside, scrolling inside
+      if (box.width - 290 >= 320 || (box.width - 290 >= 160 && Math.min(sideW, h) >= Math.min(w, sh))) {
+        return [Math.round(sideW), Math.round(h), Math.round(Math.max(h, room)), undefined];
+      }
+      // .isoCols is a border box: the panel is as wide as the scene
+      return [w, sh, Math.max(120, Math.floor(room - sh - iterBarH - 14)), w];
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [box, extra.volume3d, isoPanelNeed]);
+    }, [box, extra.volume3d, isoPanelNeed, iterBarH]);
+    // The last heights the panel needed (it reports it after each render)
+    const isoPanelSeen = useRef<{ e: number; t: number }[]>([]);
     const onIsoPanelHeight = useCallback((ph: number) => {
-      setIsoPanelNeed((cur) => (Math.abs(cur - ph) > 1 ? ph : cur));
+      if (!skipFlip(isoPanelSeen.current, ph)) setIsoPanelNeed(ph);
     }, []);
 
     // Measured after each render of the shown tab: from the top of the first
@@ -814,13 +967,14 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         : (tab === "view3d" ? view3dBox : isoBox).current?.offsetHeight ?? 0;
       if (!content || !main) return;
       const e = Math.ceil(content - main);
-      setExtra((cur) => (Math.abs(cur[tab] - e) > 1 ? { ...cur, [tab]: e } : cur));
+      if (Math.abs(extra[tab] - e) <= 1 || skipFlip(extraSeen.current[tab], e)) return;
+      setExtra((cur) => ({ ...cur, [tab]: e }));
     });
 
     /* ---------- expand to the browser window ---------- */
     useEffect(() => {
-      if (!full && !panelOpen && !maskOpen && !resOpen) return undefined;
-      // Captured: Esc closes the particles or mask panel, then collapses the
+      if (!full && !panelOpen && !maskOpen && !denoiseOpen && !resOpen) return undefined;
+      // Captured: Esc closes the particles, mask, denoise or resolution panel, then collapses the
       // viewer, and does not reach a dialog around it
       const onKey = (e: KeyboardEvent) => {
         if (e.key !== "Escape") return;
@@ -828,12 +982,13 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         e.preventDefault();
         if (panelOpen) setPanelOpen(false);
         else if (maskOpen) setMaskOpen(false);
+        else if (denoiseOpen) setDenoiseOpen(false);
         else if (resOpen) setResOpen(false);
         else setFull(false);
       };
       document.addEventListener("keydown", onKey, true);
       return () => document.removeEventListener("keydown", onKey, true);
-    }, [full, panelOpen, maskOpen, resOpen]);
+    }, [full, panelOpen, maskOpen, denoiseOpen, resOpen]);
 
     /* ---------- particles panel ---------- */
     // A click outside the panel (and its button) closes it
@@ -860,6 +1015,18 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       document.addEventListener("mousedown", onDown);
       return () => document.removeEventListener("mousedown", onDown);
     }, [maskOpen]);
+    // ... and for the denoise panel
+    useEffect(() => {
+      if (!denoiseOpen) return undefined;
+      const onDown = (e: MouseEvent) => {
+        const t = e.target as Node;
+        if (denoiseRef.current?.contains(t)) return;
+        if ((t as Element).closest?.("[data-denoise-button]")) return;
+        setDenoiseOpen(false);
+      };
+      document.addEventListener("mousedown", onDown);
+      return () => document.removeEventListener("mousedown", onDown);
+    }, [denoiseOpen]);
     // The same for the resolution panel
     useEffect(() => {
       if (!resOpen) return undefined;
@@ -929,6 +1096,24 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         )}
       </span>
     );
+    // The denoise options, in the toolbar of the visible tab
+    const denoiseButton = (forTab: VolumeViewerTab) => (
+      <span className={styles.panelAnchor} data-denoise-button>
+        <ToolButton title="Denoise: Gaussian low-pass filter of the sections"
+                    active={denoiseOpen || filterOn} onClick={() => setDenoiseOpen((v) => !v)}>
+          <Sparkles size={16} />
+        </ToolButton>
+        {denoiseOpen && tab === forTab && (
+          <div ref={denoiseRef}>
+            <DenoisePanel on={filterOn} sigma={filterSigma}
+                          onChange={(o) => {
+                            if (o.on !== undefined) setFilterOn(o.on);
+                            if (o.sigma !== undefined) setFilterSigma(o.sigma);
+                          }} />
+          </div>
+        )}
+      </span>
+    );
     // The mask options, in the toolbar of the visible tab
     const maskButton = (forTab: VolumeViewerTab) => maskCfg && (
       <span className={styles.panelAnchor} data-mask-button>
@@ -970,6 +1155,16 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
             <EyeOff size={16} />
           </ToolButton>
         )}
+        {/* Denoise: only for slice images (tomograms), not for maps */}
+        {volume.axes && denoiseButton("slices")}
+        {gridSlices && iters && sliceIter !== null && (
+          <label className={styles.iterSelect} title="Iteration of the map shown in the Slices">
+            <select value={sliceIter} onChange={(e) => setSliceIter(Number(e.target.value))}>
+              {iters.items.map((it, i) => <option key={it.file} value={i}>{it.label}</option>)}
+            </select>
+            {iterGridSrc && !iterGrid.density && <span className={styles.iterLoaded}>{iterGrid.status ?? "Loading…"}</span>}
+          </label>
+        )}
         {particlesButton(false)}
         {maskButton("slices")}
         {resolutionButton("slices")}
@@ -986,7 +1181,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         {modeButton("select", "Select a point: moves the sliders there", <Crosshair size={16} />)}
         <span className={styles.sep} />
         {toolsCfg.volume && (
-          <ToolButton title="Show the whole volume as a faint haze" active={volOn} onClick={() => setVolOn((v) => !v)}>
+          <ToolButton title="Show the volume around the planes (its densest voxels)" active={volOn} onClick={() => setVolOn((v) => !v)}>
             {ICON_VOLUME}
           </ToolButton>
         )}
@@ -996,6 +1191,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
           </ToolButton>
         )}
         {modeButton("pan", "Move the volume: drag it in any direction (or right-drag / shift+drag)", <Move size={16} />)}
+        {denoiseButton("view3d")}
         {particlesButton(true)}
         <ToolButton title="Reset the 3D view" onClick={() => sceneRef.current?.reset()}>
           <RefreshCw size={16} />
@@ -1010,8 +1206,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const sceneHost = useRef<HTMLDivElement>(null);
     const [sceneError, setSceneError] = useState<string | null>(null);
     const sceneState: SceneState = {
-      pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, mode, nearOnly: near3d, tolerance,
-      templateLevel, particleColor,
+      pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance,
+      filterSigma: shownSigma, mode, nearOnly: near3d, tolerance, templateLevel, particleColor,
     };
     const sceneStateRef = useRef(sceneState);
     sceneStateRef.current = sceneState;
@@ -1033,6 +1229,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
           voxelSize: vs,
           getImage,
           loadImage,
+          density: hasVolDensity,
           onPickParticle: (i) => pickRef.current.selectParticle(i),
           onPickPoint: (p) => {
             pickRef.current.setSel(-1);
@@ -1050,13 +1247,16 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         scene.canvas.remove();
         sceneRef.current = null;
       };
-    }, [built3d, dim, keys, particles, vs, getImage, loadImage]);
+    }, [built3d, dim, keys, particles, vs, getImage, loadImage, hasVolDensity]);
     useEffect(() => {
       sceneRef.current?.setState(sceneState);
       // the fields are the dependencies
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, mode, near3d, tolerance,
-        templateLevel, particleColor]);
+    }, [pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance, shownSigma,
+        mode, near3d, tolerance, templateLevel, particleColor]);
+    useEffect(() => {
+      sceneRef.current?.setDensity(volGrid.density);
+    }, [volGrid.density, built3d, sceneError]);
     useEffect(() => {
       sceneRef.current?.resize(size3d[0], size3d[1]);
     }, [size3d]);
@@ -1136,6 +1336,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               voxelSize={vs}
               getImage={getImage}
               loadImage={loadImage}
+              loadCrop={loadCrop}
+              filterSigma={shownSigma}
               onPosition={(p) => { setSel(-1); setPos(p, true); }}
               onParticle={selectParticle}
               onRuler={(a, r) => setRulers((cur) => ({ ...cur, [a]: r }))}
@@ -1150,7 +1352,16 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
             {view3dToolbar}
             {sceneError ? <div className={styles.msg}>{sceneError}</div> : (
               <div ref={view3dBox} className={styles.wrap3d}>
-                <div ref={sceneHost} className={styles.canvas3d} />
+                <div ref={sceneHost} className={styles.canvas3d}>
+                  {/* Over the scene while the volume loads (or why it does not show) */}
+                  {volOn && volGrid.status && (
+                    <div className={styles.volNotice} role="status"
+                         data-error={volGrid.status.startsWith("Could") || volGrid.status.includes("no density") || undefined}>
+                      {!volGrid.status.startsWith("Could") && <span className={styles.spinner} aria-hidden />}
+                      {volGrid.status}
+                    </div>
+                  )}
+                </div>
                 <div className={styles.ctrl3d}>
                   <div className={styles.row}
                        title="Drag to rotate in any direction, right-drag or shift+drag to move, wheel to zoom">
@@ -1171,11 +1382,40 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                     </div>
                   ))}
                   {volOn && (
-                    <div className={styles.row}>
-                      Volume opacity
-                      <input type="range" min={5} max={100} value={Math.round(volOpacity * 100)}
-                             onChange={(e) => setVolOpacity(Number(e.target.value) / 100)} />
-                    </div>
+                    <>
+                      {volGrid.status && <div className={styles.volStatus}>{volGrid.status}</div>}
+                      <label className={styles.row}>
+                        <span>
+                          <input type="checkbox" checked={volDark} onChange={(e) => setVolDark(e.target.checked)} />
+                          {" "}Dark density
+                        </span>
+                      </label>
+                      <div className={styles.row}
+                           title="Share of the voxels drawn: the darkest (dark density) or the brightest">
+                        Volume density: {Math.round(volShare * 100)}%
+                        <input type="range" min={1} max={40} value={Math.round(volShare * 100)}
+                               onChange={(e) => setVolShare(Number(e.target.value) / 100)} />
+                      </div>
+                      <div className={styles.row}>
+                        Volume opacity
+                        <input type="range" min={5} max={100} value={Math.round(volOpacity * 100)}
+                               onChange={(e) => setVolOpacity(Number(e.target.value) / 100)} />
+                      </div>
+                      <div className={styles.row} title="Draw the volume only this close to the shown planes, or all of it">
+                        <select value={volNear ? "near" : "all"} onChange={(e) => setVolNear(e.target.value === "near")}>
+                          <option value="near">Near the shown planes</option>
+                          <option value="all">All the volume</option>
+                        </select>
+                      </div>
+                      {volNear && (
+                        <div className={styles.row} style={{ marginTop: 8 }}>
+                          Distance: ± {volTolerance} voxels
+                          <input type="range" min={1} max={Math.max(50, Math.round(Math.max(dim.x, dim.y, dim.z) / 2))}
+                                 step={1} value={volTolerance}
+                                 onChange={(e) => setVolTolerance(Number(e.target.value))} />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1199,14 +1439,38 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                 </ToolButton>
               )}
               {maskButton("volume3d")}
+              {iters && iterIdx !== null && (
+                <label className={styles.iterSelect} title="Iteration of the map shown in the 3D volume">
+                  <select value={iterIdx} onChange={(e) => { setPlaying(false); setIterIdx(Number(e.target.value)); }}>
+                    {iters.items.map((it, i) => <option key={it.file} value={i}>{it.label}</option>)}
+                  </select>
+                </label>
+              )}
+              {iters && (
+                <ToolButton title={iterCharts ? "Hide the iterations"
+                                     : "Iterations: play the map through them, with the resolution (and FSC) charts"}
+                            active={iterCharts}
+                            onClick={() => { if (iterCharts) setPlaying(false); setIterCharts((v) => !v); }}>
+                  <ChartLine size={16} />
+                </ToolButton>
+              )}
               {resolutionButton("volume3d")}
               <ToolButton title="Reset the 3D view" onClick={() => isoRef.current?.reset()}>
                 <RefreshCw size={16} />
               </ToolButton>
             </div>
             <div ref={isoBox} className={styles.content}>
-              {builtIso && volume.density && (
-                <IsoSurfaceView ref={isoRef} density={volume.density} dim={dim} onDebug={onDebug}
+              {builtIso && isoDensity && (
+                <IsoSurfaceView ref={isoRef} density={isoDensity} dim={dim} onDebug={onDebug}
+                                preload={iterPreload} onPreloaded={onIterPreloaded} onShown={setIsoShown}
+                                debug={showDebug}
+                                below={iters && iterIdx !== null && iterCharts ? (
+                                  <div ref={iterBarRef}>
+                                    <IterationsBar items={iters.items} index={iterIdx} playing={playing} fps={iterFps}
+                                                   loaded={iterLoaded} width={sizeIso[0]}
+                                                   onIndex={setIterIdx} onPlaying={setPlaying} onFps={setIterFps} />
+                                  </div>
+                                ) : null}
                                 width={sizeIso[0]} height={sizeIso[1]} pan={isoPan} defaults={defaults.iso}
                                 panelHeight={sizeIso[2]} panelWidth={sizeIso[3]}
                                 onPanelHeight={onIsoPanelHeight}
