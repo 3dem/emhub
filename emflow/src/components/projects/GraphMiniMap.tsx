@@ -27,7 +27,13 @@ export interface GraphMiniMapProps {
   padding?: number;
   /** Wheel zoom sensitivity (higher = faster). */
   zoomSpeed?: number;
+  /** Called with the viewport when a drag or wheel zoom of the minimap ends: its moves are
+   * programmatic, so React Flow's onMoveEnd does not fire for them (e.g. to save the viewport). */
+  onMoveEnd?: (viewport: { x: number; y: number; zoom: number }) => void;
 }
+
+// Wheel zooms are reported to onMoveEnd once the wheel stops for this long (ms).
+const WHEEL_END_DELAY = 250;
 
 const attr = (a: NodeAttr | undefined, node: Node<any>, fallback: string) =>
   a === undefined ? fallback : typeof a === "function" ? a(node) : a;
@@ -69,6 +75,7 @@ export function GraphMiniMap({
   height = 150,
   padding = 5,
   zoomSpeed = 1.2,
+  onMoveEnd,
 }: GraphMiniMapProps) {
   const store = useStoreApi();
   const nodeInternals = useStore((s) => s.nodeInternals);
@@ -125,6 +132,13 @@ export function GraphMiniMap({
   // The viewBox used for the current drag (captured at pointerdown).
   const dragBoxRef = useRef({ x: 0, y: 0, w: 1, h: 1 });
 
+  const onMoveEndRef = useRef(onMoveEnd);
+  onMoveEndRef.current = onMoveEnd;
+  const notifyMoveEnd = useCallback(() => {
+    const [x, y, k] = store.getState().transform;
+    onMoveEndRef.current?.({ x, y, zoom: k });
+  }, [store]);
+
   const moveViewTo = (originX: number, originY: number) => {
     applyViewport(store, -originX * zoom, -originY * zoom, zoom);
   };
@@ -162,11 +176,13 @@ export function GraphMiniMap({
     dragRef.current = null;
     setFrozenBounds(null);
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    notifyMoveEnd();
   };
 
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
+    let wheelTimer: number | undefined;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -179,10 +195,15 @@ export function GraphMiniMap({
       const cx = (s.paneW / 2 - s.tx) / s.zoom;
       const cy = (s.paneH / 2 - s.ty) / s.zoom;
       applyViewport(store, s.paneW / 2 - cx * next, s.paneH / 2 - cy * next, next);
+      window.clearTimeout(wheelTimer);
+      wheelTimer = window.setTimeout(notifyMoveEnd, WHEEL_END_DELAY);
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
-    return () => svg.removeEventListener("wheel", onWheel);
-  }, [store]);
+    return () => {
+      svg.removeEventListener("wheel", onWheel);
+      window.clearTimeout(wheelTimer);
+    };
+  }, [store, notifyMoveEnd]);
 
   const dragging = frozenBounds !== null;
   const strokeW = 1.5 * viewScale;

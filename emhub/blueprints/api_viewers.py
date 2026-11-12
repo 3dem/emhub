@@ -814,10 +814,10 @@ def volume_crop_source(root, rel_path):
 
 
 def map_iterations_source(root, rel_path):
-    """ Request of the iterations of a Relion map (emhub.data.relion_iterations)
+    """ Request of the iterations of a Relion map (emhub.data.processing.relion_iterations)
     for the 3D volume tab of emflow's VolumeViewer (to play the map through
     them), or None when the file name is not one of a Relion map. """
-    from emhub.data.relion_iterations import is_relion_map
+    from emhub.data.processing.relion_iterations import is_relion_map
     if not is_relion_map(os.path.basename(rel_path)):
         return None
     try:
@@ -829,9 +829,9 @@ def map_iterations_source(root, rel_path):
 
 def build_map_iterations(root, rel_path, max_size=None):
     """ The iterations of the Relion map rel_path (see
-    emhub.data.relion_iterations.map_iterations), each with the request of
+    emhub.data.processing.relion_iterations.map_iterations), each with the request of
     its density (as the map's), or None. """
-    from emhub.data.relion_iterations import map_iterations
+    from emhub.data.processing.relion_iterations import map_iterations
     full = _resolve_data_path(root, rel_path)
     if not full or not os.path.exists(full):
         raise Exception(f'Volume not found: {rel_path}')

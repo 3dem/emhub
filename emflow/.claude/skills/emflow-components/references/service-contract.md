@@ -29,6 +29,7 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | --- | --- | --- | --- |
 | Project | `fetchProject(projectId)` -> `{id, name, path, protocols}` | demo project | ProjectPage (load + auto refresh) |
 | | Protocol timing fields (optional): `elapsedTime` (total seconds of all runs), `elapsedSessionId` (changes with each new run, e.g. its start), `elapsedRuns` (`[{launched, queued, start, end, elapsed, status}]`, queued = launched to start and elapsed in seconds, null if unknown), `launched` (pending launch, not started yet) and `queued` (its waiting seconds, only while Launched) | - | ProtocolNodeCard (time row + hover), ProjectPage (local timer) |
+| | `clusterJobId` (optional): the id of the cluster job of a launched or running protocol submitted to a queue (EMhub reads the job `job.id` written by emwrap), shown in a pill next to the status. | - | ProtocolNodeCard |
 | | `fetchProjectEffectiveSettings(projectId)` | not used | ProjectPage |
 | | `getContextMenuVisibilityPolicy(projectId)` -> `NodeMenuVisibility` | `{}` | ProjectPage |
 | Protocol | `fetchProtocolDetails(projectId, protocolId)` -> `{info, form, values}` | demo | ProjectPage |
@@ -250,8 +251,9 @@ table: TableViewerData = {
   answering `{iterations: {classId, current, items: [{iteration (null:
   final), label, file, density (request, as the map's), resolution,
   classDistribution, classResolution, fsc {resolution (1/Å), fsc} | null}]}
-  | null}`, from `data/relion_iterations.py`: the same class (half 1 of
-  Refine3D iterations) at every iteration of the job, continued runs after,
+  | null}`, from `map_iterations` of `data/processing/relion_iterations.py`:
+  the same class (half 1 of Refine3D iterations) at every iteration of the
+  job, continued runs after,
   the final map last; stats from each `_model.star`, kept in server memory
   per file; non-finite values are null; Class3D has no FSC).
   EMhub builds these panes with `build_volume_viewer_pane_content(root, rel,

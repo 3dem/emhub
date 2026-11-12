@@ -19,8 +19,6 @@ export type DensityOptions = {
   color: string;
   /** Hide the blobs of fewer grid voxels (0: off). */
   dust: number;
-  /** Smooth the surface (display only). */
-  smooth: boolean;
 };
 
 /** Dust sizes (grid voxels) of the slider. */
@@ -235,10 +233,6 @@ export default function DensityPanel(props: Props) {
                    onChange({ dust: i === 0 ? 0 : DUST_SIZES[i - 1] });
                  }} />
           <span className={styles.isoValue}>{props.dust > 0 ? `${props.dust} vx` : "None"}</span>
-        </label>
-        <label className={styles.panelRow} title="Display only: the map is not changed">
-          <input type="checkbox" checked={props.smooth} onChange={(e) => onChange({ smooth: e.target.checked })} />
-          Smooth the surface
         </label>
 
         <label className={styles.panelSelect}>

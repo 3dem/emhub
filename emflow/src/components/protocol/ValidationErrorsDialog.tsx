@@ -41,7 +41,7 @@ export default function ValidationErrorsDialog({
             width: 32,
             height: 32,
             borderRadius: "50%",
-            backgroundColor: "#f8d7da",
+            backgroundColor: "var(--emf-error-100)",
             color: "#d32f2f",
             display: "flex",
             alignItems: "center",
@@ -59,9 +59,9 @@ export default function ValidationErrorsDialog({
         sx={{
           maxHeight: "300px",
           overflowY: "auto",
-          backgroundColor: "#fff8f8",
-          borderTop: "1px solid #f0f0f0",
-          borderBottom: "1px solid #f0f0f0",
+          backgroundColor: "var(--emf-error-50)",
+          borderTop: "1px solid var(--emf-border-neutral)",
+          borderBottom: "1px solid var(--emf-border-neutral)",
           p: 2.5,
         }}
       >
@@ -131,7 +131,7 @@ export default function ValidationErrorsDialog({
         sx={{
           p: 2,
           justifyContent: "flex-end",
-          backgroundColor: "#fafafa",
+          backgroundColor: "var(--emf-surface-neutral)",
           borderTop: "1px solid #eee",
         }}
       >

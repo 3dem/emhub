@@ -16,6 +16,8 @@ export interface ProtocolNode {
   // Pending launch (no run started yet) and its time in the queue (seconds)
   launched?: string;
   queued?: number | null;
+  // Id of the cluster job of a launched or running job submitted to a queue
+  clusterJobId?: string;
   stepsDone: string;
   numberOfSteps: string;
   outputs: any;

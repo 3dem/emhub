@@ -5,9 +5,8 @@
 // texture) and, when the host sends no slice images (e.g. maps such as 3D
 // classes), the Slices tab, which draws its sections from the same grid.
 // Also the colored sections of a mask map, and the display filters of the
-// surface: smoothing and hiding the small blobs of noise ("dust") at a
-// threshold.
-import type { Axis, VolumeDensity } from "./volumeMath";
+// surface: hiding the small blobs of noise ("dust") at a threshold.
+import { resolutionRgb, resolutionValidLevels, type Axis, type VolumeDensity } from "./volumeMath";
 
 const decoded = new WeakMap<VolumeDensity, Uint8Array>();
 const decoding = new WeakMap<VolumeDensity, Promise<number>>();
@@ -90,6 +89,30 @@ export function maskSlice(d: VolumeDensity, a: Axis, key: number, level: number,
   });
 }
 
+/** Canvas of a section of a map colored with RESOLUTION_PALETTE over `range`
+ * (map units; below it the first color, above it gray); the voxels without
+ * a value (<= 0, or the fill value outside the mask: resolutionValidLevels)
+ * are transparent. */
+const GRAY: [number, number, number] = [128, 128, 128];
+export function resolutionSlice(d: VolumeDensity, a: Axis, key: number, range: [number, number]): HTMLCanvasElement {
+  const [v0, v1] = d.valueRange;
+  const [lo, hi] = range;
+  const [k0, k1] = resolutionValidLevels(d, densityValues(d));
+  // The color of each grid level, computed once
+  const lut = Array.from({ length: 256 }, (_, k) => {
+    const v = v0 + (k / 255) * (v1 - v0);
+    if (k < k0 || k > k1) return null;
+    // Above the max of the scale: gray (as in the 3D volume)
+    return v > hi ? GRAY : resolutionRgb((v - lo) / (hi - lo || 1));
+  });
+  return paintSlice(d, a, key, (px, o, value) => {
+    const c = lut[value];
+    if (!c) return;
+    [px[o], px[o + 1], px[o + 2]] = c;
+    px[o + 3] = 255;
+  });
+}
+
 /** Canvas of a section of the grid, each pixel set by `paint` from its value. */
 function paintSlice(
   d: VolumeDensity,
@@ -120,28 +143,6 @@ function paintSlice(
   }
   g.putImageData(img, 0, 0);
   return canvas;
-}
-
-/** One pass of a [1 2 1] / 4 filter along each axis (display smoothing). */
-export function smoothGrid(v: Uint8Array, shape: [number, number, number]): Uint8Array {
-  const [nz, ny, nx] = shape;
-  let src = Float32Array.from(v);
-  let dst = new Float32Array(src.length);
-  const strides = [1, nx, nx * ny];
-  const sizes = [nx, ny, nz];
-  for (let ax = 0; ax < 3; ax++) {
-    const s = strides[ax], n = sizes[ax];
-    for (let i = 0; i < src.length; i++) {
-      const c = Math.floor(i / s) % n;
-      const a = c > 0 ? src[i - s] : src[i];
-      const b = c < n - 1 ? src[i + s] : src[i];
-      dst[i] = 0.25 * a + 0.5 * src[i] + 0.25 * b;
-    }
-    [src, dst] = [dst, src];
-  }
-  const out = new Uint8Array(v.length);
-  for (let i = 0; i < out.length; i++) out[i] = Math.round(src[i]);
-  return out;
 }
 
 /**
@@ -202,6 +203,30 @@ export function removeDust(
     }
   }
   return { values: out ?? v, hidden };
+}
+
+/** One pass of a [1 2 1] / 4 filter along each axis: the volume of the 3D
+ * planes (VolumeScene3D) smooths its tomogram grid with it before choosing
+ * the densest voxels. (The 3D volume no longer has a display smoothing.) */
+export function smoothGrid(v: Uint8Array, shape: [number, number, number]): Uint8Array {
+  const [nz, ny, nx] = shape;
+  let src = Float32Array.from(v);
+  let dst = new Float32Array(src.length);
+  const strides = [1, nx, nx * ny];
+  const sizes = [nx, ny, nz];
+  for (let ax = 0; ax < 3; ax++) {
+    const s = strides[ax], n = sizes[ax];
+    for (let i = 0; i < src.length; i++) {
+      const c = Math.floor(i / s) % n;
+      const a = c > 0 ? src[i - s] : src[i];
+      const b = c < n - 1 ? src[i + s] : src[i];
+      dst[i] = 0.25 * a + 0.5 * src[i] + 0.25 * b;
+    }
+    [src, dst] = [dst, src];
+  }
+  const out = new Uint8Array(v.length);
+  for (let i = 0; i < out.length; i++) out[i] = Math.round(src[i]);
+  return out;
 }
 
 /**
