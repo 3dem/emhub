@@ -237,6 +237,86 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
 .otf-dark .alert-info { background: #13324a; border-color: #1d4a6b; color: #b9dcf5; }
 .otf-dark .alert-warning { background: #3a2f0b; border-color: #5c4a10; color: #f5dd8c; }
 .otf-dark .alert-danger { background: #3d1418; border-color: #6b1f26; color: #f5b5bb; }
+/* Menus, selects and inputs (the Metrics menu, the Keep preset, the
+   configuration files, the threshold boxes) */
+.otf-dark .dropdown-menu { background: var(--otf-surface-alt); border-color: var(--otf-border); color: var(--otf-ink); }
+.otf-dark .dropdown-menu label, .otf-dark .dropdown-item { color: var(--otf-ink); }
+.otf-dark .dropdown-item:hover, .otf-dark .dropdown-menu label:hover { background: var(--otf-hover); }
+.otf-dark .custom-select, .otf-dark .form-control {
+    background-color: var(--otf-surface-alt); border-color: var(--otf-border); color: var(--otf-ink); }
+.otf-dark .custom-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='4' height='5' viewBox='0 0 4 5'%3e%3cpath fill='%23c3cad4' d='M2 0L0 2h4zm0 5L0 3h4z'/%3e%3c/svg%3e"); }
+.otf-dark .custom-select:disabled, .otf-dark .form-control:disabled { background-color: var(--otf-surface); color: var(--otf-muted); }
+.otf-dark .custom-select option { background: var(--otf-surface-alt); color: var(--otf-ink); }
+/* Thresholds: unsaved changes */
+.otf-draft-dot { display: inline-block; width: .5rem; height: .5rem; border-radius: 50%;
+                 background: var(--otf-review); margin-left: .35rem; vertical-align: middle; }
+.otf-draft-dot[hidden] { display: none; }
+.otf-config-table td { vertical-align: middle; border-top: none; padding: .15rem .3rem; }
+.otf-config-table td.otf-th-show-cell { width: 1.5rem; padding-right: 0; }
+.otf-config-table td:nth-child(2) { width: 1%; min-width: 25rem; white-space: nowrap; padding-right: 1.5rem; }
+.table.otf-config-table { width: auto !important; }
+.otf-config-group { font-size: .95rem; }
+.otf-config-table .otf-th-unit { white-space: nowrap; font-size: .8rem; }
+.otf-th-cells { white-space: nowrap; }
+.otf-th-field { display: inline-flex; align-items: center; margin-right: .75rem; }
+.otf-th-field-label { font-size: .75rem; margin-right: .3rem; }
+.otf-th-suffix { font-size: .8rem; margin-left: .3rem; }
+.otf-th-field:has(.otf-th-suffix) { margin-right: .4rem; }
+.otf-th-field input[type=number] { width: 4.2rem; height: 1.6rem; padding: .1rem .4rem; }
+/* Role, as the guides of the plots: target amber, reject red */
+.otf-th-role-target { color: var(--otf-warn-text); }
+.otf-th-role-reject { color: var(--otf-bad); }
+input.otf-th-role-target, input.otf-th-role-reject { font-weight: 600; }
+/* Over the inputs' own colour (also the dark one) */
+.otf-page input.form-control.otf-th-role-target { color: var(--otf-warn-text); }
+.otf-page input.form-control.otf-th-role-reject { color: var(--otf-bad); }
+/* State: default grey, changed and not saved yellow, saved green */
+.otf-th-state-default { background-color: rgba(173, 181, 189, .14) !important; border-color: #adb5bd !important; }
+.otf-th-state-draft { background-color: rgba(245, 158, 11, .20) !important; border-color: #f59e0b !important; }
+.otf-th-state-saved { background-color: rgba(46, 197, 81, .16) !important; border-color: #2ec551 !important; }
+input[type=checkbox].otf-th-state-draft { outline: 2px solid #f59e0b; }
+input[type=checkbox].otf-th-state-saved { outline: 2px solid #2ec551; }
+/* The legend of the states: labels, not boxes to tick */
+.otf-th-badge { display: inline-block; border: 1px solid; border-radius: .2rem;
+                padding: 0 .4rem; margin-left: .25rem; font-size: .72rem; cursor: default; }
+.otf-draft-bar { border: 1px solid; border-radius: .25rem; }
+.otf-draft-bar[hidden] { display: none; }
+.otf-config-notice { border: 1px solid; border-radius: .25rem; }
+.otf-config-notice[hidden] { display: none; }
+.otf-notice-success { color: #1e7b38; background: rgba(46, 197, 81, .14); border-color: #2ec551; }
+.otf-notice-info { color: var(--otf-ink); background: rgba(13, 110, 253, .10); border-color: #0d6efd; }
+.otf-dark .otf-notice-success { color: #8ee0a4; }
+/* The title of a strip and the boxes of its thresholds, in its top margin */
+.otf-strip-wrap { position: relative; margin-bottom: 4px; }
+.otf-strip-wrap[hidden] { display: none; }
+.otf-toggle-xs .btn { font-size: .7rem; padding: .1rem .45rem; line-height: 1.3; }
+/* The metrics shown, in the tilt series window */
+.otf-metrics-menu { font-size: .8rem; max-height: 60vh; overflow-y: auto; }
+.otf-metrics-menu label { display: flex; align-items: center; margin: 0; padding: .15rem .8rem; cursor: pointer;
+                          font-size: .8rem; line-height: 1.3; white-space: nowrap; }
+.otf-metrics-menu label:hover { background: rgba(13, 110, 253, .1); }
+.otf-metrics-menu input { margin-right: .5rem; }
+/* Folded: the title line only */
+.otf-strip-wrap.otf-strip-folded { height: 21px; margin-bottom: 2px; }
+.otf-strip-wrap.otf-strip-folded .otf-strip { display: none; }
+.otf-strip-wrap.otf-strip-folded .otf-strip-title { color: var(--otf-secondary); }
+.otf-strip-toggle { border: 0; background: transparent; padding: 0; margin-right: .6rem; font: inherit;
+                    color: inherit; cursor: pointer; pointer-events: auto; display: inline-flex;
+                    align-items: center; }
+.otf-strip-toggle:hover .otf-strip-title { text-decoration: underline; }
+.otf-strip-caret { display: inline-block; width: .9rem; color: var(--otf-secondary); font-size: 10px; }
+.otf-strip-head { position: absolute; top: 0; left: 18px; right: 12px; height: 21px; z-index: 2;
+                  display: flex; align-items: center; font-size: 11px; color: var(--otf-ink);
+                  white-space: nowrap; overflow: hidden; pointer-events: none; }
+.otf-th-ctl { display: inline-flex; align-items: center; margin-right: .5rem; pointer-events: auto; }
+.otf-th-ctl-label { margin-right: .2rem; font-size: 10px; }
+.otf-th-box { width: 2.6rem; height: 18px; font-size: 11px; padding: 0 .2rem; border: 1px solid;
+              border-radius: 2px; color: inherit; -moz-appearance: textfield; }
+.otf-th-box::-webkit-inner-spin-button, .otf-th-box::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.otf-th-step { height: 18px; width: 16px; padding: 0; line-height: 1; font-size: 12px; border: 1px solid #adb5bd;
+               background: transparent; color: inherit; border-radius: 2px; }
+.otf-th-step:hover { background: rgba(13, 110, 253, .12); }
 </style>
 
 <div class="otf-page" id="otf-page">
@@ -346,6 +426,130 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
         otfSaveTimer = window.setTimeout(function() { otfPostSelection(); }, 600);
     };
 
+    /* The thresholds.  The content brings them as saved in the tilt
+       analysis job's tilt_qc_config.json (otfSetConfig); changes made here,
+       in the Thresholds window or by dragging a guide in a tilt series
+       window, are kept apart (otfDraft, {key: {field: value}}), sent with
+       every request so the page is judged with them, and written to the
+       file only by Save configuration file.  Here, as the content calls
+       otfSetConfig while it loads. */
+    var otfCfg = null, otfCfgCanEdit = false, otfDraft = {}, otfDraftTimer = null;
+    function otfThGet(th, key, field) {
+        var v = th ? th[key] : undefined;
+        return (field === null || field === undefined) ? v : (v || {})[field];
+    }
+    function otfThFields() {
+        var out = [];
+        (otfCfg ? otfCfg.groups : []).forEach(function(g) { out = out.concat(g.fields); });
+        // The plots shown, which are kept and saved the same way
+        return out.concat(otfCfg ? (otfCfg.displayFields || []) : []);
+    }
+    // A threshold as shown: in the field's unit, 'off' when not used
+    function otfThText(v, f) {
+        if (v === null || v === undefined) return 'off';
+        if (typeof v === 'boolean') return v ? 'on' : 'off';
+        return Number((v * f.scale).toPrecision(4)) + (f.unit ? ' ' + f.unit : '');
+    }
+    window.otfThGet = otfThGet;
+    window.otfThFields = otfThFields;
+    window.otfThText = otfThText;
+    window.otfConfigState = function() {
+        return {cfg: otfCfg, draft: otfDraft, canEdit: otfCfgCanEdit};
+    };
+    window.otfSetConfig = function(cfg, canEdit) {
+        otfCfg = cfg;
+        otfCfgCanEdit = !!canEdit;
+        otfRenderDraft();
+        if (window.otfRenderThresholds) window.otfRenderThresholds(false);
+    };
+    // The threshold in use: the unsaved change, else the saved value
+    window.otfThreshold = function(key, field) {
+        var d = otfThGet(otfDraft, key, field);
+        return d !== undefined ? d : otfThGet(otfCfg && otfCfg.saved, key, field);
+    };
+    /* quiet: nothing to judge again (which plots are shown): only listed
+       as a change, the tilt series window shows it itself */
+    window.otfSetThreshold = function(key, field, value, quiet) {
+        if (!otfCfg) return;
+        var saved = otfThGet(otfCfg.saved, key, field);
+        if (field === null || field === undefined) {
+            if (value === saved) delete otfDraft[key]; else otfDraft[key] = value;
+        } else {
+            var d = otfDraft[key] = $.extend({}, otfDraft[key]);
+            if (value === saved) delete d[field]; else d[field] = value;
+            if (!Object.keys(d).length) delete otfDraft[key];
+        }
+        if (quiet) otfRenderDraft(); else otfThresholdsChanged();
+    };
+    // Replace every unsaved change (e.g. by the values of a file)
+    window.otfSetDraft = function(draft) {
+        otfDraft = draft || {};
+        otfThresholdsChanged(true);
+    };
+    window.otfHasDraft = function() { return Object.keys(otfDraft).length > 0; };
+    window.otfDraftParam = function() {
+        return Object.keys(otfDraft).length ? JSON.stringify(otfDraft) : '';
+    };
+    /* Judge the page again with the thresholds: the content, and the tilt
+       series window if it is open.  Shortly after, so typing a number or
+       dragging does not send a request per step. */
+    function otfThresholdsChanged(now) {
+        otfRenderDraft();
+        window.clearTimeout(otfDraftTimer);
+        otfDraftTimer = window.setTimeout(function() {
+            if (window.otfRefresh) window.otfRefresh();
+            if (window.otfReloadTiltSeries) window.otfReloadTiltSeries();
+            if (window.otfRenderThresholds) window.otfRenderThresholds(false);
+        }, now ? 0 : 500);
+    }
+    window.otfThresholdsChanged = otfThresholdsChanged;
+    // What changed and how, in the Thresholds window's bar
+    function otfRenderDraft() {
+        var changes = [];
+        otfThFields().forEach(function(f) {
+            var d = otfThGet(otfDraft, f.key, f.field);
+            if (d === undefined) return;
+            changes.push(f.name + ': ' + otfThText(otfThGet(otfCfg.saved, f.key, f.field), f) +
+                         ' \u2192 ' + otfThText(d, f));
+        });
+        var any = changes.length > 0;
+        otfPaintThresholds();
+        $('.otf-draft-dot').prop('hidden', !any);
+        $('.otf-draft-bar').each(function() {
+            var $bar = $(this).prop('hidden', !any).empty();
+            if (!any) return;
+            // In the Thresholds window, whose footer discards or saves them
+            $bar.append($('<small></small>').append($('<b></b>').text('Changed, not saved: '))
+                        .append(document.createTextNode(changes.join(' \u00b7 '))));
+        });
+    }
+    window.otfRenderDraft = otfRenderDraft;
+    /* The state of a threshold, as its input shows it: 'draft' changed and
+       not saved (yellow), 'saved' saved and not the default (green),
+       'default' (grey). */
+    function otfThState(key, field) {
+        if (!otfCfg) return 'default';
+        if (otfThGet(otfDraft, key, field) !== undefined) return 'draft';
+        return otfThGet(otfCfg.saved, key, field) !== otfThGet(otfCfg.defaults, key, field)
+               ? 'saved' : 'default';
+    }
+    // Every threshold input of the page and its windows ([data-key][data-field])
+    function otfPaintThresholds() {
+        $('.otf-th-input[data-key]').each(function() {
+            var field = this.dataset.field === 'None' || this.dataset.field === '' ? null : this.dataset.field;
+            var st = otfThState(this.dataset.key, field);
+            $(this).removeClass('otf-th-state-default otf-th-state-draft otf-th-state-saved')
+                   .addClass('otf-th-state-' + st)
+                   .attr('title', (function(el) {
+                       var f = {scale: Number(el.dataset.scale) || 1, unit: el.dataset.unit || ''};
+                       return {draft: 'Changed, not saved', saved: 'Saved', 'default': 'Default'}[st] +
+                           ' · saved: ' + otfThText(otfThGet(otfCfg && otfCfg.saved, el.dataset.key, field), f) +
+                           ' · default: ' + otfThText(otfThGet(otfCfg && otfCfg.defaults, el.dataset.key, field), f);
+                   })(this));
+        });
+    }
+    window.otfPaintThresholds = otfPaintThresholds;
+
 })(window, document, window.jQuery);
 </script>
 
@@ -415,7 +619,13 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
             var $el = otfClear($(selector));
             $el.html(html);
             if (scroll) $el.find('#otf-table-scroll').scrollTop(scroll);
-            if (showModal) $el.modal('show');
+            if (showModal) {
+                $el.modal('show');
+                // Shown again (a threshold changed, another order): the
+                // focus went with the old content; give it to the window,
+                // so Escape and the keys keep working
+                if (!$.contains($el[0], document.activeElement)) $el.trigger('focus');
+            }
         });
         ajaxContent.fail(function() {
             if (seq === otfLatest[selector]) ajax_request_failed.apply(this, arguments);
@@ -430,7 +640,8 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
                                         align_job: OTF_ALIGN_JOB, tomo_job: OTF_TOMO_JOB,
                                         sort: window.otfSort || 'worst',
                                         filter: window.otfFilter || 'all',
-                                        page: window.otfPage || 1}));
+                                        page: window.otfPage || 1,
+                                        otf_draft: otfDraftParam()}));
         otfReplace('#otf-dashboard-content', content, false);
     }
 
@@ -481,8 +692,14 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
                                        $.extend({}, OTF_SOURCE, {job_id: OTF_JOB_ID,
                                         align_job: OTF_ALIGN_JOB, tomo_job: OTF_TOMO_JOB,
                                         tomo_name: tomoName,
-                                        order: order || 'angle'}));
+                                        order: order || 'angle',
+                                        otf_draft: otfDraftParam()}));
         otfReplace(OTF_MODAL, content, true);
+    };
+    // Judged again (a threshold changed), if the window is open
+    window.otfReloadTiltSeries = function() {
+        if ($(OTF_MODAL).hasClass('show') && window.otfTsShown)
+            otfShowTiltSeries(otfTsShown.name, otfTsShown.order);
     };
 
     /* The strips are drawn while the modal is still hidden, so Plotly sizes
@@ -494,6 +711,7 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
     });
     // Back in the overview: bring the row of the tilt series into view
     $(OTF_MODAL).on('hidden.bs.modal', function() {
+        window.otfFolded = null;    // the next one opens unfolded
         if (window.otfMarkLastOpened) otfMarkLastOpened(true);
     });
 
@@ -674,7 +892,10 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
        review: [{name, status, keeps}], usableLimit}: what accepting the
        proposal adds, and the tilt series it would leave with too few tilts. */
     function otfComputeProposal(sel, inputs) {
-        var out = [], review = [], limit = inputs.usableLimit;
+        // "Too few tilts kept" when it is set, else the Poor limit
+        var out = [], review = [];
+        var limit = (inputs.keptLimit !== null && inputs.keptLimit !== undefined)
+                    ? inputs.keptLimit : inputs.usableLimit;
         function ids(map, name) { return new Set((map[name] || []).map(Number)); }
         inputs.series.forEach(function(ts) {
             if (sel.deselected.has(ts.name)) return;
@@ -767,6 +988,214 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
         });
     }
 
+    /* The Thresholds window: every threshold the page judges with, as in
+       use (saved, or changed here and not saved), with the saved and
+       default values beside it.  A change judges the page again at once
+       (otfSetThreshold); Save configuration file writes them to the tilt
+       analysis job's tilt_qc_config.json.  Built from the latest content's
+       config each time it is opened, and kept up to date while open, but
+       never rebuilt under the cursor of an input. */
+    var OTF_CONFIG_MODAL = '#otf-config-modal';
+    function otfFieldInput(f) {
+        var v = otfThreshold(f.key, f.field);
+        var $in = (f.step === null)    // on / off
+            ? $('<input type="checkbox" class="otf-th-input">').prop('checked', !!v)
+            : $('<input type="number" class="form-control form-control-sm otf-th-input">')
+                .attr('step', f.step).attr('placeholder', 'off')
+                .val(v === null || v === undefined ? '' : Number((v * f.scale).toPrecision(6)));
+        return $in.attr('data-key', f.key).attr('data-field', f.field === null ? '' : f.field)
+                  .attr('data-scale', f.scale).attr('data-unit', f.unit)
+                  .addClass('otf-th-role-' + f.role);
+    }
+    function otfFieldValue(f, input) {
+        if (f.step === null) return input.checked;
+        var t = String(input.value).trim();
+        if (t === '') return null;
+        var n = Number(t);
+        return isFinite(n) ? Number((n / f.scale).toPrecision(10)) : undefined;
+    }
+    window.otfRenderThresholds = function(rebuild) {
+        var $m = $(OTF_CONFIG_MODAL);
+        var st = otfConfigState(), cfg = st.cfg;
+        if (!cfg || (!rebuild && !$m.hasClass('show'))) return;
+        var $info = $m.find('.otf-config-info').empty();
+        $info.append($('<code></code>').text(cfg.path));
+        if (cfg.error) {
+            $info.append($('<span class="text-danger ml-2"></span>')
+                .text('cannot be read (' + cfg.error + '): the default thresholds are shown'));
+        } else if (cfg.exists) {
+            $info.append(document.createTextNode(' · saved ' + (cfg.updated || '').replace('T', ' ') +
+                (cfg.updatedBy ? ' by ' + cfg.updatedBy : '') +
+                (cfg.source ? ' (' + cfg.source + ')' : '') +
+                (cfg.loadedFrom ? ', first loaded from ' + cfg.loadedFrom : '')));
+        }
+        var few = cfg.fewKept || [];
+        $m.find('.otf-config-few').text(cfg.keptLimit === null || cfg.keptLimit === undefined ? '' :
+            few.length + ' tilt series would keep fewer than ' + Math.round(100 * cfg.keptLimit) +
+            '% of their tilts' + (few.length ? ': ' + few.slice(0, 6).map(function(x) {
+                return x[0] + ' (' + Math.round(100 * x[1]) + '%)'; }).join(', ') +
+                (few.length > 6 ? ', and ' + (few.length - 6) + ' more' : '') : '') + '.');
+        var $body = $m.find('.otf-config-groups');
+        if (rebuild) {
+            $body.empty();
+            cfg.groups.forEach(function(g) {
+                // The title in bold, what the group means in its info icon
+                $body.append($('<h6 class="mt-2 mb-0 font-weight-bold otf-config-group"></h6>').text(g.label)
+                    .append(g.help ? $('<i class="fas fa-info-circle ml-1 text-muted"></i>').attr('title', g.help) : null));
+                var $t = $('<table class="table table-sm otf-config-table mb-0"><tbody></tbody></table>');
+                // One row per measure, its thresholds side by side
+                g.rows.forEach(function(r) {
+                    var $label = $('<td></td>');
+                    // Whether its plot(s) are shown in the tilt series window
+                    var $show = $('<td class="otf-th-show-cell"></td>');
+                    if (r.metrics.length) {
+                        $('<input type="checkbox" class="otf-th-show otf-th-input">')
+                            .attr('data-key', 'display').attr('data-field', r.metrics[0])
+                            .attr('data-metrics', r.metrics.join(' '))
+                            .attr('title', r.metrics.length > 1
+                                  ? 'Show its plots (phase and normalised correlation) in the tilt series window; ' +
+                                    'each can also be chosen in its Metrics menu'
+                                  : 'Show its plot in the tilt series window')
+                            .on('change', function() {
+                                var on = this.checked;
+                                r.metrics.forEach(function(m) { otfSetThreshold('display', m, on, true); });
+                            }).appendTo($show);
+                    }
+                    $label.text(r.label);
+                    var $cells = $('<td class="otf-th-cells"></td>');
+                    r.fields.forEach(function(f) {
+                        if (f.help) $label.append($('<i class="fas fa-info-circle ml-1 text-muted"></i>').attr('title', f.help));
+                        var $input = otfFieldInput(f).on('change input', function() {
+                            var v = otfFieldValue(f, this);
+                            $(this).toggleClass('is-invalid', v === undefined);
+                            if (v !== undefined) otfSetThreshold(f.key, f.field, v);
+                        });
+                        $('<label class="otf-th-field mb-0"></label>')
+                            .append(f.label ? $('<span class="otf-th-field-label"></span>')
+                                              .addClass('otf-th-role-' + f.role).text(f.label) : null)
+                            .append($input)
+                            // Its own unit (and what follows), where the row reads as a sentence
+                            .append(f.suffix ? $('<span class="otf-th-suffix text-muted"></span>').text(f.suffix) : null)
+                            .appendTo($cells);
+                    });
+                    // The unit right after the boxes
+                    if (r.step !== null && r.unit)
+                        $cells.append($('<span class="text-muted otf-th-unit"></span>').text(r.unit));
+                    $t.find('tbody').append($('<tr></tr>').append($show).append($label).append($cells));
+                });
+                $body.append($t);
+            });
+            var $files = $m.find('.otf-config-files').empty()
+                .append($('<option value=""></option>').text(cfg.files.length ? 'Load from another file of the project…'
+                                                                                : 'No other configuration file in the project'));
+            cfg.files.forEach(function(p) { $files.append($('<option></option>').attr('value', p).text(p)); });
+            $files.prop('disabled', !cfg.files.length);
+            $m.find('.otf-config-save').prop('hidden', !st.canEdit);
+            $m.find('.otf-config-readonly').prop('hidden', st.canEdit);
+        } else {
+            // A value changed elsewhere (a guide dragged) shows here, unless typed in
+            cfg.groups.forEach(function(g) { g.fields.forEach(function(f) {
+                var input = $body.find('.otf-th-input[data-key="' + f.key + '"][data-field="' +
+                                       (f.field === null ? '' : f.field) + '"]')[0];
+                if (!input || document.activeElement === input) return;
+                var v = otfThreshold(f.key, f.field);
+                if (f.step === null) input.checked = !!v;
+                else if (otfFieldValue(f, input) !== v)
+                    input.value = (v === null || v === undefined) ? '' : Number((v * f.scale).toPrecision(6));
+            }); });
+        }
+        // The show boxes: ticked when any of the row's plots is shown (the
+        // different field row has two); a click shows or hides them all
+        $body.find('.otf-th-show').each(function() {
+            var on = this.dataset.metrics.split(' ').map(function(m) { return !!otfThreshold('display', m); });
+            this.checked = on.some(Boolean);
+        });
+        otfPaintThresholds();
+    };
+    window.otfOpenThresholds = function() {
+        if (!otfConfigState().cfg) { showError('The thresholds are not loaded yet.'); return; }
+        otfRenderThresholds(true);
+        $(OTF_CONFIG_MODAL).modal('show');
+    };
+    // The values of a set of thresholds, as changes from the saved ones
+    function otfDraftFrom(thresholds) {
+        var saved = otfConfigState().cfg.saved, draft = {};
+        otfThFields().forEach(function(f) {
+            var v = otfThGet(thresholds, f.key, f.field);
+            if (v === undefined || v === otfThGet(saved, f.key, f.field)) return;
+            if (f.field === null) draft[f.key] = v;
+            else (draft[f.key] = draft[f.key] || {})[f.field] = v;
+        });
+        return draft;
+    }
+    /* One message at a time in the window, replaced by the next one and
+       gone after a few seconds unless it says something still true (a
+       file loaded and not saved: ms 0) */
+    var otfNoticeTimer = null;
+    function otfConfigNotice(text, kind, ms) {
+        window.clearTimeout(otfNoticeTimer);
+        var $n = $(OTF_CONFIG_MODAL).find('.otf-config-notice')
+            .removeClass('otf-notice-success otf-notice-info').addClass('otf-notice-' + (kind || 'info'))
+            .text(text || '').prop('hidden', !text);
+        if (text && ms !== 0)
+            otfNoticeTimer = window.setTimeout(function() { $n.prop('hidden', true).text(''); }, ms || 4000);
+    }
+    $(OTF_CONFIG_MODAL).on('click', '.otf-config-defaults', function() {
+        var defaults = otfConfigState().cfg.defaults;
+        // How many values in use are not the default ones, before
+        var n = otfThFields().filter(function(f) {
+            return otfThreshold(f.key, f.field) !== otfThGet(defaults, f.key, f.field); }).length;
+        var draft = otfDraftFrom(defaults);
+        otfSetDraft(draft);
+        otfRenderThresholds(true);
+        var unsaved = Object.keys(draft).length > 0;
+        otfConfigNotice(!n ? 'Every value is already the default one.' :
+                        'Default values restored (' + n + ' value' + (n === 1 ? '' : 's') + ')' +
+                        (unsaved ? ': not saved yet, Save configuration file keeps them.' : '.'),
+                        'info', unsaved ? 6000 : 4000);
+    }).on('click', '.otf-config-discard', function() {
+        var had = otfHasDraft();
+        otfSetDraft({});
+        otfRenderThresholds(true);
+        otfConfigNotice(had ? 'Changes discarded: back to the saved values.' : 'No changes to discard.');
+    }).on('click', '.otf-config-save', function() {
+        otfSaveConfig();
+    }).on('change', '.otf-config-files', function() {
+        var path = this.value, select = this;
+        if (!path) return;
+        send_ajax_json(Api.urls.tomo_otf_read_config,
+                       $.extend({}, OTF_SOURCE, {job_id: OTF_JOB_ID, path: path}),
+                       function(data) {
+                           select.value = '';
+                           if (data.error) { showError(data.error); return; }
+                           otfSetDraft(otfDraftFrom(data.config.thresholds));
+                           otfRenderThresholds(true);
+                           otfConfigNotice('Loaded from ' + path + ': not saved yet.', 'info', 0);
+                       });
+    });
+    /* Write the thresholds in use (the saved ones with the changes) to the
+       tilt analysis job's file, overwriting it.  The page is then judged
+       with what was saved. */
+    window.otfSaveConfig = function() {
+        var st = otfConfigState();
+        if (!st.cfg || !st.canEdit) return;
+        var $btn = $('.otf-config-save').prop('disabled', true);
+        send_ajax_json(Api.urls.tomo_otf_save_config,
+                       $.extend({}, OTF_SOURCE, {job_id: OTF_JOB_ID, thresholds: st.draft}),
+                       function(data) {
+                           $btn.prop('disabled', false);
+                           if (data.error) { showError(data.error); return; }
+                           var c = data.config;
+                           $.extend(st.cfg, {saved: c.saved, path: c.path, exists: true, error: null,
+                                             updated: c.updated, updatedBy: c.updatedBy,
+                                             source: 'OTF dashboard'});
+                           otfSetDraft({});
+                           otfRenderThresholds(true);
+                           otfConfigNotice('Saved to ' + c.path + '.', 'success');
+                       },
+                       function() { $btn.prop('disabled', false); ajax_request_failed.apply(this, arguments); });
+    };
+
     /* A larger view of an image over everything, closed by a click or Esc.
        It shows the image already loaded, so it opens at once. */
     var $lightbox = $('#otf-lightbox');
@@ -808,6 +1237,51 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
 </script>
 
 <div class="modal fade" id="otf-tiltseries-modal" tabindex="-1" role="dialog" aria-hidden="true"></div>
+
+{# The Thresholds window (otfOpenThresholds), filled from the content's config #}
+<div class="modal fade" id="otf-config-modal" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+<div class="modal-content">
+    <div class="modal-header align-items-baseline">
+        <h5 class="modal-title mr-3">Thresholds</h5>
+        <small class="text-muted otf-config-info"></small>
+        <button type="button" class="close ml-auto" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span></button>
+    </div>
+    <div class="modal-body pt-1">
+        <small class="d-block">Tilts and tilt series are judged with these thresholds, in the page
+            and the tilt series windows, the dashed lines can also be dragged. They are kept in the
+            tilt analysis job's configuration file only when saved; a tilt analyze and tilt curation
+            job (emw-tilt-curation) can load that file.</small>
+        <small class="d-block mt-1 otf-th-legend">Values:
+            <span class="otf-th-role-target font-weight-bold">target</span>,
+            <span class="otf-th-role-reject font-weight-bold">reject limit</span>.
+            <i class="far fa-check-square ml-1"></i> plot shown in the tilt series window.
+            Boxes: <span class="otf-th-badge otf-th-state-default">default</span>
+            <span class="otf-th-badge otf-th-state-draft">changed, not saved</span>
+            <span class="otf-th-badge otf-th-state-saved">changed and saved</span>.
+            An empty box is off: not used to judge or curate, and no dashed line.</small>
+        {# Thresholds changed and not saved yet (otfRenderDraft) #}
+        <div class="otf-draft-bar otf-th-state-draft py-1 px-2 mt-2" hidden></div>
+        <small class="d-block font-weight-bold mt-1 otf-config-few"></small>
+        <div class="otf-config-notice small py-1 px-2 mt-2" role="status" hidden></div>
+        <div class="otf-config-groups"></div>
+    </div>
+    <div class="modal-footer">
+        <select class="custom-select custom-select-sm w-auto mr-auto otf-config-files"></select>
+        <button type="button" class="btn btn-sm btn-outline-light otf-config-defaults"
+                title="Set every threshold to its default (not saved until Save configuration file)">Defaults</button>
+        <button type="button" class="btn btn-sm btn-outline-light otf-config-discard"
+                title="Back to the saved thresholds">Discard changes</button>
+        <small class="text-muted otf-config-readonly" hidden>read only: only the project owner,
+            its collaborators and managers can save</small>
+        <button type="button" class="btn btn-sm btn-primary otf-config-save"
+                title="Overwrite the configuration file of the tilt analysis job with these thresholds">
+            <i class="fas fa-save mr-1"></i>Save configuration file</button>
+    </div>
+</div>
+</div>
+</div>
 
 <div class="otf-lightbox" id="otf-lightbox" role="dialog" aria-label="Larger view">
     <figure><img alt=""><figcaption></figcaption></figure>

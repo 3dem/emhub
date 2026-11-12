@@ -29,8 +29,9 @@ from emhub.data.processing.tomo_otf import (
     OtfSession, TiltSeriesMetrics, STAGES, STATUS_OK, STATUS_SUSPECT, STATUS_BAD,
     STATUS_RUNNING, STATUS_FAILED, STATUSES_NEED_REVIEW, COL_TILT_ANGLE,
     COL_PRE_EXPOSURE, COL_MOVIE_INDEX, COL_CTF_CORRELATION, COL_IMAGE_TEXTURE,
-    COL_DARK_AREA, COL_MATCH_PEAK, COL_FIELD_SHIFT, _measured, _early_is_total)
+    COL_DARK_AREA, COL_MATCH_PEAK, COL_MATCH_NCC, COL_FIELD_SHIFT, _measured, _early_is_total)
 from emwrap.base.tilt_quality_curation import TiltQualityCuration
+from emwrap.base.tilt_qc_config import TiltQcConfig
 
 REASON_LABELS = TiltQualityCuration.REASON_LABELS
 
@@ -96,6 +97,143 @@ TRENDS = [
      'tilts that were mis-registered. Not used for triage until calibrated.'),
 ]
 
+# Nothing is measured from the refined tilt axis yet: its strip, table
+# column, session check and threshold are not shown (the code stays)
+SHOW_TILT_AXIS = False
+
+# The thresholds the page lets the user change (the Thresholds window), in
+# groups of rows, one row per measure with its thresholds from the smaller
+# to the bigger (by default): (label, unit, scale from the stored value to
+# the one shown, step of the inputs, [(key, field, label in the row,
+# role)]).  field None: a threshold with one value.  role colours the value
+# as the guides of the plots: 'target' amber, 'reject' red, 'other' plain.
+# A step None is an on/off value, shown as a checkbox.
+THRESHOLD_ROWS = [
+    ('Tilts: motion and CTF', 'Values written by motion correction and CTF estimation. '
+     'A tilt past a target is off target (amber); past a reject limit it is unusable (red) '
+     'and the curation rule leaves it out.', [
+        ('Accumulated motion', 'Å', 1.0, 1, [
+            ('motionTotal', 'target', 'target', 'target'),
+            ('motionTotal', 'reject', 'reject above', 'reject')]),
+        ('Early motion', 'Å', 1.0, 1, [
+            ('motionEarly', 'flag', 'flag above', 'target')]),
+        # Read as a sentence: target 7.5 Å up to ±20°, 9 Å from ±45° (linear
+        # in between) · reject worse than 10 Å.  Each value has its unit
+        # after it (the row has none) and the tilts their own step and name.
+        ('CTF fit resolution', '', 1.0, 0.1, [
+            ('ctfMaxResolution', 'lowTarget', 'target', 'target',
+             {'suffix': 'Å up to ±', 'unit': 'Å', 'name': 'CTF fit target at low tilt'}),
+            ('ctfMaxResolution', 'lowTilt', '', 'other',
+             {'suffix': '°,', 'unit': '°', 'step': 1, 'name': 'CTF fit target: low tilt up to ±'}),
+            ('ctfMaxResolution', 'highTarget', '', 'target',
+             {'suffix': 'Å from ±', 'unit': 'Å', 'name': 'CTF fit target at high tilt'}),
+            ('ctfMaxResolution', 'highTilt', '', 'other',
+             {'suffix': '°', 'unit': '°', 'step': 1, 'name': 'CTF fit target: high tilt from ±'}),
+            ('ctfMaxResolution', 'reject', '· reject worse than', 'reject',
+             {'suffix': 'Å', 'unit': 'Å', 'name': 'CTF fit resolution reject worse than'})]),
+        ('CTF profile correlation', '', 1.0, 0.01, [
+            ('ctfCorrelation', 'reject', 'reject below', 'reject'),
+            ('ctfCorrelation', 'target', 'target', 'target')]),
+        ('CTF figure of merit', '', 1.0, 0.01, [
+            ('ctfFigureOfMerit', 'reject', 'reject below', 'reject')]),
+        ('Astigmatism', 'µm', 1e-4, 0.05, [
+            ('astigmatism', 'reject', 'reject above', 'reject')]),
+        ('Defocus', 'µm', 1e-4, 0.5, [
+            ('defocus', 'reject', 'reject above (or overfocus)', 'reject')]),
+    ]),
+    ('Tilts: image content', 'Measured on the tilt jpegs, relative to the tilt series.', [
+        ('Blank: image texture', '% of series median', 100.0, 5, [
+            ('imageTexture', 'reject', 'reject below', 'reject')]),
+        ('Blacked out: black area above the series median', '% of field', 100.0, 1, [
+            ('darkArea', 'reject', 'reject above', 'reject')]),
+        ('Different field: match with the tilt before', '', 1.0, 0.01, [
+            ('neighbourMatch', 'peak', 'phase correlation below', 'reject'),
+            ('neighbourMatch', 'ncc', 'and normalised correlation below', 'reject')]),
+        ('Shifted: field shift from the first tilt', '% of field', 100.0, 5, [
+            ('fieldShift', 'reject', 'reject above', 'reject')]),
+        ('Leave out the tilts after one that lost the field', '', 1.0, None, [
+            ('fieldLoss', 'beyond', '', 'other')]),
+    ]),
+    ('Tilt series', 'How a tilt series is categorized from its tilts.', [
+        ('Needs review: dropped or unusable tilts above', '% of tilts', 100.0, 5, [
+            ('droppedFraction', 'suspect', '', 'target')]),
+        ('Needs review: tilts with high early motion above', '% of tilts', 100.0, 5, [
+            ('earlyMotionFraction', 'suspect', '', 'target')]),
+        ('Poor: usable tilts below', '% of tilts', 100.0, 5, [
+            ('usableFraction', 'bad', '', 'reject')]),
+        ('Too few tilts kept: below', '% of tilts', 100.0, 5, [
+            ('tiltsKept', 'min', '', 'reject')]),
+    ] + ([('Session: tilt axis spread above', '°', 1.0, 0.1, [
+            ('tiltAxisSessionStd', None, '', 'target')])] if SHOW_TILT_AXIS else [])),
+]
+
+
+def _field_extra(f):
+    """ What a field of a THRESHOLD_ROWS row has apart from the row:
+    (key, field, label, role) or (key, field, label, role, {'suffix': text
+    after its box, 'unit', 'step', 'name': in the list of changes}). """
+    return f[4] if len(f) > 4 else {}
+
+
+
+# The step of each threshold's inputs, also for the boxes of the plots
+THRESHOLD_STEPS = {(f[0], f[1]): _field_extra(f).get('step', step) for _, _, rows in THRESHOLD_ROWS
+                   for _, _, _, step, fields in rows for f in fields}
+# Help of a threshold, where its label is not enough
+THRESHOLD_HELP = {
+    ('tiltsKept', 'min'): 'Tilt series that would keep fewer than this share of their tilts, '
+                          'once the tilts the curation rule proposes and those unticked are '
+                          'left out, are listed for review (they are not deselected). The '
+                          'tilt curation job (emw-tilt-curation) loading this file leaves '
+                          'them out. Empty: not used.',
+    ('usableFraction', 'bad'): 'Without "Too few tilts kept", Propose exclusions lists the '
+                               'tilt series under this limit for review.',
+}
+
+# The name of each strip's metric in the configuration's 'display' (which
+# plots the tilt series window shows, TiltQcConfig.DISPLAY_DEFAULTS)
+STRIP_METRIC = {
+    'rlnAccumMotionTotal': 'motionTotal', 'rlnAccumMotionEarly': 'motionEarly',
+    'rlnDefocusU': 'defocus', 'rlnCtfAstigmatism': 'astigmatism',
+    'rlnCtfMaxResolution': 'ctfResolution', COL_CTF_CORRELATION: 'ctfCorrelation',
+    'rlnCtfFigureOfMerit': 'ctfFigureOfMerit', COL_IMAGE_TEXTURE: 'imageTexture',
+    COL_DARK_AREA: 'darkArea', COL_MATCH_PEAK: 'matchPeak', COL_MATCH_NCC: 'matchNcc',
+    COL_FIELD_SHIFT: 'fieldShift', 'rlnTomoZRot': 'tiltAxis',
+}
+# The plots a row of the Thresholds window shows or hides (its "show" box),
+# by the threshold of its first field
+ROW_METRICS = {
+    'motionTotal': ['motionTotal'], 'motionEarly': ['motionEarly'],
+    'ctfMaxResolution': ['ctfResolution'], 'ctfCorrelation': ['ctfCorrelation'],
+    'ctfFigureOfMerit': ['ctfFigureOfMerit'], 'astigmatism': ['astigmatism'],
+    'defocus': ['defocus'], 'imageTexture': ['imageTexture'], 'darkArea': ['darkArea'],
+    'neighbourMatch': ['matchPeak', 'matchNcc'], 'fieldShift': ['fieldShift'],
+}
+
+# The thresholds of each strip, from the smaller to the bigger (by default):
+# (key, field, label of its box, role, guide).  Each is drawn in the strip
+# and has a box beside its title; guide 'level' is a dashed line that can
+# be dragged, 'tilt' a value of the CTF fit target, which follows the tilt
+# angle (drawn as one tick per tilt, changed in its box only).
+STRIP_THRESHOLDS = {
+    'rlnAccumMotionTotal': [('motionTotal', 'target', 'target', 'target', 'level'),
+                            ('motionTotal', 'reject', 'reject', 'reject', 'level')],
+    'rlnAccumMotionEarly': [('motionEarly', 'flag', 'flag', 'target', 'level')],
+    'rlnDefocusU': [('defocus', 'reject', 'reject', 'reject', 'level')],
+    'rlnCtfAstigmatism': [('astigmatism', 'reject', 'reject', 'reject', 'level')],
+    'rlnCtfMaxResolution': [('ctfMaxResolution', 'lowTarget', 'target low tilt', 'target', 'tilt'),
+                            ('ctfMaxResolution', 'highTarget', 'high tilt', 'target', 'tilt'),
+                            ('ctfMaxResolution', 'reject', 'reject', 'reject', 'level')],
+    COL_CTF_CORRELATION: [('ctfCorrelation', 'reject', 'reject', 'reject', 'level'),
+                          ('ctfCorrelation', 'target', 'target', 'target', 'level')],
+    'rlnCtfFigureOfMerit': [('ctfFigureOfMerit', 'reject', 'reject', 'reject', 'level')],
+    COL_IMAGE_TEXTURE: [('imageTexture', 'reject', 'reject', 'reject', 'level')],
+    COL_DARK_AREA: [('darkArea', 'reject', 'reject', 'reject', 'level')],
+    COL_MATCH_PEAK: [('neighbourMatch', 'peak', 'reject', 'reject', 'level')],
+    COL_MATCH_NCC: [('neighbourMatch', 'ncc', 'reject', 'reject', 'level')],
+    COL_FIELD_SHIFT: [('fieldShift', 'reject', 'reject', 'reject', 'level')],
+}
+
 # Per-tilt strips in the detail view, all sharing the tilt axis:
 # (column, label, unit, scale).  All drawn as points: defocus and tilt axis
 # have no natural zero, and mixing bars and points in one stack reads as
@@ -104,6 +242,7 @@ TILT_STRIPS = [
     ('rlnAccumMotionTotal', 'Accumulated motion', 'Å', 1.0),
     ('rlnAccumMotionEarly', 'Early motion', 'Å', 1.0),
     ('rlnDefocusU', 'Defocus', 'µm', 1e-4),
+    ('rlnCtfAstigmatism', 'Astigmatism', 'µm', 1e-4),
     ('rlnCtfMaxResolution', 'CTF fit resolution', 'Å', 1.0),
     (COL_CTF_CORRELATION, 'CTF profile correlation', '', 1.0),
     ('rlnCtfFigureOfMerit', 'CTF figure of merit', '', 1.0),
@@ -111,9 +250,9 @@ TILT_STRIPS = [
     (COL_IMAGE_TEXTURE, 'Image texture', '% of series median', 100.0),
     (COL_DARK_AREA, 'Black area above series median', '% of field', 100.0),
     (COL_MATCH_PEAK, 'Match with the tilt before', 'phase correlation', 1.0),
+    (COL_MATCH_NCC, 'Match with the tilt before', 'normalised correlation', 1.0),
     (COL_FIELD_SHIFT, 'Field shift from first tilt', '% of field', 100.0),
-    ('rlnTomoZRot', 'Refined tilt axis', '°', 1.0),
-]
+] + ([('rlnTomoZRot', 'Refined tilt axis', '°', 1.0)] if SHOW_TILT_AXIS else [])
 
 
 def _rolling_median(values, window=7):
@@ -144,19 +283,21 @@ FINGERPRINT_SOURCES = [
     ('rlnAccumMotionTotal', 0.0, 40.0, 'motion'),
 ]
 # Keys set by TiltSeriesMetrics._judge_tilts in t['reject'] / t['offTarget']
-TILT_FLAG_LABELS = dict(REASON_LABELS, ctf='CTF fit', early='early motion')
+TILT_FLAG_LABELS = dict(REASON_LABELS, ctf='CTF fit', early='early motion',
+                        matchPeak='low phase correlation with the tilt before (normalised correlation fine)',
+                        matchNcc='low normalised correlation with the tilt before (phase correlation fine)')
 # The per-tilt flags each detail strip shows.  Each strip is colored by its
 # own metric only, so a tilt bad in one metric reads differently from a
 # tilt bad in all of them.
 STRIP_FLAG_KEYS = {
     'rlnAccumMotionTotal': ('motion',), 'rlnAccumMotionEarly': ('early',),
-    'rlnDefocusU': ('defocus', 'astigmatism'),
+    'rlnDefocusU': ('defocus',), 'rlnCtfAstigmatism': ('astigmatism',),
     'rlnCtfMaxResolution': ('ctf',), COL_CTF_CORRELATION: ('ctfcorr',),
     'rlnCtfFigureOfMerit': ('fom',),
     COL_IMAGE_TEXTURE: ('blank',), COL_DARK_AREA: ('blacked',),
-    # A different field also needs a low normalised correlation, so a low
-    # peak alone stays blue
-    COL_MATCH_PEAK: ('field',), COL_FIELD_SHIFT: ('shifted',),
+    # A different field needs both matches low (red); one alone is amber
+    COL_MATCH_PEAK: ('field', 'matchPeak'), COL_MATCH_NCC: ('field', 'matchNcc'),
+    COL_FIELD_SHIFT: ('shifted',),
 }
 
 
@@ -532,7 +673,8 @@ def register_content(dc):
         return {'x': x, 'colors': colors, 'symbols': symbols, 'names': names,
                 'statuses': statuses, 'plots': series}
 
-    def _table_rows(ts_list, sort='worst', filter='all', page=1, page_size=TABLE_PAGE_SIZE):
+    def _table_rows(ts_list, sort='worst', filter='all', page=1, page_size=TABLE_PAGE_SIZE,
+                    few_kept=None):
         """ One page of the table, sorted and filtered over all the tilt
         series first, so every row can be reached in order.  Rows are sent
         a page at a time because each carries its fingerprint svg and the
@@ -541,6 +683,8 @@ def register_content(dc):
         of pages. """
         if filter == 'attn':
             ts_list = [t for t in ts_list if t.status in STATUSES_NEED_REVIEW]
+        elif filter == 'fewkept':
+            ts_list = [t for t in ts_list if t.tomoName in (few_kept or {})]
         n_pages = max(1, -(-len(ts_list) // page_size))
         page = min(max(1, page), n_pages)
         rows = []
@@ -613,6 +757,8 @@ def register_content(dc):
         """
         source = resolve_tomo_otf_source(dc.app.dm, dc.app.user, **kwargs)
         path, raw_path = source['path'], source['raw_path']
+        # Thresholds changed on the page and not saved yet, as json
+        draft = kwargs.get('otf_draft') or None
 
         info = {
             'entry': source['entry'],
@@ -639,10 +785,13 @@ def register_content(dc):
             info['error'] = f'Processing path not found: {raw_path}'
             return info
         try:
+            if isinstance(draft, str):
+                draft = json.loads(draft)
             session = OtfSession(path, analysis_job=info['job_id'] or None,
                                  thresholds=source['thresholds'],
                                  align_job=info['align_job'] or None,
-                                 tomo_job=info['tomo_job'] or None)
+                                 tomo_job=info['tomo_job'] or None,
+                                 draft_thresholds=draft)
             info['job_id'] = session.analysis_job.id
             info['downstream'] = session.downstream()
             info['analysisJobs'] = [{'id': j.id, 'alias': j.alias, 'status': j.status,
@@ -670,6 +819,52 @@ def register_content(dc):
             return int(kwargs.get(key, default))
         except (TypeError, ValueError):
             return default
+
+    def _display_fields():
+        """ The plots the tilt series window can show, as fields of the
+        configuration's 'display', named for the list of changes. """
+        names = {COL_MATCH_PEAK: 'match (phase correlation)',
+                 COL_MATCH_NCC: 'match (normalised correlation)'}
+        return [{'key': 'display', 'field': STRIP_METRIC[col], 'role': 'other',
+                 'name': f'Show the {names.get(col, label.lower())} plot',
+                 'label': names.get(col, label), 'scale': 1.0, 'unit': '', 'step': None}
+                for col, label, _, _ in TILT_STRIPS if col in STRIP_METRIC]
+
+    def _config_state(session, few_kept):
+        """ What the Thresholds window and the drag of the guides need:
+        the file, the thresholds as saved and the defaults (the page keeps
+        its unsaved changes itself), the fields to show, the other files of
+        the project, and the tilt series keeping too few tilts. """
+        cfg = session.config()
+        groups = []
+        for label, help_text, rows in THRESHOLD_ROWS:
+            out = []
+            for rlabel, unit, scale, step, fields in rows:
+                out.append({'label': rlabel, 'unit': unit, 'step': step,
+                            'metrics': ROW_METRICS.get(fields[0][0], []), 'fields': [
+                    {'key': k, 'field': f, 'label': flabel, 'role': role,
+                     'unit': extra.get('unit', unit), 'suffix': extra.get('suffix', ''),
+                     'scale': scale, 'step': extra.get('step', step),
+                     # The whole name, for the list of changes
+                     'name': extra.get('name') or rlabel + (' ' + flabel if flabel else ''),
+                     'help': THRESHOLD_HELP.get((k, f), '')}
+                    for k, f, flabel, role, extra in
+                    ((*fd[:4], _field_extra(fd)) for fd in fields)]})
+            # Every field of the group, as the page lists them
+            groups.append({'label': label, 'help': help_text, 'rows': out,
+                           'fields': [f for r in out for f in r['fields']]})
+        return {
+            'path': cfg['path'], 'exists': cfg['exists'], 'error': cfg['error'],
+            'updated': cfg['updated'], 'updatedBy': cfg['updatedBy'],
+            'source': cfg['source'], 'loadedFrom': cfg['loadedFrom'],
+            'saved': cfg['saved'], 'defaults': TiltQcConfig.DEFAULT_THRESHOLDS,
+            'groups': groups, 'files': session.config_files(),
+            # The plots shown, as fields of 'display' (listed with the changes)
+            'displayFields': _display_fields(),
+            'keptLimit': TiltQcConfig.tilts_kept_min(session.thresholds),
+            'fewKept': sorted(([n, round(v, 3)] for n, v in few_kept.items()),
+                              key=lambda x: x[1]),
+        }
 
     def _selection_state(session):
         """ The stored selection, without its export history. """
@@ -753,10 +948,12 @@ def register_content(dc):
                 t.values('rlnAccumMotionEarly'), t.values('rlnAccumMotionTotal'))
             for t in ts_list)
 
+        proposals = session.proposal_inputs()
+        few_kept = session.few_tilts_kept(inputs=proposals)
         rows, n_rows_total, page, n_pages = _table_rows(
             ts_list, sort=kwargs.get('sort', 'worst'),
             filter=kwargs.get('filter', 'all'),
-            page=_int(kwargs, 'page', 1))
+            page=_int(kwargs, 'page', 1), few_kept=few_kept)
         # The column header names what the fingerprints show, the same on
         # every page
         fingerprint_label = next(
@@ -775,7 +972,9 @@ def register_content(dc):
             'owner': owner.name if owner else '',
             'staff': ', '.join(u.name for u in collaborators),
             'notReported': summary['notReported'],
-            'warnings': summary['warnings'],
+            'warnings': summary['warnings'] + (
+                [summary['tiltAxisWarning']] if SHOW_TILT_AXIS and summary['tiltAxisWarning'] else []),
+            'showTiltAxis': SHOW_TILT_AXIS,
             'state': _session_state(summary),
             'counters': counters,
             'stages': stages,
@@ -800,7 +999,9 @@ def register_content(dc):
             'allSeries': [{'name': t.tomoName, 'status': t.status} for t in ts_list],
             # What the page proposes exclusions and makes subsets from, for
             # its selection as it is there
-            'proposals': session.proposal_inputs(),
+            'proposals': proposals,
+            # The thresholds: saved, defaults, and what the page edits
+            'config': _config_state(session, few_kept),
             'subsetInput': session.subset_input(),
             'selectBy': [dict(STATUS_STYLE[s], key=s) for s in (STATUS_OK, STATUS_SUSPECT,
                                                                STATUS_BAD, STATUS_FAILED)],
@@ -832,26 +1033,13 @@ def register_content(dc):
         th = session.thresholds
         ctf_th = th['ctfMaxResolution']
 
-        def pct(v):       # a limit turned off (None) draws no guide
-            return None if v is None else 100 * v
-        # Dashed guides per strip: the target and the reject limit.  The CTF
-        # target follows the tilt angle, so it is a line rather than a level.
-        guides = {
-            'rlnAccumMotionTotal': (th['motionTotal']['target'],
-                                    th['motionTotal']['reject']),
-            'rlnAccumMotionEarly': (th['motionEarly']['flag'], None),
-            'rlnCtfMaxResolution': (
-                [TiltSeriesMetrics.ctf_target(t.get(COL_TILT_ANGLE), ctf_th)
-                 for t in tilts] if None not in (ctf_th.get('lowTarget'), ctf_th.get('highTarget'))
-                else None, ctf_th.get('reject')),
-            COL_CTF_CORRELATION: (th['ctfCorrelation']['target'],
-                                  th['ctfCorrelation']['reject']),
-            # In the strips' units (percent where the scale is 100)
-            COL_IMAGE_TEXTURE: (None, pct(th['imageTexture'].get('reject'))),
-            COL_DARK_AREA: (None, pct(th['darkArea'].get('reject'))),
-            COL_MATCH_PEAK: (None, th['neighbourMatch'].get('peak')),
-            COL_FIELD_SHIFT: (None, pct(th['fieldShift'].get('reject'))),
-        }
+        def threshold(key, field):
+            v = th.get(key)
+            return v if field is None else (v or {}).get(field)
+        # The CTF fit target at each tilt, when every part of it is set
+        ctf_targets = ([TiltSeriesMetrics.ctf_target(t.get(COL_TILT_ANGLE), ctf_th) for t in tilts]
+                       if None not in (ctf_th.get('lowTarget'), ctf_th.get('highTarget'),
+                                       ctf_th.get('lowTilt'), ctf_th.get('highTilt')) else None)
 
         strips = []
         for col, label, unit, scale in TILT_STRIPS:
@@ -863,14 +1051,27 @@ def register_content(dc):
                     values, [_measured(t.get('rlnAccumMotionTotal'), 'rlnAccumMotionTotal')
                              for t in tilts]):
                 continue
-            target, reject = guides.get(col, (None, None))
             styles = [_strip_style(t, STRIP_FLAG_KEYS.get(col, ())) for t in tilts]
-            strips.append({'key': col, 'label': label, 'unit': unit,
+            # Its thresholds, as judged with (the page's unsaved changes
+            # too), in the strip's units: a box each, and their guides
+            controls, per_tilt = [], None
+            for key, field, clabel, role, kind in STRIP_THRESHOLDS.get(col, []):
+                v = threshold(key, field)
+                controls.append({'key': key, 'field': field, 'label': clabel, 'role': role,
+                                 'kind': kind, 'scale': scale,
+                                 'step': THRESHOLD_STEPS.get((key, field)),
+                                 'value': None if v is None else float(f'{v * scale:.6g}')})
+                if kind == 'tilt' and ctf_targets:
+                    per_tilt = [None if c is None else c * scale for c in ctf_targets]
+            metric = STRIP_METRIC.get(col)
+            strips.append({'key': col, 'label': label, 'unit': unit, 'scale': scale,
+                           'metric': metric,
+                           'display': bool((th.get('display') or {}).get(metric, True)),
                            'values': [None if v is None else v * scale
                                       for v in values],
                            'colors': [c for c, _ in styles],
                            'symbols': [m for _, m in styles],
-                           'target': target, 'reject': reject})
+                           'controls': controls, 'perTiltTarget': per_tilt})
 
         # One note and one filmstrip entry per tilt, in plot order; a tilt
         # without a jpeg keeps its slot so the strip stays aligned with the
