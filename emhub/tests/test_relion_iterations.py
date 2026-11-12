@@ -221,9 +221,15 @@ class TestRelionIterations(unittest.TestCase):
         table = build_job_view_table(self.root, value)
         self.assertEqual([r['cells']['it'] for r in table['rows']], ['Overall', 2, 1])
         cells = table['rows'][1]['cells']
-        self.assertEqual(cells['classes'], 3)
+        self.assertNotIn('classes', cells)
+        self.assertNotIn('classes', [c['id'] for c in table['columns']])
         self.assertEqual(cells['changesClasses'], 5.0)  # 0.1 / 2, in %
-        self.assertEqual(table['rows'][1]['actions'][0]['id'], 'volumes')
+        # The plots and the classes of an iteration: two buttons of the row
+        show = table['rows'][1]['cellContexts']['show']['actions']
+        self.assertEqual([(a['id'], a['label']) for a in show],
+                         [('iteration', 'plots'), ('volumes', 'classes')])
+        self.assertEqual(table['rows'][1]['actions'], [])
+        self.assertNotIn('cellContexts', table['rows'][0])
 
         pane = build_job_view_pane(self.root, value, 'overall', {'optimiser': 'overall'})
         dist = pane['cells']['bottomRight']['figure']['data']
@@ -239,6 +245,20 @@ class TestRelionIterations(unittest.TestCase):
         self.assertEqual(len(ssnr['figure']['data']), 3)
         self.assertEqual(ssnr['figure']['layout']['yaxis']['type'], 'log')
         self.assertEqual(pane['cells']['right']['figure']['data'][0]['y'], [50.0, 40.0, 10.0])
+
+        # The classes: compact cells (the viewer takes the cell), the box in
+        # the title, most populated first
+        import numpy as np
+        import mrcfile
+        for c in (1, 2, 3):
+            with mrcfile.new(os.path.join(self.root, job, f'run_it002_class{c:03d}.mrc')) as m:
+                m.set_data(np.random.rand(16, 16, 16).astype(np.float32))
+        pane = build_job_view_pane(self.root, value, 'volumes',
+                                   {'optimiser': 'run_it002_optimiser.star'})
+        cells = [pane['cells'][s] for s in ('topLeft', 'topRight', 'bottomLeft')]
+        self.assertTrue(all(c['compact'] for c in cells))
+        self.assertTrue(cells[0]['title'].startswith('Class 1 — 50.0%'))
+        self.assertTrue(all(c['title'].endswith(' · 16³') for c in cells))
 
     def _maps(self, job, names):
         for name in names:

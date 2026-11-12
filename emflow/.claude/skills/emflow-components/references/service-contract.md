@@ -216,7 +216,10 @@ table: TableViewerData = {
   or subset, Class3D...), of the job reached back through its input coordinates / particles /
   optimisation sets (`_find_template_path`, up to 40 jobs) — `density` of the volume for
   the 3D volume tab and `viewerConfig` for the VolumeViewer tabs, tools and
-  defaults) is shown by `VolumeViewer`. The X, Y, Z slices may be missing
+  defaults; `compact: true` for small cells, e.g. the 2 x 2 grid of the most
+  populated classes of a Class3D iteration (Analyze Results): no "Volume
+  dimensions" line, the host puts the box in the title, and less padding,
+  so the viewer takes the cell) is shown by `VolumeViewer`. The X, Y, Z slices may be missing
   when `density` is inline (the slices are drawn from it). The volume
   `density` is inline (`VolumeDensity`: `{shape: [z, y, x], binning, data:
   base64 uint8, valueRange, stats {min, max, mean, std}, histogram {range,

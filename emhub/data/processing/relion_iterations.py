@@ -17,7 +17,8 @@ rlnChangesOptimalClasses). The rows show:
     end), the FSC between the half maps (gold standard) and the SSNR.
   - An iteration of Class3D: the SSNR of the classes (as relion_star_plottable
     ... data_model_class_N rlnResolution rlnSsnrMap) and the class
-    distribution; its most populated class volumes with the 'classes' action.
+    distribution ('plots'); its most populated class volumes ('classes'),
+    both buttons of the Show column of the row.
 
     data = load_relion_iterations(root, job_dir, refine)
     table = build_iterations_table(data, title)
@@ -45,6 +46,9 @@ ACTION_OVERALL = {'id': 'overall', 'label': 'plots'}
 ACTION_ITERATION = {'id': 'iteration', 'label': 'results'}
 ACTION_VOLUMES = {'id': 'volumes', 'label': 'classes'}
 OVERALL_ROW = 'overall'
+# Class3D: the plots or the classes of an iteration, two buttons in a column
+# (always visible; a click on another row shows the same for it)
+SHOW_COLUMN = 'show'
 
 # Class volumes shown for an iteration of a 3D classification (a 2 x 2 grid)
 MAX_CLASS_VOLUMES = 4
@@ -213,7 +217,7 @@ def build_iterations_table(data, title):
     if not data.refine:
         columns.append({'id': 'changesClasses', 'label': 'Δ classes (%)',
                         'align': 'right', 'sortable': True})
-        columns.append({'id': 'classes', 'label': 'Classes', 'align': 'right'})
+        columns.append({'id': SHOW_COLUMN, 'label': 'Show', 'align': 'left'})
     columns.append({'id': 'pmax', 'label': 'Pmax', 'align': 'right', 'sortable': True})
 
     rows = [{'id': OVERALL_ROW, 'cells': {'it': 'Overall', 'optimiser': OVERALL_ROW},
@@ -231,12 +235,14 @@ def build_iterations_table(data, title):
             'changesOffsets': _round(v.get('changesOffsets'), 3),
             'changesClasses': (None if changes_classes is None
                                else round(100 * changes_classes, 2)),
-            'classes': len(i.classes),
             'pmax': _round(v.get('pmax'), 3),
         }
-        rows.append({'id': i.name, 'cells': cells,
-                     'actions': [] if data.refine else [dict(ACTION_VOLUMES)],
-                     'defaultAction': dict(ACTION_ITERATION)})
+        row = {'id': i.name, 'cells': cells, 'actions': [],
+               'defaultAction': dict(ACTION_ITERATION)}
+        if not data.refine:
+            row['cellContexts'] = {SHOW_COLUMN: {'actions': [
+                dict(ACTION_ITERATION, label='plots'), dict(ACTION_VOLUMES)]}}
+        rows.append(row)
 
     n = sum(not i.final for i in data.iterations)
     info = f'{n} iterations'
@@ -471,7 +477,7 @@ def _class_distribution_bars(it):
 def build_iteration_results_pane(root, data, it):
     """ Results of an iteration. Refine3D: its map on the left, the FSC and
     the SSNR on the right; Class3D: the SSNR and the distribution of the
-    classes (their volumes with the 'classes' action). """
+    classes (their volumes with the 'classes' button). """
     if data.refine:
         return {'kind': 'grid', 'title': f'{it.label} — {os.path.basename(it.model)}',
                 'layout': 'span-left',
@@ -532,9 +538,21 @@ def build_iteration_volumes_pane(root, data, it):
         return _volume(f'{it.label} — {cells[0][0]}', cells[0][1], CLASS3D_MAX_VOXELS)
     slots = ('topLeft', 'topRight', 'bottomLeft', 'bottomRight')
     max_voxels = CLASS3D_MAX_VOXELS // len(cells)
+
+    def _cell(title, volume):
+        # Small cells: the viewer takes the cell (no dimensions line, less
+        # padding), the box in the title
+        content = _volume(title, volume, max_voxels)
+        dims = content.get('dimensions') or []
+        if dims:
+            box = f'{dims[0]}³' if len(set(dims)) == 1 else ' × '.join(map(str, dims))
+            content['title'] = f'{title} · {box}'
+        content['compact'] = True
+        return content
+
     return {'kind': 'grid', 'title': f'{it.label} — {len(cells)} most populated classes',
             'layout': '2x2' if len(cells) > 2 else 'cols',
-            'cells': {slot: _volume(t, v, max_voxels)
+            'cells': {slot: _cell(t, v)
                       for slot, (t, v) in zip(slots if len(cells) > 2 else ('left', 'right'),
                                               cells)}}
 
