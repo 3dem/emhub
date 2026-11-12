@@ -857,6 +857,16 @@ var svc = {
     return { tagIds: newTagIds };
   },
 
+  // Workflow > Computing Summary: resources used by the selected jobs
+  async getComputingSummaryUrl(projectId, protocolIds) {
+    // The OTF project of a session is loaded from the session
+    var args = project_details.session_id
+        ? '&session_id=' + encodeURIComponent(project_details.session_id)
+        : '&entry_id=' + encodeURIComponent(project_details.id);
+    return "{{ url_for_content('computing_summary') }}" + args
+        + '&job_ids=' + encodeURIComponent((protocolIds || []).join(','));
+  },
+
   async getContextMenuVisibilityPolicy(projectId) {
     return {
       open: true,
@@ -876,6 +886,7 @@ var svc = {
       manageTags: true,
       openProtocolClass: true,
       export: true,
+      computingSummary: true,
       upload: false,
       nextSteps: false,
     };

@@ -1539,6 +1539,11 @@ export interface ProjectService<
     payload: WorkflowImportRequestPayload,
   ): Promise<WorkflowImportResult>;
 
+  // Optional (without it the menu item is hidden): URL of a host page with the
+  // computing resources (node, queue, CPUs, GPUs, memory) used by the given
+  // protocols, opened from the node menu "Workflow > Computing Summary".
+  getComputingSummaryUrl?(projectId: Id, protocolIds: Id[]): Promise<string>;
+
   writeRemoteFile(
     projectId: Id,
     protocolId: Id,

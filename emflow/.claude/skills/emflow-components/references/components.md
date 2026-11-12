@@ -83,8 +83,8 @@ Expected behavior:
   continue all, Mod+Shift+S stop, Alt+Down/Up select from/to.
 - **Node menu** items (`types/protocol-node-menu-items.ts`): open, browse,
   rename, duplicate, copyWorkflow, pasteWorkflow, delete, restart, continue,
-  reset, stop, selectFrom, selectTo, collapse, manageTags, export, upload,
-  nextSteps. Visibility comes from `svc.getContextMenuVisibilityPolicy()`
+  reset, stop, selectFrom, selectTo, collapse, manageTags, export,
+  computingSummary, upload, nextSteps. Visibility comes from `svc.getContextMenuVisibilityPolicy()`
   (`collapse` is shown unless `false`); hidden items must not be reachable by
   shortcut either.
 - **Collapsed groups** (tree views only): "Collapse" (jobs with children,
@@ -122,7 +122,9 @@ Expected behavior:
   `{status, errors, workflow}` update the graph.
 - **Copy / paste protocols** (Mod+C / Mod+V on one or more selected
   nodes; node menus "Workflow" submenu with Duplicate, "Copy", "Paste" and
-  Export, with their shortcuts; canvas menu "Paste" with its shortcut): copy calls
+  Export, with their shortcuts, and "Computing Summary" (only with
+  `svc.getComputingSummaryUrl`: opens the returned host page in a new tab
+  for the selected protocols); canvas menu "Paste" with its shortcut): copy calls
   `exportWorkflowProtocols` with the selected protocols (from a node menu,
   the clicked node alone when it is not selected) and keeps the result in
   `components/projects/workflowClipboard.ts` (localStorage key

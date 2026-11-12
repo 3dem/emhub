@@ -1346,6 +1346,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     copyWorkflow: true,
     pasteWorkflow: true,
     export: true,
+    computingSummary: true,
     manageTags: true,
     nextSteps: true,
     rename: true,

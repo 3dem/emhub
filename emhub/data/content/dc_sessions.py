@@ -288,6 +288,28 @@ def register_content(dc):
         return processing_content(**kwargs)
 
     @dc.content
+    def computing_summary(**kwargs):
+        """ Computing resources used by the jobs of a processing project
+        (entry_id, session_id or path), all or the ones in job_ids (comma
+        separated), e.g. from the widget 'Workflow > Computing Summary'. """
+        ppDict = dc.app.dm.get_processing_project(**kwargs)
+        pp = ppDict['project']
+        if not hasattr(pp, 'get_computing_summary'):
+            raise Exception("Computing summary is only available for "
+                            "Relion/emwrap projects.")
+        job_ids = [j for j in kwargs.get('job_ids', '').split(',') if j.strip()]
+        data = pp.get_computing_summary(job_ids)
+
+        def _hms(seconds):
+            return Pretty.delta(dt.timedelta(seconds=int(seconds or 0)))
+
+        for row in data['jobs']:
+            row['elapsed_str'] = _hms(row['elapsed'])
+        data['totals']['elapsed_str'] = _hms(data['totals']['elapsed'])
+        data.update(processing_path=pp.path, selected=bool(job_ids))
+        return data
+
+    @dc.content
     def session_flowchart(**kwargs):
         session = dc.app.dm.get_session_by(id=kwargs['session_id'])
         data = processing_content(**kwargs)

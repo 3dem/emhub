@@ -17,6 +17,7 @@ export type NodeMenuItemId =
   | "collapse"
   | "manageTags"
   | "export"
+  | "computingSummary"
   | "upload"
   | "nextSteps";
 

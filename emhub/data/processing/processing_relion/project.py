@@ -68,6 +68,68 @@ def _output_prefix(job, output_id):
     return ''
 
 
+def _read_tail(path, size=65536):
+    """ Last bytes of a text file (e.g. a large run.out), '' if missing. """
+    try:
+        with open(path, 'rb') as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - size))
+            return f.read().decode('utf-8', errors='replace')
+    except OSError:
+        return ''
+
+
+LSF_JOB_RE = re.compile(r'Subject: Job (\d+):')
+LSF_EXEC_RE = re.compile(r'Job was executed on host\(s\) (.+?), in queue <([^>]+)>', re.S)
+LSF_HOST_RE = re.compile(r'<(?:(\d+)\*)?([^>]+)>')
+LSF_MEM_RE = re.compile(r'^\s*(Max|Average) Memory :\s*(.+?)\s*$', re.M)
+
+
+def lsf_job_report(run_out):
+    """ Values of the last LSF job report appended to the job output file
+    (job_id, hosts, cpus, queue, max_mem, avg_mem), or None. E.g:
+        Subject: Job 330047105: <...> in cluster <...> Done
+        Job was executed on host(s) <24*nodegpu267>, in queue <gpu_rtx>, ...
+            Max Memory :                                 1253 MB
+            Average Memory :                             73.00 MB
+    """
+    text = _read_tail(run_out)
+    i = text.rfind('Subject: Job ')
+    if i < 0:
+        return None
+    text = text[i:]
+    report = {}
+    if m := LSF_JOB_RE.search(text):
+        report['job_id'] = m.group(1)
+    if m := LSF_EXEC_RE.search(text):
+        hosts = LSF_HOST_RE.findall(m.group(1))
+        report['hosts'] = ' '.join(sorted({h for _, h in hosts}))
+        report['cpus'] = sum(int(n or 1) for n, _ in hosts)
+        report['queue'] = m.group(2)
+    for key, value in LSF_MEM_RE.findall(text):
+        if value != '-':
+            report['max_mem' if key == 'Max' else 'avg_mem'] = value
+    return report or None
+
+
+def queue_script_resources(script_file):
+    """ Requested queue, CPUs and GPUs in a LSF job.script, {} if missing. """
+    try:
+        with open(script_file) as f:
+            text = f.read()
+    except OSError:
+        return {}
+    resources = {}
+    for key, pattern in [('queue', r'^#BSUB\s+-q\s+"?([^"\s]+)'),
+                         ('cpus', r'^#BSUB\s+-n\s+(\d+)'),
+                         ('gpus', r'^#BSUB\s+-gpu\s+"?num=(\d+)')]:
+        if m := re.search(pattern, text, re.M):
+            resources[key] = int(m.group(1)) if key != 'queue' else m.group(1)
+    if 'cpus' in resources and 'gpus' not in resources:
+        resources['gpus'] = 0  # no GPU line: a CPU-only submission
+    return resources
+
+
 class RelionSessionData(SessionData):
     """
     Adapter class for reading Session data from Relion OTF
@@ -284,6 +346,123 @@ class RelionSessionData(SessionData):
             # Changes with every new run, so the UI restarts its local timer
             'session': runsInfo[-1]['start'] if runsInfo else ''
         }
+
+    def get_computing_summary(self, job_ids=None):
+        """ Computing resources used by the jobs (all or the given ids): node,
+        queue, CPUs, GPUs (number and type) and memory of their last run.
+        Each value comes from the first source that has it:
+          1. 'computing' info stored by emwrap pipelines in each run (info.json)
+          2. LSF job report appended to run.out (last cluster run, finished)
+          3. job.script of the last cluster submission (requested resources)
+          4. job params (requested resources)
+        'requested' is True when CPUs/GPUs come from 3 or 4 (not recorded). """
+        from emwrap.base import ProcessingPipeline
+
+        wf = self.project.get_workflow()
+        ids = [Path.rmslash(j) for j in job_ids or [] if j]
+        jobs = [wf.getJob(j) for j in ids if wf.hasJob(j)] if ids else list(wf.jobs())
+        rows = []
+        for job in jobs:
+            timing = self._job_timing(job)
+            runs = self.project.getJobRuns(job)
+            computing = next((r['computing'] for r in reversed(runs)
+                              if r.get('computing')), None) or {}
+            cluster = computing.get('cluster') or {}
+            memory = computing.get('memory') or {}
+            node = computing.get('node') or {}
+
+            # Old cluster jobs: job.id is only kept if the last launch was
+            # submitted to a queue (a local launch removes it)
+            clusterJobId = self._read_first_line(job.id, self.project.JOB_CLUSTER_ID_FILE)
+            report, script = {}, {}
+            if clusterJobId and not computing:
+                if job['status'] not in ('Launched', 'Running'):
+                    report = lsf_job_report(self.join(job.id, 'run.out')) or {}
+                script = queue_script_resources(self.join(job.id, 'job.script'))
+            isLocal = not clusterJobId and self.exists(job.id, self.project.JOB_PROCESS_ID_FILE)
+
+            try:
+                params = read_job_params(self.join(job.id))
+            except Exception:
+                params = {}
+            qname = params.get('queue.name')
+            if qname in ('', 'None', 'NO-NAME', 'NO-QUEUE'):
+                qname = None
+
+            def _params(func):
+                try:
+                    return func(params)
+                except Exception:
+                    return None
+
+            def _first(*values):
+                return next((v for v in values if v not in (None, '')), None)
+
+            recordedCpus = _first(cluster.get('cpus'), report.get('cpus'),
+                                  computing.get('cpus') if computing else None)
+            recordedGpus = computing.get('gpus') if computing else None
+            cpus = _first(recordedCpus, script.get('cpus'),
+                          _params(ProcessingPipeline.count_job_cpus))
+            gpus = _first(recordedGpus, script.get('gpus'),
+                          _params(lambda p: len(ProcessingPipeline.get_job_gpu_list(p))))
+            queue = _first(cluster.get('queue'), report.get('queue'),
+                           script.get('queue'), qname)
+            gpuType = computing.get('gpu_type')
+            if not gpuType and gpus and queue:
+                # Requested GPU type of the queue, if any
+                t = params.get(f'queue.param.{queue}.gpu_type')
+                gpuType = f'{t} (requested)' if t and t != 'any' else None
+
+            rows.append({
+                'id': job.id,
+                'label': RelionRun.jobAlias(job) or '',
+                'type': job['jobtype'],
+                'status': STATUS_MAP.get(job['status'], job['status']),
+                'runs': len(timing['runs']),
+                'elapsed': timing['elapsed'] or 0,  # seconds, all runs
+                'source': 'run' if computing else ('report' if report else 'params'),
+                'requested': recordedCpus is None,
+                'host': _first(computing.get('host'), report.get('hosts')) or '',
+                'cluster': _first(cluster.get('system'), 'LSF' if report or script else None) or '',
+                'cluster_job_id': _first(cluster.get('job_id'), report.get('job_id'),
+                                         clusterJobId) or '',
+                'queue': queue or ('local' if computing or isLocal else ''),
+                'cpus': cpus,
+                'gpus': gpus,
+                'gpu_type': gpuType or '',
+                'memory_max': _first(memory.get('max'), report.get('max_mem')) or '',
+                'memory_avg': _first(memory.get('avg'), report.get('avg_mem')) or '',
+                'node_cpus': node.get('cpus'),
+                'node_memory': node.get('memory'),
+                'node_gpus': len(node.get('gpus') or []),
+            })
+
+        def _hours(key):
+            return sum((r[key] or 0) * r['elapsed'] for r in rows) / 3600
+
+        def _values(key):
+            return sorted({r[key] for r in rows if r[key]})
+
+        return {
+            'jobs': rows,
+            'totals': {
+                'jobs': len(rows),
+                'elapsed': sum(r['elapsed'] for r in rows),
+                'cpu_hours': _hours('cpus'),
+                'gpu_hours': _hours('gpus'),
+                'hosts': _values('host'),
+                'queues': _values('queue'),
+                'gpu_types': _values('gpu_type'),
+            }
+        }
+
+    def _read_first_line(self, *paths):
+        """ First line of a job file (e.g. job.id), '' if it does not exist. """
+        try:
+            with open(self.join(*paths)) as f:
+                return f.readline().strip()
+        except OSError:
+            return ''
 
     def _load_project(self):
         print(f"{Pretty.now()} >>>>>> Loading workflow from {self.path}", flush=True)
