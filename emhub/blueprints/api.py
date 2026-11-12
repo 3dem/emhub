@@ -997,6 +997,41 @@ def tomo_otf_save_selection():
     return _handle_item(_handle, 'selection')
 
 
+@api_bp.route('/tomo_otf_save_config', methods=['POST'])
+@flask_login.login_required
+def tomo_otf_save_config():
+    """ Write the on-the-fly dashboard's thresholds (attrs['thresholds'], all
+    or some of them, over the saved ones) to the tilt QC configuration file
+    of its tilt analysis job (tilt_qc_config.json), overwriting it. """
+    def _handle(**attrs):
+        session = _tomo_otf_session_for_edit(attrs)
+        thresholds = attrs.get('thresholds')
+        if not isinstance(thresholds, dict):
+            raise Exception('Expected the thresholds to save')
+        cfg = session.save_config(thresholds, user=app.user.name)
+        return {k: cfg[k] for k in ('path', 'updated', 'updatedBy', 'saved')}
+
+    return _handle_item(_handle, 'config')
+
+
+@api_bp.route('/tomo_otf_read_config', methods=['POST'])
+@flask_login.login_required
+def tomo_otf_read_config():
+    """ The thresholds of another tilt QC configuration file of the project
+    (attrs['path'], one of OtfSession.config_files()), for the dashboard to
+    load as unsaved changes. """
+    def _handle(**attrs):
+        from emhub.data.processing.tomo_otf import OtfSession
+        from emhub.data.content.dc_tomo_otf import resolve_tomo_otf_source
+        source = resolve_tomo_otf_source(app.dm, app.user, **attrs)
+        session = OtfSession(source['path'], analysis_job=attrs.get('job_id') or None,
+                             thresholds=source['thresholds'])
+        return {'path': attrs.get('path'),
+                'thresholds': session.read_config_file(attrs.get('path') or '')}
+
+    return _handle_item(_handle, 'config')
+
+
 def _table_view_tomo_coordinates(attrs, root, type_key, row_cells, row_label):
     """ Coordinates of a TomoCoordinates row's tomogram, to show on its
     slices; None for the other tables. """

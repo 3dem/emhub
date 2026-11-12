@@ -33,6 +33,7 @@ from emtools.metadata import StarFile, RelionStar
 # The curation rule (reject limits, flags, tilts after a lost field) lives
 # there only: shared with the emw-tilt-curation job and the curation skill
 from emwrap.base.tilt_quality_curation import TiltQualityCuration
+from emwrap.base.tilt_qc_config import TiltQcConfig
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,7 @@ COL_IMAGE_QC = 'imageQc'
 COL_IMAGE_TEXTURE = 'imageTexture'     # fraction of the series median
 COL_DARK_AREA = 'darkAreaExcess'       # fraction of the field black beyond the series median
 COL_MATCH_PEAK = 'matchPeak'           # phase correlation with the last good neighbour
+COL_MATCH_NCC = 'matchNcc'             # normalised cross correlation with it
 COL_FIELD_SHIFT = 'fieldShift'         # from the first tilt, fractions of the field of view
 
 MOTION_COLS = ['rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate']
@@ -150,65 +152,15 @@ PLACEHOLDER_ZERO_COLS = {
     'rlnCtfMaxResolution', 'rlnCtfFigureOfMerit', 'rlnCtfIceRingDensity',
 }
 
-# Default triage thresholds, following the facility's RELION 5 CryoET QC
-# reference, revised against a hand curation of lamella data (ChlamyBrnA,
-# 38 tilt series): motion was not a reason to reject below ~75 Å, Warp's CTF
-# fit resolution saturated around 7 Å, and the CTF profile correlation told
-# failed fits apart.  Overridable per entry; they are not meant to be
-# universal.
-#
-# Tilts are judged first: a tilt past a 'reject' limit counts as unusable,
-# one past a 'target' is usable but not optimal.  The reject limits are the
-# curation rule's (emwrap TiltQualityCuration.DEFAULT_LIMITS, see rule_limits); the
-# targets are the dashboard's own.  A tilt series is then
-# judged on how many usable tilts it keeps.  Only data quality is judged
-# here; job failures are handled separately.
-DEFAULT_THRESHOLDS = {
-    # Per tilt
-    'motionTotal': {'target': 25.0},                       # Å
-    # Not judged when early motion equals total motion on every tilt (a dose
-    # per tilt under RELION's 4 e/Å² split): it would only repeat motion
-    'motionEarly': {'flag': 10.0},                        # Å
-    # The CTF fit target loosens with tilt, since the path length through
-    # the sample grows as 1/cos(tilt): lowTarget up to lowTilt, highTarget
-    # from highTilt, linear in between.
-    'ctfMaxResolution': {'lowTilt': 20.0, 'lowTarget': 7.5,
-                         'highTilt': 45.0, 'highTarget': 9.0},  # degrees, Å
-    # Correlation of the measured and simulated CTF radial profiles, from
-    # the <movie>_ctf.json emwrap writes: below 0.15 the fit failed (the
-    # hand-rejected tilts had a median of 0.25, the kept ones 0.55)
-    'ctfCorrelation': {'target': 0.3},
-    # Per tilt series
-    'usableFraction': {'bad': 0.75},       # usable tilts / collected tilts
-    'droppedFraction': {'suspect': 0.15},  # excluded + rejected / collected
-    'earlyMotionFraction': {'suspect': 0.30},  # tilts over motionEarly flag
-    # Per session: spread of the tilt axis between tilt series
-    'tiltAxisSessionStd': 1.5,             # degrees
-    # Reported but not used to flag a series: on a real session it came out
-    # at 67-113 Å on every tilt series.  Set limits once calibrated.
-    'shiftRoughness': {},
-}
-
-# Where each limit of the curation rule (emwrap TiltQualityCuration.DEFAULT_LIMITS)
-# sits in the thresholds: the defaults are filled in from the rule, and an
-# entry's otf_thresholds go back to it through rule_limits.  Image content:
-# blank, blacked out, a different field (both correlations low), shifted.
-RULE_KEYS = {
-    'motion': ('motionTotal', 'reject'),               # Å
-    'ctfResolution': ('ctfMaxResolution', 'reject'),   # Å
-    'ctfCorrelation': ('ctfCorrelation', 'reject'),
-    'figureOfMerit': ('ctfFigureOfMerit', 'reject'),
-    'astigmatism': ('astigmatism', 'reject'),          # Å
-    'defocus': ('defocus', 'reject'),                  # Å; overfocus (negative) too
-    'texture': ('imageTexture', 'reject'),             # of the series median
-    'darkArea': ('darkArea', 'reject'),                # of the field, beyond the series median
-    'matchPeak': ('neighbourMatch', 'peak'),
-    'matchNcc': ('neighbourMatch', 'ncc'),
-    'fieldShift': ('fieldShift', 'reject'),            # of the field of view
-    'beyond': ('fieldLoss', 'beyond'),                 # propose the tilts after a lost field
-}
-for _limit, (_key, _field) in RULE_KEYS.items():
-    DEFAULT_THRESHOLDS.setdefault(_key, {})[_field] = TiltQualityCuration.DEFAULT_LIMITS[_limit]
+# The triage thresholds and the curation rule's limits: their defaults, the
+# reject limits being the rule's (TiltQualityCuration.DEFAULT_LIMITS), and
+# where each rule limit sits (RULE_KEYS) are emwrap's TiltQcConfig, which the
+# tilt analysis and tilt curation jobs write to their tilt_qc_config.json.
+# A dashboard uses the defaults, then an entry's otf_thresholds, then its
+# analysis job's file, then the page's unsaved changes (see OtfSession).
+# Only data quality is judged here; job failures are handled separately.
+DEFAULT_THRESHOLDS = TiltQcConfig.DEFAULT_THRESHOLDS
+RULE_KEYS = TiltQcConfig.RULE_KEYS
 
 STATUS_OK = 'ok'
 STATUS_SUSPECT = 'suspect'
@@ -220,10 +172,7 @@ STATUSES_NEED_REVIEW = (STATUS_SUSPECT, STATUS_BAD, STATUS_FAILED)
 
 
 
-def rule_limits(th):
-    """ The curation rule's limits (TiltQualityCuration) from the dashboard's
-    thresholds (see RULE_KEYS); None turns a check off. """
-    return {limit: th.get(key, {}).get(field) for limit, (key, field) in RULE_KEYS.items()}
+rule_limits = TiltQcConfig.rule_limits
 
 
 # --------------------------------------------------------------------------
@@ -538,6 +487,7 @@ class TiltSeriesMetrics:
         """
         motion, early = th['motionTotal'], th['motionEarly']
         ctf, corr = th['ctfMaxResolution'], th['ctfCorrelation']
+        match = th.get('neighbourMatch') or {}
 
         def over(v, limit):
             return v is not None and limit is not None and v > limit
@@ -560,13 +510,22 @@ class TiltSeriesMetrics:
                     off.append('early')
                 r = _measured(t.get('rlnCtfMaxResolution'), 'rlnCtfMaxResolution')
                 if r is not None and 'ctf' not in reject and None not in (
-                        ctf.get('lowTarget'), ctf.get('highTarget')):
+                        ctf.get('lowTarget'), ctf.get('highTarget'),
+                        ctf.get('lowTilt'), ctf.get('highTilt')):
                     if r > self.ctf_target(t.get(COL_TILT_ANGLE), ctf):
                         off.append('ctf')
                 c = t.get(COL_CTF_CORRELATION)
                 if (c is not None and corr.get('target') is not None
                         and 'ctfcorr' not in reject and c < corr['target']):
                     off.append('ctfcorr')
+                # A different field needs both matches low: one alone is off
+                # target, so a point under its line never reads as fine
+                if 'field' not in reject:
+                    qc = t.get(COL_IMAGE_QC) or {}
+                    for col, limit in (('matchPeak', 'peak'), ('matchNcc', 'ncc')):
+                        v, lim = qc.get(col), match.get(limit)
+                        if v is not None and lim is not None and v < lim:
+                            off.append(col)
             t['reject'], t['offTarget'] = reject, off
 
         self.rejectCounts = Counter(k for t in self.tilts for k in t['reject'])
@@ -828,12 +787,15 @@ class OtfSession:
     as one of its tilt analysis jobs (emw-tilt-analyze) shows it. """
 
     def __init__(self, path, analysis_job=None, thresholds=None,
-                 align_job=None, tomo_job=None):
+                 align_job=None, tomo_job=None, draft_thresholds=None):
         """ analysis_job: the id of the tilt analysis job ('EMwrap/job012'
         or 'job012'), by default the project's latest one.  align_job,
         tomo_job: the alignment and reconstruction jobs to show, among those
         derived from the tilt series the analysis is of (see downstream()),
-        by default the newest ones; NO_JOB to show none. """
+        by default the newest ones; NO_JOB to show none.  thresholds: the
+        entry's overrides of the defaults, under the analysis job's
+        configuration file (see config()); draft_thresholds: changes not
+        saved yet, over all of them (validated, see TiltQcConfig). """
         self.path = os.path.abspath(os.path.expanduser(path))
         self._analysisId = _rmslash(analysis_job) if analysis_job else None
         self._analysisJob = None
@@ -841,10 +803,12 @@ class OtfSession:
                            'tomogram': _rmslash(tomo_job) if tomo_job else None}
         self._downstream = None
         # An override of one limit keeps the other limits of that metric
-        self.thresholds = {
-            k: ({**v, **(thresholds or {}).get(k, {})} if isinstance(v, dict)
-                else (thresholds or {}).get(k, v))
-            for k, v in DEFAULT_THRESHOLDS.items()}
+        self._entryThresholds = TiltQcConfig.merge(DEFAULT_THRESHOLDS, thresholds)
+        if draft_thresholds:
+            TiltQcConfig.validate(draft_thresholds, where='unsaved thresholds')
+        self._draft = draft_thresholds or None
+        self._thresholds = None
+        self._config = None
         self._jobs = None
         self._stages = None
         self._ts = None
@@ -882,6 +846,71 @@ class OtfSession:
         except OSError:
             return None
         return {'path': rel, 'version': int(mtime)}
+
+    # -- the thresholds ----------------------------------------------------
+    @property
+    def config_file(self):
+        """ The tilt QC configuration of the analysis job shown (TiltQcConfig):
+        written by the job when it starts, saved over from the dashboard. """
+        return TiltQcConfig.path(self.join(self.analysis_job.id))
+
+    def config(self):
+        """ The configuration file of the analysis job: {'path' (project
+        relative), 'exists', 'error' (if it cannot be read: the dashboard
+        then uses the entry's thresholds), 'updated', 'updatedBy', 'source',
+        'loadedFrom' (the file the job first loaded it from), 'saved' (its
+        thresholds, over the entry's)}. """
+        if self._config is None:
+            path = self.config_file
+            info = {'path': os.path.relpath(path, self.path), 'exists': os.path.exists(path),
+                    'error': None, 'updated': None, 'updatedBy': None, 'source': None,
+                    'loadedFrom': None, 'saved': self._entryThresholds}
+            if info['exists']:
+                try:
+                    data = TiltQcConfig.read_file(path)
+                    info.update({k: data.get(k) for k in ('updated', 'updatedBy', 'source',
+                                                          'loadedFrom')},
+                                saved=TiltQcConfig.merge(self._entryThresholds, data['thresholds']))
+                except (OSError, ValueError) as e:
+                    info['error'] = str(e)
+            self._config = info
+        return self._config
+
+    @property
+    def thresholds(self):
+        """ The thresholds the tilt series are judged with: the saved ones
+        (config()) with the unsaved changes over them. """
+        if self._thresholds is None:
+            self._thresholds = TiltQcConfig.merge(self.config()['saved'], self._draft)
+        return self._thresholds
+
+    def save_config(self, thresholds, user=None):
+        """ Write thresholds (all or some of them, over the saved ones) to
+        the analysis job's configuration file; returns config(). """
+        TiltQcConfig.validate(thresholds)
+        TiltQcConfig.write(self.config_file,
+                           TiltQcConfig.merge(self.config()['saved'], thresholds),
+                           user=user, source='OTF dashboard',
+                           loaded_from=self.config()['loadedFrom'])
+        self._config = self._thresholds = None
+        self._ts = None
+        return self.config()
+
+    def config_files(self):
+        """ The other tilt QC configuration files of the project (of its
+        tilt analysis and tilt curation jobs), project relative, newest
+        first: what the page can load thresholds from. """
+        own = os.path.abspath(self.config_file)
+        files = [p for p in glob(self.join('*', 'job*', TiltQcConfig.FILENAME))
+                 if os.path.abspath(p) != own]
+        files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        return [os.path.relpath(p, self.path) for p in files]
+
+    def read_config_file(self, rel_path):
+        """ The thresholds of one of config_files(), over the defaults. """
+        if rel_path not in self.config_files() and rel_path != self.config()['path']:
+            raise Exception(f'Not a tilt QC configuration file of this project: {rel_path}')
+        return TiltQcConfig.read(self.join(rel_path))
 
     # -- the user's selection ---------------------------------------------
     def selection(self):
@@ -964,7 +993,27 @@ class OtfSession:
                            'proposed': {int(m): flags for m, flags
                                         in ts.proposed_exclusions().items()}})
         return {'series': series,
-                'usableLimit': self.thresholds['usableFraction'].get(STATUS_BAD)}
+                'usableLimit': self.thresholds['usableFraction'].get(STATUS_BAD),
+                'keptLimit': TiltQcConfig.tilts_kept_min(self.thresholds)}
+
+    def few_tilts_kept(self, selection=None, inputs=None):
+        """ {name: fraction} of the tilt series that would keep fewer than
+        the tiltsKept limit of their tilts, once the curation leaves out
+        what the rule proposes and what the selection excludes; {} when the
+        limit is off.  Deselected tilt series are not listed. """
+        limit = TiltQcConfig.tilts_kept_min(self.thresholds)
+        if limit is None:
+            return {}
+        sel = selection or self.selection()
+        out = {}
+        for ts in (inputs or self.proposal_inputs())['series']:
+            if ts['name'] in sel['deselected']:
+                continue
+            gone = set(ts['proposed']) | set(sel['excludedTilts'].get(ts['name'], []))
+            kept = sum(1 for m in ts['used'] if m not in gone) / ts['nTilts']
+            if kept < limit:
+                out[ts['name']] = kept
+        return out
 
     def subset_input(self):
         """ What a subset from the dashboard is made of: the tilt series the
@@ -1388,7 +1437,7 @@ class OtfSession:
             if (r := rows.get(name)) is None:
                 continue
             t[COL_IMAGE_QC] = {k: r.get(k) for k in TiltQualityCuration.MEASURES}
-            for col in (COL_MATCH_PEAK, COL_FIELD_SHIFT):
+            for col in (COL_MATCH_PEAK, COL_MATCH_NCC, COL_FIELD_SHIFT):
                 t[col] = r.get(col)
 
     def _image_qc_json(self, ts):
@@ -1488,18 +1537,20 @@ class OtfSession:
         # The tilt axis should agree between tilt series; a spread points at
         # stage wear or holder calibration rather than at one sample.  Series
         # whose data is judged count, failed after CTF included (quality).
-        warnings = []
+        # The tilt axis check is apart: the page may not show the tilt axis
+        warnings, axis_warning = [], None
         axes = _clean([t.tiltAxis['mean'] for t in ts_list if t.quality])
         axis_std = _std(axes) if len(axes) > 1 else None
         axis_limit = self.thresholds['tiltAxisSessionStd']
-        if axis_std is not None and axis_std > axis_limit:
-            warnings.append(
+        if axis_std is not None and axis_limit is not None and axis_std > axis_limit:
+            axis_warning = (
                 f'The refined tilt axis varies by {axis_std:.2f}° between tilt '
                 f'series, above the limit of {axis_limit:.1f}°: check the stage '
                 f'and the holder calibration.')
 
         return {
             'warnings': warnings,
+            'tiltAxisWarning': axis_warning,
             'tiltAxisSessionStd': axis_std,
             'path': self.path,
             'nImported': n_imported,
