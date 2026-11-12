@@ -452,7 +452,9 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
   if (error) return <div className={styles.msg}>{error}</div>;
   const loading = Boolean(source) && loaded.status === "loading";
   return (
-    <div className={styles.wrap3d}>
+    // With a panelWidth the panel goes below the scene (the viewer sized the
+    // scene for it), also when both would fit side by side
+    <div className={styles.wrap3d} style={props.panelWidth !== undefined ? { flexDirection: "column" } : undefined}>
       <div className={styles.isoCol}>
         <div ref={host} className={styles.canvas3d} style={{ width, height }}>
           {density && colorBy && colorRange && (

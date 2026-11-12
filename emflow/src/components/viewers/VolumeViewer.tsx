@@ -930,15 +930,21 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const sizeIso = useMemo<[number, number, number, number | undefined]>(() => {
       const room = avail("volume3d");
       const h = Math.max(120, room - iterBarH);
-      if (box.width - 290 >= 320) {
-        const w = Math.min(h * 1.4, box.width - 290);
-        return [Math.round(w), Math.round(h), Math.round(Math.max(h, room)), undefined];
-      }
+      // Beside: the scene takes the width the panel (250 + padding and
+      // scrollbar gutter, the gap: 290) leaves
+      const sideW = Math.min(h * 1.4, box.width - 290);
+      // Below: as wide as it can, the panel under it in two columns.
       const w = Math.round(Math.max(200, Math.min(box.width - 24, h * 1.2)));
       // 14: the gap of .wrap3d between the scene and the panel. Rounded
       // down, so the panel gets at least the height it needs: a pixel less
       // and it would scroll
       const sh = Math.floor(Math.max(120, Math.min(w, room - iterBarH - isoPanelNeed - 14)));
+      // The panel goes below only when the scene is larger so (its shorter
+      // side, the map fits it): a short and narrow cell (e.g. the 2 x 2 grid
+      // of the classes of an iteration) keeps it beside, scrolling inside
+      if (box.width - 290 >= 320 || (box.width - 290 >= 160 && Math.min(sideW, h) >= Math.min(w, sh))) {
+        return [Math.round(sideW), Math.round(h), Math.round(Math.max(h, room)), undefined];
+      }
       // .isoCols is a border box: the panel is as wide as the scene
       return [w, sh, Math.max(120, Math.floor(room - sh - iterBarH - 14)), w];
       // eslint-disable-next-line react-hooks/exhaustive-deps
