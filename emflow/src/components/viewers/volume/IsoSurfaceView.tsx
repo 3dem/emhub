@@ -3,8 +3,8 @@
 // The "3D volume" tab of VolumeViewer: loads the density (inline, or with the
 // DataLoader when the tab is first opened) and shows it as an iso-surface
 // (IsoSurfaceScene) with the histogram and options beside (DensityPanel).
-// The surface may be smoothed and its dust (small blobs of noise) hidden:
-// both filter the grid given to the GPU, not the map. An optional mask (a
+// Its dust (small blobs of noise) may be hidden: it filters the grid given
+// to the GPU, not the map. An optional mask (a
 // sphere or another map, loaded like the density) is drawn over it. The
 // surface may be colored by a local resolution map (colorBy), with its color
 // key over the scene, as ChimeraX's "color sample ... key true".
@@ -13,7 +13,7 @@ import styles from "../VolumeViewer.module.css";
 import { useLoad } from "@/data/DataLoaderContext";
 import { IsoSurfaceScene, RESOLUTION_PALETTE, type IsoMask, type IsoState, type MaskStyle } from "./IsoSurfaceScene";
 import DensityPanel, { DETAILS, enclosedFraction, levelForFraction, type DensityOptions } from "./DensityPanel";
-import { densityValues, prepareDensity, removeDust, smoothGrid } from "./densityGrid";
+import { densityValues, prepareDensity, removeDust } from "./densityGrid";
 import { isDensitySource, type DensitySource, type Vec3, type VolumeDensity } from "./volumeMath";
 
 export type IsoSurfaceHandle = { reset: () => void };
@@ -29,7 +29,7 @@ export type DensityDebug = {
   from?: "request" | "inline";
   requestMs?: number;
   decodeMs?: number;
-  /** Smoothing and dust removal of the last change. */
+  /** Dust removal of the last change. */
   filterMs?: number;
   hidden?: number;
   density?: VolumeDensity;
@@ -52,8 +52,6 @@ export type IsoDefaults = {
   maxVoxels?: number;
   /** Hide the blobs smaller than this many grid voxels (20; 0: show all). */
   dust?: number;
-  /** Smooth the surface (display only; false). */
-  smooth?: boolean;
 };
 
 type Props = {
@@ -192,7 +190,6 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
       opacity: dflt.opacity ?? 1,
       color: dflt.color ?? DEFAULT_COLOR,
       dust: dflt.dust ?? DEFAULT_DUST,
-      smooth: Boolean(dflt.smooth),
     });
     // the defaults are only read once
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -245,7 +242,7 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     let scene: IsoSurfaceScene;
     try {
       scene = new IsoSurfaceScene(dim, stateRef.current ?? {
-        threshold: 0, below: false, opacity: 1, color: DEFAULT_COLOR, dust: 0, smooth: false, pan: false,
+        threshold: 0, below: false, opacity: 1, color: DEFAULT_COLOR, dust: 0, pan: false,
       }, sizeRef.current[0], sizeRef.current[1]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "WebGL is not available in this browser.");
@@ -259,14 +256,9 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
       sceneRef.current = null;
     };
   }, [dim]);
-  // Grid of the surface: smoothed or not, then without the dust at the
-  // threshold (after it settles; meanwhile the dust shows)
-  const smoothOn = Boolean(opts?.smooth);
-  const base = useMemo(() => {
-    if (!density) return null;
-    const v = densityValues(density);
-    return smoothOn ? smoothGrid(v, density.shape) : v;
-  }, [density, smoothOn]);
+  // Grid of the surface, then without the dust at the threshold (after it
+  // settles; meanwhile the dust shows)
+  const base = useMemo(() => (density ? densityValues(density) : null), [density]);
   useEffect(() => {
     if (density && base) sceneRef.current?.setDensity(density, base);
   }, [density, base, error]);

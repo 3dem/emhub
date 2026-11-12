@@ -5,8 +5,7 @@
 // texture) and, when the host sends no slice images (e.g. maps such as 3D
 // classes), the Slices tab, which draws its sections from the same grid.
 // Also the colored sections of a mask map, and the display filters of the
-// surface: smoothing and hiding the small blobs of noise ("dust") at a
-// threshold.
+// surface: hiding the small blobs of noise ("dust") at a threshold.
 import { resolutionRgb, resolutionValidLevels, type Axis, type VolumeDensity } from "./volumeMath";
 
 const decoded = new WeakMap<VolumeDensity, Uint8Array>();
@@ -144,28 +143,6 @@ function paintSlice(
   }
   g.putImageData(img, 0, 0);
   return canvas;
-}
-
-/** One pass of a [1 2 1] / 4 filter along each axis (display smoothing). */
-export function smoothGrid(v: Uint8Array, shape: [number, number, number]): Uint8Array {
-  const [nz, ny, nx] = shape;
-  let src = Float32Array.from(v);
-  let dst = new Float32Array(src.length);
-  const strides = [1, nx, nx * ny];
-  const sizes = [nx, ny, nz];
-  for (let ax = 0; ax < 3; ax++) {
-    const s = strides[ax], n = sizes[ax];
-    for (let i = 0; i < src.length; i++) {
-      const c = Math.floor(i / s) % n;
-      const a = c > 0 ? src[i - s] : src[i];
-      const b = c < n - 1 ? src[i + s] : src[i];
-      dst[i] = 0.25 * a + 0.5 * src[i] + 0.25 * b;
-    }
-    [src, dst] = [dst, src];
-  }
-  const out = new Uint8Array(v.length);
-  for (let i = 0; i < out.length; i++) out[i] = Math.round(src[i]);
-  return out;
 }
 
 /**

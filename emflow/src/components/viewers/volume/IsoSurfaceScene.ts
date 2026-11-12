@@ -45,7 +45,6 @@ export type IsoState = {
   color: string;
   /** Grid filters, applied by IsoSurfaceView (setValues). */
   dust: number;
-  smooth: boolean;
   /** Drags move the view (pan tool). */
   pan: boolean;
 };
@@ -287,7 +286,7 @@ export class IsoSurfaceScene {
   private readonly dim: Vec3;
   private mesh: RayMesh | null = null;
   private density: VolumeDensity | null = null;
-  /** The grid values given to the GPU (smoothed, without dust). */
+  /** The grid values given to the GPU (without dust). */
   private values: Uint8Array | null = null;
   /** The user moved the view since it was framed (fit). */
   touched = false;
@@ -337,7 +336,7 @@ export class IsoSurfaceScene {
     this.reset();
   }
 
-  /** New values of the same grid (e.g. smoothed or without dust). */
+  /** New values of the same grid (e.g. without dust). */
   setValues(values: Uint8Array) {
     this.values = values;
     if (!this.mesh) return;
