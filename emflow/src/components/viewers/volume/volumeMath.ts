@@ -222,18 +222,54 @@ export function resolutionRgb(t: number): [number, number, number] {
   return [0, 1, 2].map((k) => Math.round(a[k] + (b[k] - a[k]) * f)) as [number, number, number];
 }
 
+/** Share of the voxels above which the most frequent value, at an end of
+ * the map's values, is a fill value: outside the mask of a local resolution
+ * map (e.g. Warp writes ~40 Å there, the lowest resolution of the box). */
+const FILL_SHARE = 0.1;
+
+const validLevelsCache = new WeakMap<VolumeDensity, [number, number]>();
+
 /**
- * Range of the values of a map (e.g. a local resolution map): the values > 0
- * (<= 0: no value, outside its mask) without `tail` of each end, in map
- * units; null if it has none. The fallback of the coloring range when the
- * surface one (3D volume) is not known.
+ * The grid levels (0-255, inclusive) of a local resolution map that hold a
+ * value: not <= 0 (no value) nor a fill value outside its mask (the most
+ * frequent level, at an end of the values, with FILL_SHARE of the voxels).
  */
-export function mapValueRange(d: VolumeDensity, values: Uint8Array, tail = 0.01): [number, number] | null {
+export function resolutionValidLevels(d: VolumeDensity, values: Uint8Array): [number, number] {
+  const cached = validLevelsCache.get(d);
+  if (cached) return cached;
   const [v0, v1] = d.valueRange;
+  const counts = new Array<number>(256).fill(0);
+  for (let i = 0; i < values.length; i++) counts[values[i]]++;
+  // Values <= 0 have no resolution
+  let lo = 0, hi = 255;
+  while (lo < 255 && v0 + (lo / 255) * (v1 - v0) <= 0) lo++;
+  while (lo < hi && !counts[lo]) lo++;
+  while (hi > lo && !counts[hi]) hi--;
+  let mode = lo;
+  for (let k = lo; k <= hi; k++) if (counts[k] > counts[mode]) mode = k;
+  if (counts[mode] >= FILL_SHARE * values.length) {
+    // The fill value and the levels next to it (its rounding to the grid)
+    if (hi - mode <= 2) hi = mode - 2;
+    else if (mode - lo <= 2) lo = mode + 2;
+  }
+  const r: [number, number] = hi >= lo ? [lo, hi] : [0, 255];
+  validLevelsCache.set(d, r);
+  return r;
+}
+
+/**
+ * Range of the values of a map (e.g. a local resolution map): the values
+ * with a value (resolutionValidLevels), without `lowTail` of the lowest and
+ * `highTail` of the highest, in map units; null if it has none.
+ */
+export function mapValueRange(d: VolumeDensity, values: Uint8Array, lowTail = 0.01,
+                              highTail = lowTail): [number, number] | null {
+  const [v0, v1] = d.valueRange;
+  const [k0, k1] = resolutionValidLevels(d, values);
   const counts = new Array<number>(256).fill(0);
   let n = 0;
   for (let i = 0; i < values.length; i++) {
-    if (v0 + (values[i] / 255) * (v1 - v0) > 0) { counts[values[i]]++; n++; }
+    if (values[i] >= k0 && values[i] <= k1) { counts[values[i]]++; n++; }
   }
   if (!n) return null;
   const at = (q: number) => {
@@ -241,6 +277,6 @@ export function mapValueRange(d: VolumeDensity, values: Uint8Array, tail = 0.01)
     for (let k = 0; k < 256; k++) { acc += counts[k]; if (acc > q * (n - 1)) return v0 + (k / 255) * (v1 - v0); }
     return v1;
   };
-  const lo = at(tail), hi = at(1 - tail);
+  const lo = at(lowTail), hi = at(1 - highTail);
   return hi > lo ? [lo, hi] : [lo, lo + (v1 - v0) / 255];
 }

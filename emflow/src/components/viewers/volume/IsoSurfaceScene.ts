@@ -14,12 +14,12 @@
 // The surface may be colored by another map on the same box, as ChimeraX's
 // "color sample" does: a local resolution map, sampled (trilinear) where each
 // ray hits the surface and colored with RESOLUTION_PALETTE over a range
-// (out of the range: the end colors; outside the map or no value: gray).
+// (below it: the first color; above it, outside the map or no value: gray).
 // The world is the voxel space of the full volume with y flipped.
 import * as THREE from "three";
 import { Trackball } from "./trackball";
 import { densityValues } from "./densityGrid";
-import { RESOLUTION_PALETTE, type Vec3, type VolumeDensity } from "./volumeMath";
+import { RESOLUTION_PALETTE, resolutionValidLevels, type Vec3, type VolumeDensity } from "./volumeMath";
 
 /** Mask drawn over the density: a sphere (voxels) or another map. */
 export type IsoMask =
@@ -59,7 +59,7 @@ const FRAGMENT = [
   "precision highp float; precision highp sampler3D;",
   "uniform sampler3D uTex, uRes;",
   "uniform vec3 uCam, uSize, uColor, uLight, uTexel, uResSize;",
-  "uniform float uThr, uSign, uOpacity, uStep, uFirst, uColorBy, uResMin;",
+  "uniform float uThr, uSign, uOpacity, uStep, uFirst, uColorBy, uResMin, uResMax;",
   "uniform vec2 uResRange;",
   "uniform vec3 uPal[5];",
   "uniform mat4 uMVP;",
@@ -75,7 +75,9 @@ const FRAGMENT = [
   "  vec3 q = vec3(p.x / uResSize.x + 0.5, 0.5 - p.y / uResSize.y, p.z / uResSize.z + 0.5);",
   "  if (any(lessThan(q, vec3(0.0))) || any(greaterThan(q, vec3(1.0)))) return vec3(0.5);",
   "  float r = texture(uRes, q).r;",
-  "  if (r < uResMin) return vec3(0.5);",
+  "  // No value (<= 0, or the fill outside the mask, also blended at its",
+  "  // edge) or above the max of the scale: gray",
+  "  if (r < uResMin || r > uResMax) return vec3(0.5);",
   "  float t = clamp((r - uResRange.x) / max(uResRange.y - uResRange.x, 1e-6), 0.0, 1.0) * 4.0;",
   "  int i = int(min(floor(t), 3.0));",
   "  return mix(uPal[i], uPal[i + 1], t - float(i));",
@@ -214,6 +216,7 @@ function rayMesh(d: VolumeDensity, values: Uint8Array, color: string): RayMesh {
       uResSize: { value: size.clone() },
       uColorBy: { value: 0 },
       uResMin: { value: 0 },
+      uResMax: { value: 1 },
       uResRange: { value: new THREE.Vector2(0, 1) },
       uPal: { value: RESOLUTION_PALETTE.map(rgb) },
     },
@@ -387,8 +390,11 @@ export class IsoSurfaceScene {
     if (c) {
       const lvl = (v: number) => level(c.density, v);
       u.uResRange.value.set(lvl(c.range[0]), lvl(c.range[1]));
-      // Values <= 0 are no resolution (outside the mask of the map)
-      u.uResMin.value = Math.max(lvl(0) + 0.5 / 255, 0);
+      // Levels without a value: <= 0, or the fill value outside the mask
+      const [k0, k1] = resolutionValidLevels(c.density, densityValues(c.density));
+      u.uResMin.value = (k0 - 0.5) / 255;
+      // Above the max of the range (or the last valid level): gray
+      u.uResMax.value = Math.min((k1 + 0.5) / 255, lvl(c.range[1]) + 0.5 / 255);
     }
   }
 
