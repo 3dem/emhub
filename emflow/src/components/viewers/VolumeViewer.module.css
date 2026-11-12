@@ -543,3 +543,80 @@
   align-self: stretch;
   align-items: flex-end;
 }
+
+/* Loading (or error) status in the output bar, e.g. the resolution map */
+.outStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted-foreground);
+}
+
+.outStatusError {
+  color: var(--destructive);
+}
+
+/* Resolution panel (volume/ResolutionPanel.tsx) */
+.panelNote {
+  margin-top: 4px;
+  color: var(--vv-muted);
+  font-size: 0.75rem;
+}
+
+.spin {
+  animation: vv-spin 0.9s linear infinite;
+}
+
+@keyframes vv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.colorKeyNote {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  opacity: 0.85;
+}
+
+.colorKeyGray {
+  width: 10px;
+  height: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 2px;
+  background: #808080;
+}
+
+/* The resolution panel: the slider of the max of the color scale between
+   the map's min and max values, the selected value over its thumb */
+.panelRange {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  font-variant-numeric: tabular-nums;
+  color: var(--vv-muted);
+  white-space: nowrap;
+}
+
+.panelRange input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.panelRangeValue {
+  position: relative;
+  height: 18px;
+}
+
+.panelRangeValue b {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  color: var(--popover-foreground);
+  font-size: 0.8rem;
+}

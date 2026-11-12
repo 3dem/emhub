@@ -19,8 +19,6 @@ export type DensityOptions = {
   color: string;
   /** Hide the blobs of fewer grid voxels (0: off). */
   dust: number;
-  /** Smooth the surface (display only). */
-  smooth: boolean;
 };
 
 /** Dust sizes (grid voxels) of the slider. */
@@ -216,10 +214,6 @@ export default function DensityPanel(props: Props) {
                    onChange={(e) => onChange({ dust: DUST_SIZES[Number(e.target.value)] })} />
           </div>
         )}
-        <label className={styles.panelRow}>
-          <input type="checkbox" checked={props.smooth} onChange={(e) => onChange({ smooth: e.target.checked })} />
-          Smooth the surface (display only)
-        </label>
 
         <label className={styles.panelSelect}>
           <span>Opacity</span>

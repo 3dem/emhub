@@ -1920,7 +1920,7 @@ export default function TableViewerPane({
                                                     "& td": {
                                                         backgroundColor:
                                                             selected
-                                                                ? "var(--emf-teal-100)"
+                                                                ? "var(--emf-row-selected)"
                                                                 : "var(--emf-white)",
                                                         borderBottom:
                                                             "1px solid var(--emf-slate-100)",
@@ -1929,7 +1929,7 @@ export default function TableViewerPane({
                                                     "&:hover td": {
                                                         backgroundColor:
                                                             selected
-                                                                ? "var(--emf-teal-200)"
+                                                                ? "var(--emf-row-selected-hover)"
                                                                 : "var(--emf-slate-50)",
                                                     },
 
@@ -1938,7 +1938,7 @@ export default function TableViewerPane({
                                                             "& td:first-of-type":
                                                             {
                                                                 boxShadow:
-                                                                    "inset 3px 0 0 var(--emf-teal-600)",
+                                                                    "inset 3px 0 0 var(--emf-row-selected-accent)",
                                                             },
                                                         }
                                                         : {}),
@@ -2225,6 +2225,12 @@ export default function TableViewerPane({
                                                                                                     {
                                                                                                         borderBottom:
                                                                                                             "1px solid var(--emf-slate-100)",
+                                                                                                    },
+
+                                                                                                    "&.Mui-selected td, &.Mui-selected:hover td":
+                                                                                                    {
+                                                                                                        backgroundColor:
+                                                                                                            "var(--emf-row-selected)",
                                                                                                     },
                                                                                                 }}
                                                                                             >

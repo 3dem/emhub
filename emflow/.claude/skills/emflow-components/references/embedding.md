@@ -140,6 +140,9 @@ A new component that portals must use one of these targets. A nested MUI
   inputs). Use them instead of literal light greys, so a component follows
   the widget theme; keep literal colors for surfaces dark in both themes
   (dialog headers) and canvas drawing (CSS variables do not work there).
+- Selected table rows (TableViewerPane, rows and child rows) use
+  `--emf-row-selected` / `-hover` / `-accent` (the left bar): indigo, so they
+  stand apart from the teal table headers in both themes.
 - EMhub's `static/libs/css/style.css` hid every radio button until 2026-11
   (`.product-colors input[type=checkbox], input[type=radio] { display: none }`,
   the second selector unscoped; now scoped to `.product-colors`). Older EMhub

@@ -3,8 +3,8 @@
 // The "3D volume" tab of VolumeViewer: loads the density (inline, or with the
 // DataLoader when the tab is first opened) and shows it as an iso-surface
 // (IsoSurfaceScene) with the histogram and options beside (DensityPanel).
-// The surface may be smoothed and its dust (small blobs of noise) hidden:
-// both filter the grid given to the GPU, not the map. An optional mask (a
+// Its dust (small blobs of noise) may be hidden: it filters the grid given
+// to the GPU, not the map. An optional mask (a
 // sphere or another map, loaded like the density) is drawn over it. The
 // surface may be colored by a local resolution map (colorBy), with its color
 // key over the scene, as ChimeraX's "color sample ... key true".
@@ -13,7 +13,7 @@ import styles from "../VolumeViewer.module.css";
 import { useLoad } from "@/data/DataLoaderContext";
 import { IsoSurfaceScene, RESOLUTION_PALETTE, type IsoMask, type IsoState, type MaskStyle } from "./IsoSurfaceScene";
 import DensityPanel, { DETAILS, enclosedFraction, levelForFraction, type DensityOptions } from "./DensityPanel";
-import { densityValues, prepareDensity, removeDust, smoothGrid } from "./densityGrid";
+import { densityValues, prepareDensity, removeDust } from "./densityGrid";
 import { isDensitySource, type DensitySource, type Vec3, type VolumeDensity } from "./volumeMath";
 
 export type IsoSurfaceHandle = { reset: () => void };
@@ -29,7 +29,7 @@ export type DensityDebug = {
   from?: "request" | "inline";
   requestMs?: number;
   decodeMs?: number;
-  /** Smoothing and dust removal of the last change. */
+  /** Dust removal of the last change. */
   filterMs?: number;
   hidden?: number;
   density?: VolumeDensity;
@@ -52,8 +52,6 @@ export type IsoDefaults = {
   maxVoxels?: number;
   /** Hide the blobs smaller than this many grid voxels (20; 0: show all). */
   dust?: number;
-  /** Smooth the surface (display only; false). */
-  smooth?: boolean;
 };
 
 type Props = {
@@ -85,65 +83,18 @@ type Props = {
   /** Color the surface by this map (decoded, on the same box), e.g. a local
    * resolution map; null: the plain color. */
   colorBy?: ColorByInput | null;
-  /** Called with the range of the colorBy values on the surface (or null),
-   * e.g. for the slices to use the same colors. */
-  onColorRange?: (range: [number, number] | null) => void;
 };
 
 /** A map that colors the surface (see Props.colorBy). */
 export type ColorByInput = {
   density: VolumeDensity;
-  /** Palette ends in map units; by default the values on the surface. */
-  range?: [number, number] | null;
+  /** Palette ends in map units (e.g. the range of the map's values). */
+  range: [number, number];
   /** Title of the color key ("Local resolution (Å)"). */
   title?: string;
   /** Unit of the key labels ("Å"). */
   unit?: string;
 };
-
-/** Share of the surface values left out at each end of the default range:
- * a few outliers would squash the colors of the others. */
-const RANGE_TAIL = 0.01;
-
-/**
- * Range of the values of `colorBy` on the surface (ChimeraX "range full":
- * the values found at the surface): sampled at the grid voxels enclosed by
- * the surface with a neighbour outside it, without the values <= 0 (no
- * resolution) and the RANGE_TAIL of each end. null if there are none.
- */
-function surfaceRange(d: VolumeDensity, values: Uint8Array, threshold: number, below: boolean,
-                      colorBy: VolumeDensity): [number, number] | null {
-  const [nz, ny, nx] = d.shape;
-  const f = d.binning || 1;
-  const [v0, v1] = d.valueRange;
-  const t = ((threshold - v0) / (v1 - v0 || 1)) * 255;
-  const inside = (i: number) => (below ? values[i] < t : values[i] > t);
-  const res = densityValues(colorBy);
-  const [rz, ry, rx] = colorBy.shape;
-  const rf = colorBy.binning || 1;
-  const [r0, r1] = colorBy.valueRange;
-  const found: number[] = [];
-  const sxy = nx * ny;
-  for (let z = 1; z < nz - 1; z++) {
-    for (let y = 1; y < ny - 1; y++) {
-      for (let x = 1, i = z * sxy + y * nx + 1; x < nx - 1; x++, i++) {
-        if (!inside(i) || (inside(i - 1) && inside(i + 1) && inside(i - nx) && inside(i + nx)
-            && inside(i - sxy) && inside(i + sxy))) continue;
-        // The same point (full volume voxels) in the grid of the map
-        const ix = Math.min(rx - 1, Math.floor(((x + 0.5) * f) / rf));
-        const iy = Math.min(ry - 1, Math.floor(((y + 0.5) * f) / rf));
-        const iz = Math.min(rz - 1, Math.floor(((z + 0.5) * f) / rf));
-        const v = r0 + (res[(iz * ry + iy) * rx + ix] / 255) * (r1 - r0);
-        if (v > 0) found.push(v);
-      }
-    }
-  }
-  if (!found.length) return null;
-  found.sort((a, b) => a - b);
-  const at = (q: number) => found[Math.min(found.length - 1, Math.max(0, Math.round(q * (found.length - 1))))];
-  const lo = at(RANGE_TAIL), hi = at(1 - RANGE_TAIL);
-  return hi > lo ? [lo, hi] : [found[0], found[found.length - 1] || found[0] + 1];
-}
 
 const fmtKey = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1));
 
@@ -168,6 +119,9 @@ export function ColorKey({ range, title, unit, inline = false }: {
         <span>{fmtKey(lo)}</span>
         <span>{fmtKey((lo + hi) / 2)}</span>
         <span>{fmtKey(hi)}</span>
+      </div>
+      <div className={styles.colorKeyNote}>
+        <span className={styles.colorKeyGray} aria-hidden="true" /> above {fmtKey(hi)} {unit} or no value
       </div>
     </div>
   );
@@ -236,7 +190,6 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
       opacity: dflt.opacity ?? 1,
       color: dflt.color ?? DEFAULT_COLOR,
       dust: dflt.dust ?? DEFAULT_DUST,
-      smooth: Boolean(dflt.smooth),
     });
     // the defaults are only read once
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -289,7 +242,7 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     let scene: IsoSurfaceScene;
     try {
       scene = new IsoSurfaceScene(dim, stateRef.current ?? {
-        threshold: 0, below: false, opacity: 1, color: DEFAULT_COLOR, dust: 0, smooth: false, pan: false,
+        threshold: 0, below: false, opacity: 1, color: DEFAULT_COLOR, dust: 0, pan: false,
       }, sizeRef.current[0], sizeRef.current[1]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "WebGL is not available in this browser.");
@@ -303,14 +256,9 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
       sceneRef.current = null;
     };
   }, [dim]);
-  // Grid of the surface: smoothed or not, then without the dust at the
-  // threshold (after it settles; meanwhile the dust shows)
-  const smoothOn = Boolean(opts?.smooth);
-  const base = useMemo(() => {
-    if (!density) return null;
-    const v = densityValues(density);
-    return smoothOn ? smoothGrid(v, density.shape) : v;
-  }, [density, smoothOn]);
+  // Grid of the surface, then without the dust at the threshold (after it
+  // settles; meanwhile the dust shows)
+  const base = useMemo(() => (density ? densityValues(density) : null), [density]);
   useEffect(() => {
     if (density && base) sceneRef.current?.setDensity(density, base);
   }, [density, base, error]);
@@ -409,24 +357,8 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
 
   /* ---------- color by a map (local resolution) ---------- */
   const colorBy = props.colorBy ?? null;
-  const [autoRange, setAutoRange] = useState<[number, number] | null>(null);
-  const givenRange = colorBy?.range ?? null;
-  // The values on the surface (after the threshold settles, as the dust)
-  useEffect(() => {
-    if (!colorBy || givenRange || !density || !base) return undefined;
-    const timer = window.setTimeout(() => {
-      setAutoRange(surfaceRange(density, base, thr, below, colorBy.density));
-    }, DUST_DELAY_MS);
-    return () => window.clearTimeout(timer);
-  }, [colorBy?.density, givenRange, density, base, thr, below]); // eslint-disable-line react-hooks/exhaustive-deps
-  const colorRange = givenRange ?? autoRange;
-  const onColorRangeRef = useRef(props.onColorRange);
-  onColorRangeRef.current = props.onColorRange;
-  useEffect(() => {
-    onColorRangeRef.current?.(colorBy ? autoRange : null);
-    // the range is compared by value
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Boolean(colorBy), autoRange?.[0], autoRange?.[1]]);
+  // The range is given (fixed: it does not follow the threshold)
+  const colorRange = colorBy?.range ?? null;
   useEffect(() => {
     sceneRef.current?.setColorBy(colorBy && colorRange ? { density: colorBy.density, range: colorRange } : null);
     // the range is compared by value

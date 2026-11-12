@@ -14,12 +14,12 @@
 // The surface may be colored by another map on the same box, as ChimeraX's
 // "color sample" does: a local resolution map, sampled (trilinear) where each
 // ray hits the surface and colored with RESOLUTION_PALETTE over a range
-// (out of the range: the end colors; outside the map or no value: gray).
+// (below it: the first color; above it, outside the map or no value: gray).
 // The world is the voxel space of the full volume with y flipped.
 import * as THREE from "three";
 import { Trackball } from "./trackball";
 import { densityValues } from "./densityGrid";
-import { RESOLUTION_PALETTE, type Vec3, type VolumeDensity } from "./volumeMath";
+import { RESOLUTION_PALETTE, resolutionValidLevels, type Vec3, type VolumeDensity } from "./volumeMath";
 
 /** Mask drawn over the density: a sphere (voxels) or another map. */
 export type IsoMask =
@@ -45,7 +45,6 @@ export type IsoState = {
   color: string;
   /** Grid filters, applied by IsoSurfaceView (setValues). */
   dust: number;
-  smooth: boolean;
   /** Drags move the view (pan tool). */
   pan: boolean;
 };
@@ -59,7 +58,7 @@ const FRAGMENT = [
   "precision highp float; precision highp sampler3D;",
   "uniform sampler3D uTex, uRes;",
   "uniform vec3 uCam, uSize, uColor, uLight, uTexel, uResSize;",
-  "uniform float uThr, uSign, uOpacity, uStep, uFirst, uColorBy, uResMin;",
+  "uniform float uThr, uSign, uOpacity, uStep, uFirst, uColorBy, uResMin, uResMax, uNear;",
   "uniform vec2 uResRange;",
   "uniform vec3 uPal[5];",
   "uniform mat4 uMVP;",
@@ -75,7 +74,9 @@ const FRAGMENT = [
   "  vec3 q = vec3(p.x / uResSize.x + 0.5, 0.5 - p.y / uResSize.y, p.z / uResSize.z + 0.5);",
   "  if (any(lessThan(q, vec3(0.0))) || any(greaterThan(q, vec3(1.0)))) return vec3(0.5);",
   "  float r = texture(uRes, q).r;",
-  "  if (r < uResMin) return vec3(0.5);",
+  "  // No value (<= 0, or the fill outside the mask, also blended at its",
+  "  // edge) or above the max of the scale: gray",
+  "  if (r < uResMin || r > uResMax) return vec3(0.5);",
   "  float t = clamp((r - uResRange.x) / max(uResRange.y - uResRange.x, 1e-6), 0.0, 1.0) * 4.0;",
   "  int i = int(min(floor(t), 3.0));",
   "  return mix(uPal[i], uPal[i + 1], t - float(i));",
@@ -98,7 +99,6 @@ const FRAGMENT = [
   "  if (tEnd <= t0) discard;",
   "  // Box face entered first: the cap normal",
   "  vec3 capN = -sign(dir) * step(vec3(max(max(tn.x, tn.y), tn.z) - 1e-4), tn);",
-  "  float jit = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);",
   "  vec3 col = vec3(0.0);",
   "  float a = 0.0, depth = -1.0;",
   "  float prev = val(uCam + dir * t0);",
@@ -110,14 +110,27 @@ const FRAGMENT = [
   "    a += (1.0 - a) * uOpacity;",
   "    vec4 c = uMVP * vec4(p, 1.0); depth = c.z / c.w;",
   "  }",
-  "  float t = t0 + uStep * jit;",
-  "  for (int i = 0; i < 4096; i++) {",
+  "  // The same start for every pixel (no random jitter: neighbouring rays",
+  "  // sample alike, so grazing edges do not hit or miss at random)",
+  "  float t = t0 + 0.5 * uStep;",
+  "  for (int i = 0; i < 8192; i++) {",
   "    if (t > tEnd || a > 0.98) break;",
   "    float v = val(uCam + dir * t);",
-  "    if (v > 0.0 && prev <= 0.0) {",
-  "      // Entering: refine the crossing between t - uStep and t",
-  "      float lo = max(t - uStep, t0), hi = t;",
-  "      for (int k = 0; k < 6; k++) {",
+  "    // The segment's end inside: entering between t - uStep and t",
+  "    float tIn = v > 0.0 && prev <= 0.0 ? t : -1.0;",
+  "    float lo = max(t - uStep, t0);",
+  "    if (tIn < 0.0 && prev <= 0.0 && max(prev, v) > -uNear) {",
+  "      // Both ends outside but near the threshold: a thin feature or a",
+  "      // grazing edge may cross between them, sample inside the segment",
+  "      for (int s = 1; s < 4; s++) {",
+  "        float ts = t - uStep + uStep * float(s) * 0.25;",
+  "        if (ts > t0 && val(uCam + dir * ts) > 0.0) { tIn = ts; lo = max(ts - 0.25 * uStep, t0); break; }",
+  "      }",
+  "    }",
+  "    if (tIn > 0.0) {",
+  "      // Entering: refine the crossing between lo and tIn",
+  "      float hi = tIn;",
+  "      for (int k = 0; k < 8; k++) {",
   "        float mid = 0.5 * (lo + hi);",
   "        if (val(uCam + dir * mid) > 0.0) hi = mid; else lo = mid;",
   "      }",
@@ -164,6 +177,16 @@ const SPHERE_FRAGMENT = [
 
 type RayMesh = THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial>;
 
+/** Pixels per CSS pixel while the view moves (ray casting costs per pixel). */
+const movingPixelRatio = () => Math.min(window.devicePixelRatio || 1, 1.5);
+/** Pixels per CSS pixel of the still view: 2 (supersampled on a standard
+ * screen, the native density of a high-DPI one). */
+const stillPixelRatio = () => 2;
+
+/** Ray step in grid voxels: still view, and while the view moves. */
+const FINE_STEP = 0.25;
+const COARSE_STEP = 0.75;
+
 export { RESOLUTION_PALETTE };
 
 /** Coloring of the surface by a resolution map on the same box. */
@@ -207,13 +230,17 @@ function rayMesh(d: VolumeDensity, values: Uint8Array, color: string): RayMesh {
       uThr: { value: 0.5 },
       uSign: { value: 1 },
       uOpacity: { value: 1 },
-      uStep: { value: f * 0.5 },
+      uStep: { value: f * FINE_STEP },
       uFirst: { value: 0 },
+      // Distance to the threshold (0-1 of the grid) of the samples whose
+      // segment is sampled inside (thin features, grazing edges)
+      uNear: { value: 8 / 255 },
       uMVP: { value: new THREE.Matrix4() },
       uRes: { value: EMPTY_RES() },
       uResSize: { value: size.clone() },
       uColorBy: { value: 0 },
       uResMin: { value: 0 },
+      uResMax: { value: 1 },
       uResRange: { value: new THREE.Vector2(0, 1) },
       uPal: { value: RESOLUTION_PALETTE.map(rgb) },
     },
@@ -284,7 +311,7 @@ export class IsoSurfaceScene {
   private readonly dim: Vec3;
   private mesh: RayMesh | null = null;
   private density: VolumeDensity | null = null;
-  /** The grid values given to the GPU (smoothed, without dust). */
+  /** The grid values given to the GPU (without dust). */
   private values: Uint8Array | null = null;
   /** The user moved the view since it was framed (fit). */
   touched = false;
@@ -309,7 +336,8 @@ export class IsoSurfaceScene {
       throw new Error("WebGL 2 is needed for the 3D volume.");
     }
     // Ray casting costs per pixel: no more than 1.5 pixels per CSS pixel
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    // while the view moves; supersampled when it stops (see render)
+    this.renderer.setPixelRatio(movingPixelRatio());
     this.renderer.setSize(width, height);
     this.renderer.setClearColor(0x111418);
     this.canvas = this.renderer.domElement;
@@ -334,7 +362,7 @@ export class IsoSurfaceScene {
     this.reset();
   }
 
-  /** New values of the same grid (e.g. smoothed or without dust). */
+  /** New values of the same grid (e.g. without dust). */
   setValues(values: Uint8Array) {
     this.values = values;
     if (!this.mesh) return;
@@ -387,8 +415,11 @@ export class IsoSurfaceScene {
     if (c) {
       const lvl = (v: number) => level(c.density, v);
       u.uResRange.value.set(lvl(c.range[0]), lvl(c.range[1]));
-      // Values <= 0 are no resolution (outside the mask of the map)
-      u.uResMin.value = Math.max(lvl(0) + 0.5 / 255, 0);
+      // Levels without a value: <= 0, or the fill value outside the mask
+      const [k0, k1] = resolutionValidLevels(c.density, densityValues(c.density));
+      u.uResMin.value = (k0 - 0.5) / 255;
+      // Above the max of the range (or the last valid level): gray
+      u.uResMax.value = Math.min((k1 + 0.5) / 255, lvl(c.range[1]) + 0.5 / 255);
     }
   }
 
@@ -566,6 +597,10 @@ export class IsoSurfaceScene {
     this.raf = requestAnimationFrame(() => {
       this.raf = 0;
       if (this.disposed) return;
+      // The still view supersampled: the surface edges are decided per
+      // pixel by the shader (no MSAA on them), more samples smooth them
+      const ratio = this.coarse || this.ball.dragging ? movingPixelRatio() : stillPixelRatio();
+      if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio);
       this.ball.apply(this.camera);
       this.camera.updateMatrixWorld();
       if (this.mesh && this.density) this.updateRay(this.mesh, this.density);
@@ -582,7 +617,7 @@ export class IsoSurfaceScene {
     u.uCam.value.copy(mesh.worldToLocal(this.camera.position.clone()));
     // Key light above-left of the camera
     u.uLight.value.set(-0.35, 0.45, 1).normalize().applyQuaternion(this.camera.quaternion);
-    u.uStep.value = f * (this.coarse || this.ball.dragging ? 1.25 : 0.5);
+    u.uStep.value = f * (this.coarse || this.ball.dragging ? COARSE_STEP : FINE_STEP);
     mesh.updateMatrixWorld();
     u.uMVP.value
       .copy(this.camera.projectionMatrix)
