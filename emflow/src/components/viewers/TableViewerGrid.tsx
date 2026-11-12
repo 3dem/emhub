@@ -62,7 +62,7 @@ function GridCellMessage({ message }: { message: string }) {
             <Typography
                 variant="body2"
                 sx={{
-                    color: "#94a3b8",
+                    color: "var(--emf-slate-400)",
                     textAlign: "center",
                     fontSize: "0.76rem",
                 }}
@@ -77,11 +77,14 @@ function GridCell({
     slot,
     content,
     expanded,
+    hidden = false,
     onToggleExpand,
 }: {
     slot: TableViewerGridSlot;
     content?: TableViewerPaneContent;
     expanded: boolean;
+    /** Kept mounted (its state) but not shown: another cell is expanded. */
+    hidden?: boolean;
     onToggleExpand: () => void;
 }) {
     const title = content?.title;
@@ -93,10 +96,10 @@ function GridCell({
                 gridArea: slot,
                 minWidth: 0,
                 minHeight: 0,
-                display: "flex",
+                display: hidden ? "none" : "flex",
                 flexDirection: "column",
-                backgroundColor: "#ffffff",
-                border: "1px solid #e2e8f0",
+                backgroundColor: "var(--emf-white)",
+                border: "1px solid var(--emf-slate-200)",
                 borderRadius: 1,
                 overflow: "hidden",
             }}
@@ -108,7 +111,7 @@ function GridCell({
                     pl: 1.25,
                     pr: 0.25,
                     minHeight: 26,
-                    borderBottom: "1px solid #eef2f7",
+                    borderBottom: "1px solid var(--emf-surface-soft)",
                     flexShrink: 0,
                 }}
             >
@@ -118,7 +121,7 @@ function GridCell({
                         minWidth: 0,
                         fontSize: "0.72rem",
                         fontWeight: 600,
-                        color: "#334155",
+                        color: "var(--emf-slate-700)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -131,7 +134,7 @@ function GridCell({
                         size="small"
                         aria-label={expandLabel}
                         onClick={onToggleExpand}
-                        sx={{ p: 0.4, color: "#64748b" }}
+                        sx={{ p: 0.4, color: "var(--emf-slate-500)" }}
                     >
                         {expanded ? (
                             <CloseFullscreenIcon sx={{ fontSize: 14 }} />
@@ -161,6 +164,14 @@ function GridCell({
             </Box>
         </Box>
     );
+}
+
+/** Cells that keep their state when a grid cell is expanded or collapsed:
+ * viewers that fit their new size by themselves. They are not remounted
+ * when they are expanded, and stay mounted (hidden) while another cell is. */
+function keepsState(cell: TableViewerPaneContent | undefined): boolean {
+    return cell?.kind === "tiltSeries"
+        || (cell?.kind === "imageSlider" && cell.layout === "volume");
 }
 
 /**
@@ -210,20 +221,27 @@ export default function TableViewerGrid({
                     .join(" "),
                 gridTemplateColumns: `repeat(${nCols}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${layout.areas.length}, minmax(0, 1fr))`,
-                backgroundColor: "#f6f7fb",
+                backgroundColor: "var(--emf-pane-bg)",
             }}
         >
-            {layout.slots.map((slot) => (
+            {fullLayout.slots
+                // Hidden while another cell is expanded: only the cells that
+                // keep their state stay (mounted, not shown)
+                .filter((slot) => layout.slots.includes(slot) || keepsState(content.cells[slot]))
+                .map((slot) => (
                 <GridCell
                     // Remount when expanding/collapsing so plots fit the new
-                    // size; a tilt series viewer keeps its state (the tilt,
-                    // the alignment applied, zoom) and fits by itself
-                    key={content.cells[slot]?.kind === "tiltSeries"
+                    // size; a tilt series viewer or a volume viewer keeps its
+                    // state (the tilt, the alignment applied, zoom; the
+                    // threshold, mask, resolution coloring...) and fits by
+                    // itself
+                    key={keepsState(content.cells[slot])
                         ? slot
                         : `${slot}-${expanded ? "expanded" : "grid"}`}
                     slot={slot}
                     content={content.cells[slot]}
                     expanded={expanded === slot}
+                    hidden={!layout.slots.includes(slot)}
                     onToggleExpand={() =>
                         setExpandedSlot(expanded === slot ? null : slot)
                     }

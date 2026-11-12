@@ -55,7 +55,7 @@ export function TableViewerSelectionMenu({
             PaperProps={{
                 sx: {
                     minWidth: 180,
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--emf-slate-200)",
                     boxShadow: "0 10px 25px rgba(15,23,42,0.12)",
                 },
             }}

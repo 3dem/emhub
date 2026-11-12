@@ -82,6 +82,68 @@ export type VolumeData = {
   coordinates?: VolumeCoordinates | null;
   /** Density for the "3D volume" tab (the tab is shown only with it). */
   density?: VolumeDensity | DensitySource | null;
+  /** [low, high] values of each slice image shown as black and white, per
+   * axis and slice number (the contrast of its full-resolution crops). */
+  levels?: Partial<Record<Axis, Record<string, [number, number]>>> | null;
+  /** Request of the full-resolution crops of the sections (VolumeCrop); the
+   * viewer adds a CropRequest to its payload. */
+  crop?: DensitySource | null;
+  /** Request of the iterations of the map (a Relion class at every iteration
+   * of its job; answers `{iterations: MapIterations | null}`), to play the
+   * 3D volume through them. */
+  iterations?: DensitySource | null;
+};
+
+/** One iteration of a map: its density request and the stats of its model. */
+export type MapIteration = {
+  /** Iteration number; null for the final map. */
+  iteration: number | null;
+  label: string;
+  file: string;
+  density: DensitySource;
+  /** Resolution of the iteration (Å). */
+  resolution?: number | null;
+  /** Share of the particles in the class (0-1). */
+  classDistribution?: number | null;
+  /** Estimated resolution of the class (Å). */
+  classResolution?: number | null;
+  /** Gold-standard FSC (refinements): per shell, resolution in 1/Å. */
+  fsc?: { resolution: number[]; fsc: number[] } | null;
+};
+
+export type MapIterations = {
+  classId: number;
+  items: MapIteration[];
+  /** Index of the map of the pane. */
+  current: number;
+};
+
+/** A window of a section asked to the host (section voxels: horizontal,
+ * vertical, see HV), at most maxW x maxH pixels, low-pass filtered with a
+ * Gaussian of sigma voxels (0: none). */
+export type CropRequest = {
+  axis: Axis;
+  index: number;
+  x0: number;
+  y0: number;
+  w: number;
+  h: number;
+  maxW: number;
+  maxH: number;
+  sigma: number;
+  /** Voxels per pixel of the slice image (its contrast is matched). */
+  thumbBinning: number;
+};
+
+/** A crop: its image and the section voxels it covers. */
+export type VolumeCrop = {
+  image: SliceImage;
+  x0: number;
+  y0: number;
+  w: number;
+  h: number;
+  /** Voxels per image pixel (block means). */
+  binning: number;
 };
 
 /** Horizontal and vertical voxel axes of each section. */
@@ -196,11 +258,92 @@ export function volumeDataFromPane(input: any): VolumeData | null {
   }
   if (!axes && !density) return null;
   const c = pane.coordinates;
+  const levels: NonNullable<VolumeData["levels"]> = {};
+  for (const a of AXES) if (pane.axes?.[a]?.levels) levels[a] = pane.axes[a].levels;
   return {
     dimensions: pane.dimensions as [number, number, number],
     axes,
     voxelSize: pane.voxelSize ?? pane.voxel_size ?? null,
     coordinates: c && c.x && c.x.length ? c : null,
     density,
+    levels: Object.keys(levels).length ? levels : null,
+    crop: axes && pane.crop && pane.crop.path ? pane.crop : null,
+    iterations: pane.iterations && pane.iterations.path ? pane.iterations : null,
   };
+}
+
+/** Colors of a local resolution map, from the best resolution (lowest value,
+ * blue) to the worst (red), evenly spaced: the usual rainbow of local
+ * resolution maps (ChimeraX: color sample ... palette ^rainbow). Shared by
+ * the 3D volume (shader) and the slices, so both color a value alike. */
+export const RESOLUTION_PALETTE = ["#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"];
+
+const PALETTE_RGB = RESOLUTION_PALETTE.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
+
+/** RGB (0-255) of t (0-1, clamped) in RESOLUTION_PALETTE, linear between
+ * the colors (as the 3D shader). */
+export function resolutionRgb(t: number): [number, number, number] {
+  const x = Math.min(1, Math.max(0, t)) * (PALETTE_RGB.length - 1);
+  const i = Math.min(Math.floor(x), PALETTE_RGB.length - 2), f = x - i;
+  const [a, b] = [PALETTE_RGB[i], PALETTE_RGB[i + 1]];
+  return [0, 1, 2].map((k) => Math.round(a[k] + (b[k] - a[k]) * f)) as [number, number, number];
+}
+
+/** Share of the voxels above which the most frequent value, at an end of
+ * the map's values, is a fill value: outside the mask of a local resolution
+ * map (e.g. Warp writes ~40 Å there, the lowest resolution of the box). */
+const FILL_SHARE = 0.1;
+
+const validLevelsCache = new WeakMap<VolumeDensity, [number, number]>();
+
+/**
+ * The grid levels (0-255, inclusive) of a local resolution map that hold a
+ * value: not <= 0 (no value) nor a fill value outside its mask (the most
+ * frequent level, at an end of the values, with FILL_SHARE of the voxels).
+ */
+export function resolutionValidLevels(d: VolumeDensity, values: Uint8Array): [number, number] {
+  const cached = validLevelsCache.get(d);
+  if (cached) return cached;
+  const [v0, v1] = d.valueRange;
+  const counts = new Array<number>(256).fill(0);
+  for (let i = 0; i < values.length; i++) counts[values[i]]++;
+  // Values <= 0 have no resolution
+  let lo = 0, hi = 255;
+  while (lo < 255 && v0 + (lo / 255) * (v1 - v0) <= 0) lo++;
+  while (lo < hi && !counts[lo]) lo++;
+  while (hi > lo && !counts[hi]) hi--;
+  let mode = lo;
+  for (let k = lo; k <= hi; k++) if (counts[k] > counts[mode]) mode = k;
+  if (counts[mode] >= FILL_SHARE * values.length) {
+    // The fill value and the levels next to it (its rounding to the grid)
+    if (hi - mode <= 2) hi = mode - 2;
+    else if (mode - lo <= 2) lo = mode + 2;
+  }
+  const r: [number, number] = hi >= lo ? [lo, hi] : [0, 255];
+  validLevelsCache.set(d, r);
+  return r;
+}
+
+/**
+ * Range of the values of a map (e.g. a local resolution map): the values
+ * with a value (resolutionValidLevels), without `lowTail` of the lowest and
+ * `highTail` of the highest, in map units; null if it has none.
+ */
+export function mapValueRange(d: VolumeDensity, values: Uint8Array, lowTail = 0.01,
+                              highTail = lowTail): [number, number] | null {
+  const [v0, v1] = d.valueRange;
+  const [k0, k1] = resolutionValidLevels(d, values);
+  const counts = new Array<number>(256).fill(0);
+  let n = 0;
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] >= k0 && values[i] <= k1) { counts[values[i]]++; n++; }
+  }
+  if (!n) return null;
+  const at = (q: number) => {
+    let acc = 0;
+    for (let k = 0; k < 256; k++) { acc += counts[k]; if (acc > q * (n - 1)) return v0 + (k / 255) * (v1 - v0); }
+    return v1;
+  };
+  const lo = at(lowTail), hi = at(1 - highTail);
+  return hi > lo ? [lo, hi] : [lo, lo + (v1 - v0) / 255];
 }

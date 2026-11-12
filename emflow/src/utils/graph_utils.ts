@@ -253,6 +253,7 @@ export function buildGraphElements(
       elapsedRuns: prot.elapsedRuns,
       launched: prot.launched,
       queued: prot.queued,
+      clusterJobId: prot.clusterJobId,
       tick: Number(prot.elapsedTime) || 0,
       tags: Array.isArray(prot.tags) ? prot.tags : [],
     }));
@@ -344,6 +345,7 @@ export function buildGraphElements(
           elapsedRuns: prot?.elapsedRuns,
           launched: prot?.launched,
           queued: prot?.queued,
+          clusterJobId: prot?.clusterJobId,
           stepsDone: prot?.stepsDone,
           numberOfSteps: prot?.numberOfSteps,
           outputs: prot?.outputs,
@@ -466,6 +468,7 @@ export function buildGraphElements(
         elapsedRuns: prot?.elapsedRuns,
         launched: prot?.launched,
         queued: prot?.queued,
+        clusterJobId: prot?.clusterJobId,
         stepsDone: prot?.stepsDone,
         numberOfSteps: prot?.numberOfSteps,
         outputs: prot?.outputs,

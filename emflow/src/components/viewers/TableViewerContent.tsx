@@ -1,6 +1,7 @@
 import { Box } from "@mui/material";
 import Plot from "@/lib/plot";
-import { normalizeTitles } from "./Plot";
+import { normalizeTitles, themedLayout } from "./Plot";
+import { useTheme } from "@/context/ThemeContext";
 
 import type { TableViewerPaneContent } from "@/services/ProjectService";
 import ImageSlider from "./ImageSlider";
@@ -41,6 +42,8 @@ export default function TableViewerContent({
      * to it, plots use compact margins. */
     fit?: boolean;
 }) {
+    // Plots follow the widget theme
+    const dark = useTheme().theme === "dark";
     switch (content.kind) {
         case "text":
             return (
@@ -109,7 +112,7 @@ export default function TableViewerContent({
                 <Box sx={{ p: 1, height: "100%", minHeight: 0 }}>
                     <Plot
                         data={(content.figure.data as any[]) ?? []}
-                        layout={{
+                        layout={themedLayout({
                             ...normalizeTitles(backendLayout),
                             autosize: true,
                             // Fitted (grid cells): small margins and font,
@@ -138,7 +141,7 @@ export default function TableViewerContent({
                             title: ownTitle
                                 ? normalizeTitles(backendLayout).title
                                 : normalizeTitles({ title: content.title }).title,
-                        }}
+                        }, dark)}
                         config={{
                             ...(content.figure.config as Record<string, unknown> | undefined),
                             responsive: true,

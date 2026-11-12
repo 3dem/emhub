@@ -3,15 +3,20 @@
 // The "3D volume" tab of VolumeViewer: loads the density (inline, or with the
 // DataLoader when the tab is first opened) and shows it as an iso-surface
 // (IsoSurfaceScene) with the histogram and options beside (DensityPanel).
-// The surface may be smoothed and its dust (small blobs of noise) hidden:
-// both filter the grid given to the GPU, not the map. An optional mask (a
-// sphere or another map, loaded like the density) is drawn over it.
+// Its dust (small blobs of noise) may be hidden: it filters the grid given
+// to the GPU, not the map. An optional mask (a sphere or another map, loaded
+// like the density) is drawn over it. The surface may be colored by a local
+// resolution map (colorBy), with its color key over the scene, as ChimeraX's
+// "color sample ... key true".
+// When the density changes to another map of a series (the iterations of a
+// Relion map, `preload`ed in the background) the same share of voxels stays
+// enclosed and the view is not framed again, so the series plays smoothly.
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import styles from "../VolumeViewer.module.css";
-import { useLoad } from "@/data/DataLoaderContext";
-import { IsoSurfaceScene, type IsoMask, type IsoState, type MaskStyle } from "./IsoSurfaceScene";
+import { useDataLoader, useLoad } from "@/data/DataLoaderContext";
+import { IsoSurfaceScene, RESOLUTION_PALETTE, type IsoMask, type IsoState, type MaskStyle } from "./IsoSurfaceScene";
 import DensityPanel, { DETAILS, enclosedFraction, levelForFraction, type DensityOptions } from "./DensityPanel";
-import { densityValues, prepareDensity, removeDust, smoothGrid } from "./densityGrid";
+import { densityValues, prepareDensity, removeDust } from "./densityGrid";
 import { isDensitySource, type DensitySource, type Vec3, type VolumeDensity } from "./volumeMath";
 
 export type IsoSurfaceHandle = { reset: () => void };
@@ -27,7 +32,7 @@ export type DensityDebug = {
   from?: "request" | "inline";
   requestMs?: number;
   decodeMs?: number;
-  /** Smoothing and dust removal of the last change. */
+  /** Dust removal of the last change. */
   filterMs?: number;
   hidden?: number;
   density?: VolumeDensity;
@@ -50,8 +55,6 @@ export type IsoDefaults = {
   maxVoxels?: number;
   /** Hide the blobs smaller than this many grid voxels (20; 0: show all). */
   dust?: number;
-  /** Smooth the surface (display only; false). */
-  smooth?: boolean;
 };
 
 type Props = {
@@ -80,7 +83,64 @@ type Props = {
   maskStyle?: MaskStyle;
   /** Loading or error of a map mask; null once it is shown. */
   onMaskStatus?: (status: string | null) => void;
+  /** Under the scene, in its column (the panel beside keeps its height). */
+  below?: React.ReactNode;
+  /** The grid size and statistics in the panel (the viewer's debug). */
+  debug?: boolean;
+  /** Other densities of a series (the iterations of a map), loaded and
+   * decoded in the background (two at a time, the detail of this one), so
+   * they show at once; null entries are skipped. */
+  preload?: (DensitySource | null)[];
+  /** Index (in preload) of a density loaded in the background. */
+  onPreloaded?: (index: number) => void;
+  /** The density shown now is the one of `density` (playback waits for it). */
+  onShown?: (density: VolumeDensity | DensitySource) => void;
+  /** Color the surface by this map (decoded, on the same box), e.g. a local
+   * resolution map; null: the plain color. */
+  colorBy?: ColorByInput | null;
 };
+
+/** A map that colors the surface (see Props.colorBy). */
+export type ColorByInput = {
+  density: VolumeDensity;
+  /** Palette ends in map units (e.g. the range of the map's values). */
+  range: [number, number];
+  /** Title of the color key ("Local resolution (Å)"). */
+  title?: string;
+  /** Unit of the key labels ("Å"). */
+  unit?: string;
+};
+
+const fmtKey = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1));
+
+/** The color key of the colored surface: the palette from the lowest value
+ * (left) to the highest, with the ends and the middle labeled (ChimeraX key:
+ * horizontal bar, bordered, numeric labels below). */
+export function ColorKey({ range, title, unit, inline = false }: {
+  range: [number, number];
+  title: string;
+  unit: string;
+  /** In the layout (e.g. beside the slices), not over the 3D view. */
+  inline?: boolean;
+}) {
+  const [lo, hi] = range;
+  return (
+    <div className={inline ? `${styles.colorKey} ${styles.colorKeyInline}` : styles.colorKey}
+         aria-label={`${title}: ${fmtKey(lo)} to ${fmtKey(hi)} ${unit}`}>
+      <div className={styles.colorKeyTitle}>{title}</div>
+      <div className={styles.colorKeyBar}
+           style={{ background: `linear-gradient(to right, ${RESOLUTION_PALETTE.join(", ")})` }} />
+      <div className={styles.colorKeyLabels}>
+        <span>{fmtKey(lo)}</span>
+        <span>{fmtKey((lo + hi) / 2)}</span>
+        <span>{fmtKey(hi)}</span>
+      </div>
+      <div className={styles.colorKeyNote}>
+        <span className={styles.colorKeyGray} aria-hidden="true" /> above {fmtKey(hi)} {unit} or no value
+      </div>
+    </div>
+  );
+}
 
 /** First threshold of a map mask: 0.5 for a 0-1 mask, else the middle. */
 export function maskThreshold(d: VolumeDensity, given?: number): number {
@@ -93,7 +153,8 @@ export function maskThreshold(d: VolumeDensity, given?: number): number {
 const INITIAL_ENCLOSED = 0.01;
 /** ChimeraX's default map color. */
 const DEFAULT_COLOR = "#b2b2ff";
-const DEFAULT_DUST = 20;
+// No dust hidden at first (the Hide dust slider at None)
+const DEFAULT_DUST = 0;
 /** Wait for the threshold to settle before hiding the dust again. */
 const DUST_DELAY_MS = 120;
 
@@ -110,6 +171,12 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
   debugRef.current = props.onDebug;
   // The last grid stays while another detail loads; it is decoded first
   const [density, setDensity] = useState<VolumeDensity | null>(null);
+  const shownRef = useRef<{ density: VolumeDensity; given: VolumeDensity | DensitySource } | null>(null);
+  // A density that replaced another map of the series (another iteration):
+  // the same share of voxels is enclosed and the view is not framed again
+  const keepView = useRef<VolumeDensity | null>(null);
+  const onShownRef = useRef(props.onShown);
+  onShownRef.current = props.onShown;
   useEffect(() => {
     let d: VolumeDensity | null = null;
     let requestMs: number | undefined;
@@ -124,7 +191,17 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     const ready = d;
     prepareDensity(ready).then((decodeMs) => {
       if (!live) return;
+      const prev = shownRef.current;
+      shownRef.current = { density: ready, given };
       setDensity(ready);
+      if (prev && prev.given !== given && prev.density !== ready) {
+        keepView.current = ready;
+        const h0 = prev.density.histogram, h1 = ready.histogram;
+        if (h0 && h1) {
+          setOpts((o) => (o ? { ...o, threshold: levelForFraction(h1, enclosedFraction(h0, o.threshold, o.below), o.below) } : o));
+        }
+      }
+      onShownRef.current?.(given);
       if (requestMs !== undefined) debugRef.current?.({ from: "request", requestMs, decodeMs, density: ready });
       else if (decodeMs) debugRef.current?.({ from: "inline", decodeMs, density: ready });
     }, (e) => live && setDecodeError(String(e?.message ?? e)));
@@ -145,7 +222,6 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
       opacity: dflt.opacity ?? 1,
       color: dflt.color ?? DEFAULT_COLOR,
       dust: dflt.dust ?? DEFAULT_DUST,
-      smooth: Boolean(dflt.smooth),
     });
     // the defaults are only read once
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -198,7 +274,7 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     let scene: IsoSurfaceScene;
     try {
       scene = new IsoSurfaceScene(dim, stateRef.current ?? {
-        threshold: 0, below: false, opacity: 1, color: DEFAULT_COLOR, dust: 0, smooth: false, pan: false,
+        threshold: 0, below: false, opacity: 1, color: DEFAULT_COLOR, dust: 0, pan: false,
       }, sizeRef.current[0], sizeRef.current[1]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "WebGL is not available in this browser.");
@@ -212,14 +288,9 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
       sceneRef.current = null;
     };
   }, [dim]);
-  // Grid of the surface: smoothed or not, then without the dust at the
-  // threshold (after it settles; meanwhile the dust shows)
-  const smoothOn = Boolean(opts?.smooth);
-  const base = useMemo(() => {
-    if (!density) return null;
-    const v = densityValues(density);
-    return smoothOn ? smoothGrid(v, density.shape) : v;
-  }, [density, smoothOn]);
+  // Grid of the surface, then without the dust at the threshold (after it
+  // settles; meanwhile the dust shows)
+  const base = useMemo(() => (density ? densityValues(density) : null), [density]);
   useEffect(() => {
     if (density && base) sceneRef.current?.setDensity(density, base);
   }, [density, base, error]);
@@ -235,14 +306,20 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
   const dust = opts?.dust ?? 0;
   const thr = opts?.threshold ?? 0;
   const below = Boolean(opts?.below);
+  // A new density is cleaned at once (not after the threshold settles), so
+  // the dust does not flash between the iterations of a series
+  const dustOf = useRef<VolumeDensity | null>(null);
+  const hasOpts = Boolean(opts);
   useEffect(() => {
-    if (!density || !base) return undefined;
+    // (the first threshold comes with the options)
+    if (!density || !base || !hasOpts) return undefined;
     if (!dust) {
       sceneRef.current?.setValues(base);
       setHidden(0);
       return undefined;
     }
-    const timer = window.setTimeout(() => {
+    const clean = () => {
+      dustOf.current = density;
       const t0 = performance.now();
       const [v0, v1] = density.valueRange;
       const level = ((thr - v0) / (v1 - v0 || 1)) * 255;
@@ -252,12 +329,17 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
       // The first frame without the dust (blobs of noise widen it)
       if (dustFramed.current !== density) {
         dustFramed.current = density;
-        autoFit();
+        if (keepView.current !== density) autoFit();
       }
       debugRef.current?.({ filterMs: performance.now() - t0, hidden: r.hidden });
-    }, DUST_DELAY_MS);
+    };
+    if (dustOf.current !== density) {
+      clean();
+      return undefined;
+    }
+    const timer = window.setTimeout(clean, DUST_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [density, base, dust, thr, below]);
+  }, [density, base, dust, thr, below, hasOpts]);
   useEffect(() => {
     if (state) sceneRef.current?.setState(state);
   }, [state, density]);
@@ -316,30 +398,76 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     if (maskStyle) sceneRef.current?.setMaskStyle(maskStyle);
   }, [maskStyle?.show, maskStyle?.color, maskStyle?.opacity]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ---------- color by a map (local resolution) ---------- */
+  const colorBy = props.colorBy ?? null;
+  // The range is given (fixed: it does not follow the threshold)
+  const colorRange = colorBy?.range ?? null;
+  useEffect(() => {
+    sceneRef.current?.setColorBy(colorBy && colorRange ? { density: colorBy.density, range: colorRange } : null);
+    // the range is compared by value
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colorBy?.density, colorRange?.[0], colorRange?.[1], density, error]);
+
   const hasMask = Boolean(sphere || (maskGiven && maskDensity));
   useEffect(() => {
     if (!density || !opts) return;
     const f = framed.current;
     if (f && f.density === density && f.mask === hasMask) return;
     framed.current = { density, mask: hasMask };
+    // Another iteration of the series: the view stays
+    if (keepView.current === density && f?.mask === hasMask) return;
     autoFit();
     // after the density, state and mask effects above (same commit)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [density, opts, hasMask, error]);
+
+  // The other densities of the series, in the background (two at a time)
+  const loader = useDataLoader();
+  const preload = props.preload;
+  const onPreloadedRef = useRef(props.onPreloaded);
+  onPreloadedRef.current = props.onPreloaded;
+  useEffect(() => {
+    if (!preload?.length) return undefined;
+    let live = true;
+    const queue = preload.map((d, i) => [d, i] as const).filter(([d]) => d);
+    const next = (): Promise<void> => {
+      const item = queue.shift();
+      if (!item || !live) return Promise.resolve();
+      const [src, i] = item;
+      return loader.load<any>(src!.path, { ...src!.payload, maxVoxels: detail })
+        .then((r) => {
+          const d = r && r.density ? r.density : r;
+          return d ? prepareDensity(d) : 0;
+        })
+        .then(() => { if (live) onPreloadedRef.current?.(i); }, () => undefined)
+        .then(next);
+    };
+    next();
+    next();
+    return () => { live = false; };
+  }, [preload, detail, loader]);
 
   useImperativeHandle(ref, () => ({ reset: () => sceneRef.current?.reset() }), []);
 
   if (error) return <div className={styles.msg}>{error}</div>;
   const loading = Boolean(source) && loaded.status === "loading";
   return (
-    <div className={styles.wrap3d}>
-      <div ref={host} className={styles.canvas3d} style={{ width, height }}>
-        {!density && (
-          <div className={styles.isoWait}>
-            {decodeError ? `Could not read the volume: ${decodeError}`
-              : loaded.status === "error" ? `Could not load the volume: ${loaded.error.message}` : "Loading the volume…"}
-          </div>
-        )}
+    // With a panelWidth the panel goes below the scene (the viewer sized the
+    // scene for it), also when both would fit side by side
+    <div className={styles.wrap3d} style={props.panelWidth !== undefined ? { flexDirection: "column" } : undefined}>
+      <div className={styles.isoCol}>
+        <div ref={host} className={styles.canvas3d} style={{ width, height }}>
+          {density && colorBy && colorRange && (
+            <ColorKey range={colorRange} title={colorBy.title ?? "Local resolution (Å)"} unit={colorBy.unit ?? "Å"} />
+          )}
+          {!density && (
+            <div className={styles.isoWait}>
+              {decodeError ? `Could not read the volume: ${decodeError}`
+                : loaded.status === "error" ? `Could not load the volume: ${loaded.error.message}` : "Loading the volume…"}
+            </div>
+          )}
+        </div>
+        {props.below}
       </div>
       {density && opts && (
         <DensityPanel
@@ -352,6 +480,7 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
           hidden={hidden}
           onChange={onPanelChange}
           maxHeight={props.panelHeight}
+          debug={props.debug}
           width={props.panelWidth}
           onHeight={props.onPanelHeight}
         />

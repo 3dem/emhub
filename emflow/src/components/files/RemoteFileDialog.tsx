@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import styles from "./RemoteFileDialog.module.css";
+import { useTheme } from "@/context/ThemeContext";
 
 export type RemoteEntry = {
   name: string;
@@ -220,6 +221,7 @@ export default function RemoteFileDialog({
 
   // portalContainer
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+  const { theme: widgetTheme } = useTheme();
 
   // hardening refs
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -459,15 +461,11 @@ export default function RemoteFileDialog({
       host.classList.add(ROOT_CLASS);
     }
 
-    // keepDarkModeConsistentIfNeeded
-    if (doc.documentElement.classList.contains("dark")) {
-      host.classList.add("dark");
-    } else {
-      host.classList.remove("dark");
-    }
+    // keepDarkModeConsistentIfNeeded: the widget theme, not the host page's
+    host.classList.toggle("dark", widgetTheme === "dark");
 
     setPortalContainer(host);
-  }, []);
+  }, [widgetTheme]);
 
   /** normalizePosixPath */
   const normalizePosixPath = (p: string) => (p || "").replace(/\\/g, "/").replace(/\/+/g, "/").trim();
