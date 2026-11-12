@@ -33,7 +33,6 @@ from emtools.metadata import StarFile, RelionStar
 # The curation rule (reject limits, flags, tilts after a lost field) lives
 # there only: shared with the emw-tilt-curation job and the curation skill
 from emwrap.base.tilt_quality_curation import TiltQualityCuration
-from emwrap.base.tilt_qc_config import TiltQcConfig
 
 logger = logging.getLogger(__name__)
 
@@ -154,13 +153,14 @@ PLACEHOLDER_ZERO_COLS = {
 
 # The triage thresholds and the curation rule's limits: their defaults, the
 # reject limits being the rule's (TiltQualityCuration.DEFAULT_LIMITS), and
-# where each rule limit sits (RULE_KEYS) are emwrap's TiltQcConfig, which the
-# tilt analysis and tilt curation jobs write to their tilt_qc_config.json.
+# where each rule limit sits (RULE_KEYS) are emwrap's TiltQualityCuration.Config,
+# which the tilt analysis and tilt curation jobs write to their
+# tilt_qc_config.json.
 # A dashboard uses the defaults, then an entry's otf_thresholds, then its
 # analysis job's file, then the page's unsaved changes (see OtfSession).
 # Only data quality is judged here; job failures are handled separately.
-DEFAULT_THRESHOLDS = TiltQcConfig.DEFAULT_THRESHOLDS
-RULE_KEYS = TiltQcConfig.RULE_KEYS
+DEFAULT_THRESHOLDS = TiltQualityCuration.Config.DEFAULT_THRESHOLDS
+RULE_KEYS = TiltQualityCuration.Config.RULE_KEYS
 
 STATUS_OK = 'ok'
 STATUS_SUSPECT = 'suspect'
@@ -172,7 +172,7 @@ STATUSES_NEED_REVIEW = (STATUS_SUSPECT, STATUS_BAD, STATUS_FAILED)
 
 
 
-rule_limits = TiltQcConfig.rule_limits
+rule_limits = TiltQualityCuration.Config.rule_limits
 
 
 # --------------------------------------------------------------------------
@@ -795,7 +795,7 @@ class OtfSession:
         by default the newest ones; NO_JOB to show none.  thresholds: the
         entry's overrides of the defaults, under the analysis job's
         configuration file (see config()); draft_thresholds: changes not
-        saved yet, over all of them (validated, see TiltQcConfig). """
+        saved yet, over all of them (validated, see TiltQualityCuration.Config). """
         self.path = os.path.abspath(os.path.expanduser(path))
         self._analysisId = _rmslash(analysis_job) if analysis_job else None
         self._analysisJob = None
@@ -803,9 +803,9 @@ class OtfSession:
                            'tomogram': _rmslash(tomo_job) if tomo_job else None}
         self._downstream = None
         # An override of one limit keeps the other limits of that metric
-        self._entryThresholds = TiltQcConfig.merge(DEFAULT_THRESHOLDS, thresholds)
+        self._entryThresholds = TiltQualityCuration.Config.merge(DEFAULT_THRESHOLDS, thresholds)
         if draft_thresholds:
-            TiltQcConfig.validate(draft_thresholds, where='unsaved thresholds')
+            TiltQualityCuration.Config.validate(draft_thresholds, where='unsaved thresholds')
         self._draft = draft_thresholds or None
         self._thresholds = None
         self._config = None
@@ -850,9 +850,9 @@ class OtfSession:
     # -- the thresholds ----------------------------------------------------
     @property
     def config_file(self):
-        """ The tilt QC configuration of the analysis job shown (TiltQcConfig):
+        """ The tilt QC configuration of the analysis job shown (TiltQualityCuration.Config):
         written by the job when it starts, saved over from the dashboard. """
-        return TiltQcConfig.path(self.join(self.analysis_job.id))
+        return TiltQualityCuration.Config.path(self.join(self.analysis_job.id))
 
     def config(self):
         """ The configuration file of the analysis job: {'path' (project
@@ -867,10 +867,11 @@ class OtfSession:
                     'loadedFrom': None, 'saved': self._entryThresholds}
             if info['exists']:
                 try:
-                    data = TiltQcConfig.read_file(path)
+                    data = TiltQualityCuration.Config.read_file(path)
                     info.update({k: data.get(k) for k in ('updated', 'updatedBy', 'source',
                                                           'loadedFrom')},
-                                saved=TiltQcConfig.merge(self._entryThresholds, data['thresholds']))
+                                saved=TiltQualityCuration.Config.merge(self._entryThresholds,
+                                                                       data['thresholds']))
                 except (OSError, ValueError) as e:
                     info['error'] = str(e)
             self._config = info
@@ -881,17 +882,16 @@ class OtfSession:
         """ The thresholds the tilt series are judged with: the saved ones
         (config()) with the unsaved changes over them. """
         if self._thresholds is None:
-            self._thresholds = TiltQcConfig.merge(self.config()['saved'], self._draft)
+            self._thresholds = TiltQualityCuration.Config.merge(self.config()['saved'], self._draft)
         return self._thresholds
 
     def save_config(self, thresholds, user=None):
         """ Write thresholds (all or some of them, over the saved ones) to
         the analysis job's configuration file; returns config(). """
-        TiltQcConfig.validate(thresholds)
-        TiltQcConfig.write(self.config_file,
-                           TiltQcConfig.merge(self.config()['saved'], thresholds),
-                           user=user, source='OTF dashboard',
-                           loaded_from=self.config()['loadedFrom'])
+        TiltQualityCuration.Config.validate(thresholds)
+        TiltQualityCuration.Config.write(
+            self.config_file, TiltQualityCuration.Config.merge(self.config()['saved'], thresholds),
+            user=user, source='OTF dashboard', loaded_from=self.config()['loadedFrom'])
         self._config = self._thresholds = None
         self._ts = None
         return self.config()
@@ -901,7 +901,7 @@ class OtfSession:
         tilt analysis and tilt curation jobs), project relative, newest
         first: what the page can load thresholds from. """
         own = os.path.abspath(self.config_file)
-        files = [p for p in glob(self.join('*', 'job*', TiltQcConfig.FILENAME))
+        files = [p for p in glob(self.join('*', 'job*', TiltQualityCuration.Config.FILENAME))
                  if os.path.abspath(p) != own]
         files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
         return [os.path.relpath(p, self.path) for p in files]
@@ -910,7 +910,7 @@ class OtfSession:
         """ The thresholds of one of config_files(), over the defaults. """
         if rel_path not in self.config_files() and rel_path != self.config()['path']:
             raise Exception(f'Not a tilt QC configuration file of this project: {rel_path}')
-        return TiltQcConfig.read(self.join(rel_path))
+        return TiltQualityCuration.Config.read(self.join(rel_path))
 
     # -- the user's selection ---------------------------------------------
     def selection(self):
@@ -994,14 +994,14 @@ class OtfSession:
                                         in ts.proposed_exclusions().items()}})
         return {'series': series,
                 'usableLimit': self.thresholds['usableFraction'].get(STATUS_BAD),
-                'keptLimit': TiltQcConfig.tilts_kept_min(self.thresholds)}
+                'keptLimit': TiltQualityCuration.Config.tilts_kept_min(self.thresholds)}
 
     def few_tilts_kept(self, selection=None, inputs=None):
         """ {name: fraction} of the tilt series that would keep fewer than
         the tiltsKept limit of their tilts, once the curation leaves out
         what the rule proposes and what the selection excludes; {} when the
         limit is off.  Deselected tilt series are not listed. """
-        limit = TiltQcConfig.tilts_kept_min(self.thresholds)
+        limit = TiltQualityCuration.Config.tilts_kept_min(self.thresholds)
         if limit is None:
             return {}
         sel = selection or self.selection()

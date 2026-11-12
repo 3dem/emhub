@@ -31,7 +31,6 @@ from emhub.data.processing.tomo_otf import (
     COL_PRE_EXPOSURE, COL_MOVIE_INDEX, COL_CTF_CORRELATION, COL_IMAGE_TEXTURE,
     COL_DARK_AREA, COL_MATCH_PEAK, COL_MATCH_NCC, COL_FIELD_SHIFT, _measured, _early_is_total)
 from emwrap.base.tilt_quality_curation import TiltQualityCuration
-from emwrap.base.tilt_qc_config import TiltQcConfig
 
 REASON_LABELS = TiltQualityCuration.REASON_LABELS
 
@@ -191,7 +190,7 @@ THRESHOLD_HELP = {
 }
 
 # The name of each strip's metric in the configuration's 'display' (which
-# plots the tilt series window shows, TiltQcConfig.DISPLAY_DEFAULTS)
+# plots the tilt series window shows, TiltQualityCuration.Config.DISPLAY_DEFAULTS)
 STRIP_METRIC = {
     'rlnAccumMotionTotal': 'motionTotal', 'rlnAccumMotionEarly': 'motionEarly',
     'rlnDefocusU': 'defocus', 'rlnCtfAstigmatism': 'astigmatism',
@@ -857,11 +856,11 @@ def register_content(dc):
             'path': cfg['path'], 'exists': cfg['exists'], 'error': cfg['error'],
             'updated': cfg['updated'], 'updatedBy': cfg['updatedBy'],
             'source': cfg['source'], 'loadedFrom': cfg['loadedFrom'],
-            'saved': cfg['saved'], 'defaults': TiltQcConfig.DEFAULT_THRESHOLDS,
+            'saved': cfg['saved'], 'defaults': TiltQualityCuration.Config.DEFAULT_THRESHOLDS,
             'groups': groups, 'files': session.config_files(),
             # The plots shown, as fields of 'display' (listed with the changes)
             'displayFields': _display_fields(),
-            'keptLimit': TiltQcConfig.tilts_kept_min(session.thresholds),
+            'keptLimit': TiltQualityCuration.Config.tilts_kept_min(session.thresholds),
             'fewKept': sorted(([n, round(v, 3)] for n, v in few_kept.items()),
                               key=lambda x: x[1]),
         }
