@@ -185,6 +185,10 @@
   --emf-gray-700: #374151;
   --emf-gray-800: #1f2937;
   --emf-gray-900: #111827;
+  /* Selected table rows: indigo, apart from the teal table headers */
+  --emf-row-selected: #e3e9fd;
+  --emf-row-selected-hover: #d5defb;
+  --emf-row-selected-accent: #4f63d2;
 }
 
 .emflow-root.dark {
@@ -237,6 +241,9 @@
   --emf-gray-700: #e5e7eb;
   --emf-gray-800: #f3f4f6;
   --emf-gray-900: #f9fafb;
+  --emf-row-selected: #26305c;
+  --emf-row-selected-hover: #2e3a6c;
+  --emf-row-selected-accent: #8fa2f5;
 }
 
 /* ─────────────────────────────────────────────
