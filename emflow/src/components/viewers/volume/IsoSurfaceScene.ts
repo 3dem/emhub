@@ -58,7 +58,7 @@ const FRAGMENT = [
   "precision highp float; precision highp sampler3D;",
   "uniform sampler3D uTex, uRes;",
   "uniform vec3 uCam, uSize, uColor, uLight, uTexel, uResSize;",
-  "uniform float uThr, uSign, uOpacity, uStep, uFirst, uColorBy, uResMin, uResMax;",
+  "uniform float uThr, uSign, uOpacity, uStep, uFirst, uColorBy, uResMin, uResMax, uNear;",
   "uniform vec2 uResRange;",
   "uniform vec3 uPal[5];",
   "uniform mat4 uMVP;",
@@ -99,7 +99,6 @@ const FRAGMENT = [
   "  if (tEnd <= t0) discard;",
   "  // Box face entered first: the cap normal",
   "  vec3 capN = -sign(dir) * step(vec3(max(max(tn.x, tn.y), tn.z) - 1e-4), tn);",
-  "  float jit = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);",
   "  vec3 col = vec3(0.0);",
   "  float a = 0.0, depth = -1.0;",
   "  float prev = val(uCam + dir * t0);",
@@ -111,14 +110,27 @@ const FRAGMENT = [
   "    a += (1.0 - a) * uOpacity;",
   "    vec4 c = uMVP * vec4(p, 1.0); depth = c.z / c.w;",
   "  }",
-  "  float t = t0 + uStep * jit;",
-  "  for (int i = 0; i < 4096; i++) {",
+  "  // The same start for every pixel (no random jitter: neighbouring rays",
+  "  // sample alike, so grazing edges do not hit or miss at random)",
+  "  float t = t0 + 0.5 * uStep;",
+  "  for (int i = 0; i < 8192; i++) {",
   "    if (t > tEnd || a > 0.98) break;",
   "    float v = val(uCam + dir * t);",
-  "    if (v > 0.0 && prev <= 0.0) {",
-  "      // Entering: refine the crossing between t - uStep and t",
-  "      float lo = max(t - uStep, t0), hi = t;",
-  "      for (int k = 0; k < 6; k++) {",
+  "    // The segment's end inside: entering between t - uStep and t",
+  "    float tIn = v > 0.0 && prev <= 0.0 ? t : -1.0;",
+  "    float lo = max(t - uStep, t0);",
+  "    if (tIn < 0.0 && prev <= 0.0 && max(prev, v) > -uNear) {",
+  "      // Both ends outside but near the threshold: a thin feature or a",
+  "      // grazing edge may cross between them, sample inside the segment",
+  "      for (int s = 1; s < 4; s++) {",
+  "        float ts = t - uStep + uStep * float(s) * 0.25;",
+  "        if (ts > t0 && val(uCam + dir * ts) > 0.0) { tIn = ts; lo = max(ts - 0.25 * uStep, t0); break; }",
+  "      }",
+  "    }",
+  "    if (tIn > 0.0) {",
+  "      // Entering: refine the crossing between lo and tIn",
+  "      float hi = tIn;",
+  "      for (int k = 0; k < 8; k++) {",
   "        float mid = 0.5 * (lo + hi);",
   "        if (val(uCam + dir * mid) > 0.0) hi = mid; else lo = mid;",
   "      }",
@@ -165,6 +177,16 @@ const SPHERE_FRAGMENT = [
 
 type RayMesh = THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial>;
 
+/** Pixels per CSS pixel while the view moves (ray casting costs per pixel). */
+const movingPixelRatio = () => Math.min(window.devicePixelRatio || 1, 1.5);
+/** Pixels per CSS pixel of the still view: 2 (supersampled on a standard
+ * screen, the native density of a high-DPI one). */
+const stillPixelRatio = () => 2;
+
+/** Ray step in grid voxels: still view, and while the view moves. */
+const FINE_STEP = 0.25;
+const COARSE_STEP = 0.75;
+
 export { RESOLUTION_PALETTE };
 
 /** Coloring of the surface by a resolution map on the same box. */
@@ -208,8 +230,11 @@ function rayMesh(d: VolumeDensity, values: Uint8Array, color: string): RayMesh {
       uThr: { value: 0.5 },
       uSign: { value: 1 },
       uOpacity: { value: 1 },
-      uStep: { value: f * 0.5 },
+      uStep: { value: f * FINE_STEP },
       uFirst: { value: 0 },
+      // Distance to the threshold (0-1 of the grid) of the samples whose
+      // segment is sampled inside (thin features, grazing edges)
+      uNear: { value: 8 / 255 },
       uMVP: { value: new THREE.Matrix4() },
       uRes: { value: EMPTY_RES() },
       uResSize: { value: size.clone() },
@@ -311,7 +336,8 @@ export class IsoSurfaceScene {
       throw new Error("WebGL 2 is needed for the 3D volume.");
     }
     // Ray casting costs per pixel: no more than 1.5 pixels per CSS pixel
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    // while the view moves; supersampled when it stops (see render)
+    this.renderer.setPixelRatio(movingPixelRatio());
     this.renderer.setSize(width, height);
     this.renderer.setClearColor(0x111418);
     this.canvas = this.renderer.domElement;
@@ -571,6 +597,10 @@ export class IsoSurfaceScene {
     this.raf = requestAnimationFrame(() => {
       this.raf = 0;
       if (this.disposed) return;
+      // The still view supersampled: the surface edges are decided per
+      // pixel by the shader (no MSAA on them), more samples smooth them
+      const ratio = this.coarse || this.ball.dragging ? movingPixelRatio() : stillPixelRatio();
+      if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio);
       this.ball.apply(this.camera);
       this.camera.updateMatrixWorld();
       if (this.mesh && this.density) this.updateRay(this.mesh, this.density);
@@ -587,7 +617,7 @@ export class IsoSurfaceScene {
     u.uCam.value.copy(mesh.worldToLocal(this.camera.position.clone()));
     // Key light above-left of the camera
     u.uLight.value.set(-0.35, 0.45, 1).normalize().applyQuaternion(this.camera.quaternion);
-    u.uStep.value = f * (this.coarse || this.ball.dragging ? 1.25 : 0.5);
+    u.uStep.value = f * (this.coarse || this.ball.dragging ? COARSE_STEP : FINE_STEP);
     mesh.updateMatrixWorld();
     u.uMVP.value
       .copy(this.camera.projectionMatrix)
