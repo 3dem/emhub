@@ -40,6 +40,8 @@ import {
   Maximize,
   Minimize,
   Move,
+  Loader2,
+  Rainbow,
   RefreshCw,
   Ruler as RulerIcon,
   Undo2,
@@ -50,24 +52,29 @@ import { useDataLoader, useLoad } from "@/data/DataLoaderContext";
 import VolumeSlices, {
   type HistoryEntry,
   type Mode,
+  type SliceColorBy,
   type SliceMask,
   type VolumeSlicesHandle,
 } from "./volume/VolumeSlices";
 import { VolumeScene3D, type ParticleDraw, type SceneState } from "./volume/VolumeScene3D";
 import ParticlesPanel, { type ParticleOptions } from "./volume/ParticlesPanel";
 import MaskPanel, { type MaskOptions } from "./volume/MaskPanel";
+import ResolutionPanel, { type ResolutionStats } from "./volume/ResolutionPanel";
 import IsoSurfaceView, {
   type DensityDebug,
   type IsoDefaults,
+  type ColorByInput,
+  ColorKey,
   type IsoMaskInput,
   type IsoSurfaceHandle,
   maskThreshold,
 } from "./volume/IsoSurfaceView";
-import { densitySlice, densitySliceKeys, prepareDensity } from "./volume/densityGrid";
+import { densitySlice, densitySliceKeys, densityValues, prepareDensity } from "./volume/densityGrid";
 import {
   AXES,
   clampVox,
   isDensitySource,
+  mapValueRange,
   normVoxel,
   rulerLength,
   scaleText,
@@ -150,6 +157,26 @@ export type VolumeMask = (
   opacity?: number;
 };
 
+/** A map on the same box that colors the 3D volume surface (e.g. a local
+ * resolution map), with a toolbar button to turn it on and off. */
+export type VolumeResolutionMap = {
+  /** A density grid or a request loaded with the DataLoader (as the
+   * volume's `density`), when the coloring is first turned on. */
+  density: VolumeDensity | DensitySource;
+  /** Name in the button tooltip. */
+  label?: string;
+  /** Title of the color key ("Local resolution (Å)"). */
+  title?: string;
+  /** Unit of the key labels ("Å"). */
+  unit?: string;
+  /** Palette ends in map units; by default from the minimum of the map's
+   * resolutions (without the values <= 0 nor the fill outside the mask) to
+   * the value below its highest 5%. It does not change with the threshold. */
+  range?: [number, number] | null;
+  /** Colored at first (false). */
+  show?: boolean;
+};
+
 export type VolumeViewerConfig = {
   /** Shown tabs: all by default; 3D volume only with a density. */
   tabs?: { slices?: boolean; view3d?: boolean; volume3d?: boolean };
@@ -175,6 +202,9 @@ export type VolumeViewerConfig = {
   /** Mask over the 3D volume and the slices (with a toolbar button and its
    * options there). */
   mask?: VolumeMask | null;
+  /** Map that colors the 3D volume surface (local resolution), with a
+   * toolbar button to turn it on and off and the color key over the view. */
+  resolution?: VolumeResolutionMap | null;
   /** Longest side of the Z section in px (520). */
   viewSize?: number;
   /** Same as defaults.particles.tolerance (kept for older hosts). */
@@ -219,6 +249,11 @@ const VOL_OPACITY = 0.35;
 const MASK_COLOR = "#5fd38d";
 const MASK_COLOR_ALT = "#ffd166";
 const MASK_OPACITY = 0.3;
+/** Opacity of the local resolution colors over the slices (the density
+ * shows through). */
+const RESOLUTION_SLICE_OPACITY = 0.55;
+/** Share of the highest (worst) resolutions left out of the color range. */
+const RESOLUTION_HIGH_TAIL = 0.05;
 /** Smallest longest side of the Z section, px, when the room is too short. */
 const MIN_SECTION = 60;
 /** Vertical padding of the expanded viewer (`.full`, 12px top and bottom). */
@@ -285,7 +320,7 @@ export function ToolButton({ title, active, onClick, children, hidden }: {
 const unwrapDensity = (r: any): VolumeDensity | null => (r && r.density ? r.density : r?.data ? r : null);
 
 /** The grid of a map mask, inline or loaded, decoded; or why it is not. */
-function useMaskDensity(given: VolumeDensity | DensitySource | null): { density: VolumeDensity | null; status: string | null } {
+function useMaskDensity(given: VolumeDensity | DensitySource | null, what = "mask"): { density: VolumeDensity | null; status: string | null } {
   const source = given && isDensitySource(given) ? given : null;
   const loaded = useLoad<unknown>(source?.path, source?.payload);
   const d = !given ? null : !source ? given as VolumeDensity : loaded.status === "ready" ? unwrapDensity(loaded.data) : null;
@@ -298,10 +333,10 @@ function useMaskDensity(given: VolumeDensity | DensitySource | null): { density:
   }, [d]);
   if (!given) return { density: null, status: null };
   if (ready && "d" in ready && ready.d === d) return { density: d, status: null };
-  if (ready && "error" in ready) return { density: null, status: `Could not read the mask: ${ready.error}` };
-  if (source && loaded.status === "error") return { density: null, status: `Could not load the mask: ${loaded.error.message}` };
-  if (source && loaded.status === "ready" && !d) return { density: null, status: "The mask has no density." };
-  return { density: null, status: "Loading the mask…" };
+  if (ready && "error" in ready) return { density: null, status: `Could not read the ${what}: ${ready.error}` };
+  if (source && loaded.status === "error") return { density: null, status: `Could not load the ${what}: ${loaded.error.message}` };
+  if (source && loaded.status === "ready" && !d) return { density: null, status: `The ${what} has no density.` };
+  return { density: null, status: `Loading the ${what}…` };
 }
 
 const VolumeViewer = forwardRef<VolumeViewerHandle, VolumeViewerProps>(function VolumeViewer(props, ref) {
@@ -524,6 +559,83 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         diameter: angpix ? maskOpts.diameterPx * angpix : null,
       });
     }, [maskOpts, maskCfg?.type, angpix]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Coloring of the 3D volume by a resolution map: loaded when first on
+    const resCfg = tabsCfg.volume3d || tabsCfg.slices ? props.resolution ?? null : null;
+    const [resOn, setResOn] = useState(Boolean(resCfg?.show));
+    const [resWanted, setResWanted] = useState(Boolean(resCfg?.show));
+    const resMap = useMaskDensity(resCfg && resWanted ? resCfg.density : null, "resolution map");
+    // The values of the map (its resolutions: without the values <= 0 nor
+    // the fill outside the mask, see resolutionValidLevels)
+    const resStats = useMemo<ResolutionStats | null>(() => {
+      if (!resMap.density) return null;
+      const v = densityValues(resMap.density);
+      const full = mapValueRange(resMap.density, v, 0, 0);
+      const high = mapValueRange(resMap.density, v, 0, RESOLUTION_HIGH_TAIL);
+      return full && high ? { min: full[0], max: full[1], p95: high[1] } : null;
+    }, [resMap.density]);
+    // Max of the color scale, chosen in the panel; by default the value
+    // below the highest RESOLUTION_HIGH_TAIL (the worst values, at the mask
+    // edge, would squash the colors of the others). Above it: gray
+    const [resMax, setResMax] = useState<number | null>(null);
+    // One range for the 3D volume and the slices, that never changes with
+    // the threshold: the given one, else the map's minimum to the max
+    const resRange: [number, number] | null = resCfg?.range
+      ?? (resStats ? [resStats.min, resMax ?? resStats.p95] : null);
+    const isoColorBy = useMemo<ColorByInput | null>(
+      () => (resCfg && resOn && resMap.density && resRange
+        ? { density: resMap.density, range: resRange, title: resCfg.title, unit: resCfg.unit }
+        : null),
+      // the config and range are compared by their values
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [resOn, resMap.density, resRange?.[0], resRange?.[1], resCfg?.title, resCfg?.unit]);
+    const sliceColorBy = useMemo<SliceColorBy | null>(
+      () => (resOn && resMap.density && resRange
+        ? { density: resMap.density, range: resRange, opacity: RESOLUTION_SLICE_OPACITY }
+        : null),
+      // the range is compared by value
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [resOn, resMap.density, resRange?.[0], resRange?.[1]]);
+    const sliceKey = resCfg && sliceColorBy && (
+      <ColorKey inline range={sliceColorBy.range}
+                title={resCfg.title ?? "Local resolution (Å)"} unit={resCfg.unit ?? "Å"} />
+    );
+    // While the resolution map loads (or if it failed): in the output bar
+    const resStatus = resCfg && resWanted ? resMap.status : null;
+    const resLoading = Boolean(resStatus && !resStatus.startsWith("Could not") && !resStatus.startsWith("The "));
+    // The resolution button opens its panel (the first time it also turns
+    // the coloring on, so one click shows it); its checkbox turns it on/off
+    const [resOpen, setResOpen] = useState(false);
+    const resPanelRef = useRef<HTMLDivElement>(null);
+    const resolutionButton = (forTab: VolumeViewerTab) => resCfg && (
+      <span className={styles.panelAnchor} data-res-button>
+        <ToolButton
+          title={`Local resolution: show, max of the color scale${resCfg.label ? ` (${resCfg.label})` : ""}`}
+          active={resOpen || resOn}
+          onClick={() => {
+            if (!resWanted) {
+              setResWanted(true);
+              setResOn(true);
+            }
+            setResOpen((v) => !v);
+          }}>
+          <Rainbow size={16} />
+        </ToolButton>
+        {resOpen && tab === forTab && (
+          <div ref={resPanelRef}>
+            <ResolutionPanel
+              show={resOn}
+              onShow={(v) => { setResWanted(true); setResOn(v); }}
+              label={resCfg.label}
+              unit={resCfg.unit ?? "Å"}
+              stats={resCfg.range ? null : resStats}
+              status={resStatus}
+              maxValue={resRange?.[1] ?? null}
+              onMaxValue={setResMax}
+            />
+          </div>
+        )}
+      </span>
+    );
     const isoRef = useRef<IsoSurfaceHandle>(null);
     const history = useRef<HistoryEntry[]>([]);
     const slicesRef = useRef<VolumeSlicesHandle>(null);
@@ -707,7 +819,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
 
     /* ---------- expand to the browser window ---------- */
     useEffect(() => {
-      if (!full && !panelOpen && !maskOpen) return undefined;
+      if (!full && !panelOpen && !maskOpen && !resOpen) return undefined;
       // Captured: Esc closes the particles or mask panel, then collapses the
       // viewer, and does not reach a dialog around it
       const onKey = (e: KeyboardEvent) => {
@@ -716,11 +828,12 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         e.preventDefault();
         if (panelOpen) setPanelOpen(false);
         else if (maskOpen) setMaskOpen(false);
+        else if (resOpen) setResOpen(false);
         else setFull(false);
       };
       document.addEventListener("keydown", onKey, true);
       return () => document.removeEventListener("keydown", onKey, true);
-    }, [full, panelOpen, maskOpen]);
+    }, [full, panelOpen, maskOpen, resOpen]);
 
     /* ---------- particles panel ---------- */
     // A click outside the panel (and its button) closes it
@@ -747,6 +860,18 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       document.addEventListener("mousedown", onDown);
       return () => document.removeEventListener("mousedown", onDown);
     }, [maskOpen]);
+    // The same for the resolution panel
+    useEffect(() => {
+      if (!resOpen) return undefined;
+      const onDown = (e: MouseEvent) => {
+        const t = e.target as Node;
+        if (resPanelRef.current?.contains(t)) return;
+        if ((t as Element).closest?.("[data-res-button]")) return;
+        setResOpen(false);
+      };
+      document.addEventListener("mousedown", onDown);
+      return () => document.removeEventListener("mousedown", onDown);
+    }, [resOpen]);
     const setParticleOptions = (o: Partial<ParticleOptions>) => {
       if (o.partsOn !== undefined) setPartsOn(o.partsOn);
       if (o.nearOnly !== undefined) (tab === "view3d" ? setNear3d : setNearSlices)(o.nearOnly);
@@ -847,6 +972,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         )}
         {particlesButton(false)}
         {maskButton("slices")}
+        {resolutionButton("slices")}
         {(toolsCfg.ruler || toolsCfg.zoom || toolsCfg.pan || toolsCfg.invert) && (
           <ToolButton title="Clean: undo the last zoom, measurement or contrast change, or deactivate the tool"
                       onClick={clean}>
@@ -1005,6 +1131,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               inverted={inverted}
               rulers={rulers}
               mask={sliceMask}
+              colorBy={sliceColorBy}
+              corner={sliceKey}
               voxelSize={vs}
               getImage={getImage}
               loadImage={loadImage}
@@ -1071,6 +1199,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                 </ToolButton>
               )}
               {maskButton("volume3d")}
+              {resolutionButton("volume3d")}
               <ToolButton title="Reset the 3D view" onClick={() => isoRef.current?.reset()}>
                 <RefreshCw size={16} />
               </ToolButton>
@@ -1082,7 +1211,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                                 panelHeight={sizeIso[2]} panelWidth={sizeIso[3]}
                                 onPanelHeight={onIsoPanelHeight}
                                 inverted={inverted} onInvert={(v) => { if (v !== inverted) toggleInvert(false); }}
-                                mask={isoMask} maskStyle={maskStyle} />
+                                mask={isoMask} maskStyle={maskStyle} colorBy={isoColorBy} />
               )}
             </div>
           </div>
@@ -1094,7 +1223,14 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
           </div>
         )}
         <div className={styles.out} style={{ width: outWidth }}>
-          {tab === "volume3d"
+          {resStatus && (tab === "volume3d" || tab === "slices") ? (
+            // The resolution map loading (or its error), then the usual text
+            <span className={resLoading ? styles.outStatus : `${styles.outStatus} ${styles.outStatusError}`}
+                  role="status" aria-live="polite">
+              {resLoading && <Loader2 size={14} className={styles.spin} aria-hidden="true" />}
+              {resStatus}
+            </span>
+          ) : tab === "volume3d"
             ? <>Drag to rotate, right-drag or shift+drag to move, wheel to zoom &nbsp;·&nbsp; {scaleText(vs)}</>
             : readout}
         </div>

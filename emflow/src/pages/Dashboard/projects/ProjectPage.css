@@ -130,6 +130,123 @@
 }
 
 /* ─────────────────────────────────────────────
+   neutralPaletteFollowsWidgetTheme
+   The neutral colors of the dialogs and viewers (Tailwind slate / gray and
+   white surfaces): the same colors in light mode, the scale reversed in dark
+   mode, so they follow the widget theme (ThemeContext), also in the overlays.
+   ───────────────────────────────────────────── */
+
+.emflow-root {
+  --emf-white: #ffffff;
+  /* Accents of the viewers (teal selection, indigo, error), light values */
+  --emf-pane-bg: #f6f7fb;
+  --emf-surface-soft: #eef2f7;
+  --emf-surface-tint: #f8faff;
+  --emf-surface-neutral: #fafafa;
+  --emf-border-neutral: #f0f0f0;
+  --emf-border-soft: #dbe2ea;
+  --emf-teal-50: #f4fafa;
+  --emf-teal-75: #f1f7f8;
+  --emf-teal-100: #eef7f8;
+  --emf-teal-110: #edf6f7;
+  --emf-teal-120: #eaf4f5;
+  --emf-teal-150: #e8f3f5;
+  --emf-teal-200: #e3f1f3;
+  --emf-teal-border: #d4e5e8;
+  --emf-teal-border-strong: #c6dde2;
+  --emf-teal-300: #9fc5cc;
+  --emf-teal-muted: #7aa4ab;
+  --emf-teal-400: #6fa1aa;
+  --emf-teal-600: #3f7f8a;
+  --emf-teal-700: #356b75;
+  --emf-teal-800: #285e68;
+  --emf-teal-900: #1f4f58;
+  --emf-indigo-50: #eef2ff;
+  --emf-indigo-100: #e0e7ff;
+  --emf-error-50: #fff8f8;
+  --emf-error-100: #f8d7da;
+  --emf-slate-50: #f8fafc;
+  --emf-slate-100: #f1f5f9;
+  --emf-slate-200: #e2e8f0;
+  --emf-slate-300: #cbd5e1;
+  --emf-slate-400: #94a3b8;
+  --emf-slate-500: #64748b;
+  --emf-slate-600: #475569;
+  --emf-slate-700: #334155;
+  --emf-slate-800: #1e293b;
+  --emf-slate-900: #0f172a;
+  --emf-gray-50: #f9fafb;
+  --emf-gray-100: #f3f4f6;
+  --emf-gray-200: #e5e7eb;
+  --emf-gray-300: #d1d5db;
+  --emf-gray-400: #9ca3af;
+  --emf-gray-500: #6b7280;
+  --emf-gray-600: #4b5563;
+  --emf-gray-700: #374151;
+  --emf-gray-800: #1f2937;
+  --emf-gray-900: #111827;
+  /* Selected table rows: indigo, apart from the teal table headers */
+  --emf-row-selected: #e3e9fd;
+  --emf-row-selected-hover: #d5defb;
+  --emf-row-selected-accent: #4f63d2;
+}
+
+.emflow-root.dark {
+  /* Native scrollbars and form controls in dark too */
+  color-scheme: dark;
+  --emf-white: #111827;
+  --emf-pane-bg: #0b1220;
+  --emf-surface-soft: #1e293b;
+  --emf-surface-tint: #131c2e;
+  --emf-surface-neutral: #161b24;
+  --emf-border-neutral: #2a2f38;
+  --emf-border-soft: #334155;
+  --emf-teal-50: #11272b;
+  --emf-teal-75: #12292e;
+  --emf-teal-100: #143036;
+  --emf-teal-110: #143036;
+  --emf-teal-120: #16333a;
+  --emf-teal-150: #17363c;
+  --emf-teal-200: #1b3e45;
+  --emf-teal-border: #24454c;
+  --emf-teal-border-strong: #2b525a;
+  --emf-teal-300: #3f7a85;
+  --emf-teal-muted: #6f9aa1;
+  --emf-teal-400: #7fb3bc;
+  --emf-teal-600: #6fb3bf;
+  --emf-teal-700: #9cc9d0;
+  --emf-teal-800: #8fd0da;
+  --emf-teal-900: #a9dde5;
+  --emf-indigo-50: #1e2550;
+  --emf-indigo-100: #25305a;
+  --emf-error-50: #2a1517;
+  --emf-error-100: #3b1c20;
+  --emf-slate-50: #162032;
+  --emf-slate-100: #1e293b;
+  --emf-slate-200: #334155;
+  --emf-slate-300: #475569;
+  --emf-slate-400: #64748b;
+  --emf-slate-500: #94a3b8;
+  --emf-slate-600: #cbd5e1;
+  --emf-slate-700: #e2e8f0;
+  --emf-slate-800: #f1f5f9;
+  --emf-slate-900: #f8fafc;
+  --emf-gray-50: #1a2231;
+  --emf-gray-100: #1f2937;
+  --emf-gray-200: #374151;
+  --emf-gray-300: #4b5563;
+  --emf-gray-400: #6b7280;
+  --emf-gray-500: #9ca3af;
+  --emf-gray-600: #d1d5db;
+  --emf-gray-700: #e5e7eb;
+  --emf-gray-800: #f3f4f6;
+  --emf-gray-900: #f9fafb;
+  --emf-row-selected: #26305c;
+  --emf-row-selected-hover: #2e3a6c;
+  --emf-row-selected-accent: #8fa2f5;
+}
+
+/* ─────────────────────────────────────────────
    rootWrapperBaseLookAndLayout
    ───────────────────────────────────────────── */
 

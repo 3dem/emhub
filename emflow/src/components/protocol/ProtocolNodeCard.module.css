@@ -191,7 +191,8 @@
 
 .annotationTitle {
   display: block;
-  flex: 1 1 auto;
+  /* As wide as its text (shrinks with an ellipsis): only the text is clickable */
+  flex: 0 1 auto;
   min-width: 0;
   white-space: nowrap;
 }
@@ -814,9 +815,24 @@
 .footerTopRow {
   display: flex;
   align-items: center;
+  gap: 8px;
   justify-content: space-between;
   /* left vs right */
   width: 100%;
+}
+
+/* Id of the cluster job (launched / running), next to the status */
+.clusterJobPill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  background-color: #1f2937;
+  color: #f8fafc;
+  line-height: 1;
+  font-size: 2rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
 }
 
 .timeRow {
@@ -1156,8 +1172,15 @@
   border-color: rgba(248, 113, 113, 0.22);
 }
 
+:global(.dark) .status-launched {
+  background-color: #1a1d3a !important;
+  background-image:
+    radial-gradient(circle at top left, rgba(129, 140, 248, 0.12), transparent 34%),
+    linear-gradient(135deg, #1f2342, #111827) !important;
+  border-color: rgba(129, 140, 248, 0.24);
+}
+
 :global(.dark) .status-saved,
-:global(.dark) .status-launched,
 :global(.dark) .status-new,
 :global(.dark) .status-root {
   background-color: #162033 !important;
@@ -1496,4 +1519,20 @@
   background-color: #1d3d2c !important;
   background-image: linear-gradient(135deg, #21452f, #142821) !important;
   border-color: rgba(34, 197, 94, 0.45);
+}
+
+:global(.dark) .clusterJobPill {
+  background-color: #020617;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+/* The annotation title and the job id open the annotate dialog */
+.annotationTitleClickable {
+  cursor: pointer;
+}
+
+.annotationTitleClickable:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
 }

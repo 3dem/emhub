@@ -29,6 +29,7 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | --- | --- | --- | --- |
 | Project | `fetchProject(projectId)` -> `{id, name, path, protocols}` | demo project | ProjectPage (load + auto refresh) |
 | | Protocol timing fields (optional): `elapsedTime` (total seconds of all runs), `elapsedSessionId` (changes with each new run, e.g. its start), `elapsedRuns` (`[{launched, queued, start, end, elapsed, status}]`, queued = launched to start and elapsed in seconds, null if unknown), `launched` (pending launch, not started yet) and `queued` (its waiting seconds, only while Launched) | - | ProtocolNodeCard (time row + hover), ProjectPage (local timer) |
+| | `clusterJobId` (optional): the id of the cluster job of a launched or running protocol submitted to a queue (EMhub reads the job `job.id` written by emwrap), shown in a pill next to the status. | - | ProtocolNodeCard |
 | | `fetchProjectEffectiveSettings(projectId)` | not used | ProjectPage |
 | | `getContextMenuVisibilityPolicy(projectId)` -> `NodeMenuVisibility` | `{}` | ProjectPage |
 | Protocol | `fetchProtocolDetails(projectId, protocolId)` -> `{info, form, values}` | demo | ProjectPage |

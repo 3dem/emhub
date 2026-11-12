@@ -376,13 +376,21 @@ export default function TableViewerPane({
         return scopes;
     };
 
+    // The last action chosen (row, cell or column action), run again when
+    // another row is clicked if that row has it (see handleRowClick)
+    const lastActionRef = useRef<{ actionId: string; columnId?: string } | null>(null);
+
     const handleAction = async (
         action: TableViewerAction,
         row?: TableViewerRow,
         columnId?: string,
         cellContext?: TableViewerCellContext,
+        remember = true,
     ) => {
         if (action.disabled) return;
+        if (remember && row) {
+            lastActionRef.current = { actionId: action.id, columnId };
+        }
 
         const requestId = ++paneRequestRef.current;
 
@@ -434,6 +442,21 @@ export default function TableViewerPane({
             if (requestId === paneRequestRef.current) {
                 setPaneLoading(false);
             }
+        }
+    };
+
+    // A click on a row: the last action chosen, if the row has it, or its
+    // default action (the last action is still remembered for other rows)
+    const handleRowClick = (row: TableViewerRow) => {
+        setSelectedRowId(row.id);
+        const last = lastActionRef.current;
+        const found = last
+            ? findInitialAction(table, { rowId: row.id, ...last })
+            : null;
+        if (found) {
+            void handleAction(found.action, row, found.columnId, found.cellContext);
+        } else if (row.defaultAction) {
+            void handleAction(row.defaultAction, row, undefined, undefined, false);
         }
     };
 
@@ -1097,13 +1120,13 @@ export default function TableViewerPane({
                             flexShrink: 0,
                             color: active
                                 ? "#2563eb"
-                                : "#475569",
+                                : "var(--emf-slate-600)",
                             backgroundColor: active
-                                ? "#e0e7ff"
+                                ? "var(--emf-indigo-100)"
                                 : "transparent",
 
                             "&:hover": {
-                                backgroundColor: "#eef2f7",
+                                backgroundColor: "var(--emf-surface-soft)",
                                 color: "#2563eb",
                             },
 
@@ -1191,7 +1214,7 @@ export default function TableViewerPane({
                         height: 20,
                         p: 0,
                         flexShrink: 0,
-                        color: "#64748b",
+                        color: "var(--emf-slate-500)",
                     }}
                 >
                     {childrenLoading.has(
@@ -1251,18 +1274,18 @@ export default function TableViewerPane({
                     }
                     sx={{
                         p: 0.25,
-                        color: "#94a3b8",
+                        color: "var(--emf-slate-400)",
 
                         "&.Mui-checked": {
-                            color: "#3f7f8a",
+                            color: "var(--emf-teal-600)",
                         },
 
                         "&.Mui-disabled": {
-                            color: "#cbd5e1",
+                            color: "var(--emf-slate-300)",
                         },
 
                         "&.Mui-disabled.Mui-checked": {
-                            color: "#7aa4ab",
+                            color: "var(--emf-teal-muted)",
                         },
                     }}
                 />
@@ -1336,7 +1359,7 @@ export default function TableViewerPane({
                             textTransform: "none",
                             fontSize: "0.76rem",
                             fontWeight: 500,
-                            color: "#334155",
+                            color: "var(--emf-slate-700)",
                             overflow: "hidden",
                             textOverflow:
                                 "ellipsis",
@@ -1432,7 +1455,7 @@ export default function TableViewerPane({
                         fontSize:
                             "0.76rem",
                         color:
-                            "#334155",
+                            "var(--emf-slate-700)",
                         overflow:
                             "hidden",
                         textOverflow:
@@ -1457,7 +1480,7 @@ export default function TableViewerPane({
                 height: "100%",
                 minHeight: 0,
                 minWidth: 0,
-                backgroundColor: "#f6f7fb",
+                backgroundColor: "var(--emf-pane-bg)",
             }}
         >
             {/* LEFT PANEL */}
@@ -1467,9 +1490,9 @@ export default function TableViewerPane({
                     minHeight: 0,
                     display: "flex",
                     flexDirection: "column",
-                    backgroundColor: "#ffffff",
+                    backgroundColor: "var(--emf-white)",
                     borderRight:
-                        "1px solid #e5e7eb",
+                        "1px solid var(--emf-gray-200)",
                 }}
             >
                 {/* Toolbar */}
@@ -1482,9 +1505,9 @@ export default function TableViewerPane({
                         alignItems: "center",
                         gap: 1.25,
                         borderBottom:
-                            "1px solid #e5e7eb",
+                            "1px solid var(--emf-gray-200)",
                         background:
-                            "linear-gradient(180deg, #ffffff 0%, #f8faff 100%)",
+                            "linear-gradient(180deg, var(--emf-white) 0%, var(--emf-surface-tint) 100%)",
                     }}
                 >
                     <TextField
@@ -1501,19 +1524,19 @@ export default function TableViewerPane({
                             "& .MuiOutlinedInput-root": {
                                 height: 34,
                                 borderRadius: 2,
-                                backgroundColor: "#ffffff",
+                                backgroundColor: "var(--emf-white)",
                                 fontSize: "0.76rem",
 
                                 "& fieldset": {
-                                    borderColor: "#dbe2ea",
+                                    borderColor: "var(--emf-border-soft)",
                                 },
 
                                 "&:hover fieldset": {
-                                    borderColor: "#9fc5cc",
+                                    borderColor: "var(--emf-teal-300)",
                                 },
 
                                 "&.Mui-focused fieldset": {
-                                    borderColor: "#3f7f8a",
+                                    borderColor: "var(--emf-teal-600)",
                                     borderWidth: 1,
                                 },
                             },
@@ -1524,7 +1547,7 @@ export default function TableViewerPane({
                                     <Search
                                         size={15}
                                         strokeWidth={1.8}
-                                        color="#3f7f8a"
+                                        color="var(--emf-teal-600)"
                                     />
                                 </InputAdornment>
                             ),
@@ -1534,7 +1557,7 @@ export default function TableViewerPane({
                     <Typography
                         variant="caption"
                         sx={{
-                            color: "#64748b",
+                            color: "var(--emf-slate-500)",
                             fontSize: "0.7rem",
                             whiteSpace: "nowrap",
                         }}
@@ -1558,7 +1581,7 @@ export default function TableViewerPane({
                                 "& .MuiOutlinedInput-root": {
                                     height: 34,
                                     borderRadius: 2,
-                                    backgroundColor: "#ffffff",
+                                    backgroundColor: "var(--emf-white)",
                                     fontSize: "0.76rem",
                                 },
                                 "& .MuiInputLabel-root": { fontSize: "0.76rem" },
@@ -1578,7 +1601,7 @@ export default function TableViewerPane({
                         <Typography
                             variant="caption"
                             sx={{
-                                color: "#285e68",
+                                color: "var(--emf-teal-800)",
                                 fontSize: "0.7rem",
                                 fontWeight: 700,
                                 whiteSpace:
@@ -1614,14 +1637,14 @@ export default function TableViewerPane({
                                     textTransform: "none",
                                     fontSize: "0.72rem",
                                     fontWeight: 600,
-                                    color: "#285e68",
-                                    borderColor: "#c6dde2",
-                                    backgroundColor: "#edf6f7",
+                                    color: "var(--emf-teal-800)",
+                                    borderColor: "var(--emf-teal-border-strong)",
+                                    backgroundColor: "var(--emf-teal-110)",
 
                                     "&:hover": {
-                                        color: "#1f4f58",
-                                        borderColor: "#9fc5cc",
-                                        backgroundColor: "#e3f1f3",
+                                        color: "var(--emf-teal-900)",
+                                        borderColor: "var(--emf-teal-300)",
+                                        backgroundColor: "var(--emf-teal-200)",
                                     },
                                 }}
                             >
@@ -1650,13 +1673,13 @@ export default function TableViewerPane({
                                     fontSize:
                                         "0.72rem",
                                     color:
-                                        "#64748b",
+                                        "var(--emf-slate-500)",
 
                                     "&:hover": {
                                         backgroundColor:
-                                            "#f1f5f9",
+                                            "var(--emf-slate-100)",
                                         color:
-                                            "#334155",
+                                            "var(--emf-slate-700)",
                                     },
                                 }}
                             >
@@ -1715,19 +1738,19 @@ export default function TableViewerPane({
                                         fontWeight:
                                             700,
                                         color:
-                                            "#285e68",
+                                            "var(--emf-teal-800)",
                                         borderColor:
-                                            "#9fc5cc",
+                                            "var(--emf-teal-300)",
                                         backgroundColor:
-                                            "#f4fafa",
+                                            "var(--emf-teal-50)",
 
                                         "&:hover": {
                                             color:
-                                                "#1f4f58",
+                                                "var(--emf-teal-900)",
                                             borderColor:
-                                                "#6fa1aa",
+                                                "var(--emf-teal-400)",
                                             backgroundColor:
-                                                "#e3f1f3",
+                                                "var(--emf-teal-200)",
                                         },
                                     }}
                                 >
@@ -1768,9 +1791,9 @@ export default function TableViewerPane({
                                         width: 34,
                                         px: 1,
                                         py: 1,
-                                        backgroundColor: "#e8f3f5",
+                                        backgroundColor: "var(--emf-teal-150)",
                                         borderBottom:
-                                            "1px solid #c6dde2",
+                                            "1px solid var(--emf-teal-border-strong)",
                                     }}
                                 />
 
@@ -1784,9 +1807,9 @@ export default function TableViewerPane({
                                                     column.width,
                                                 px: 1.25,
                                                 py: 1,
-                                                backgroundColor: "#e8f3f5",
-                                                borderBottom: "1px solid #c6dde2",
-                                                color: "#285e68",
+                                                backgroundColor: "var(--emf-teal-150)",
+                                                borderBottom: "1px solid var(--emf-teal-border-strong)",
+                                                color: "var(--emf-teal-800)",
                                                 fontSize: "0.7rem",
                                                 fontWeight: 700,
                                                 letterSpacing: "0.01em",
@@ -1835,8 +1858,8 @@ export default function TableViewerPane({
                                         sx={{
                                             width: 48,
                                             p: 0,
-                                            backgroundColor: "#e8f3f5",
-                                            borderBottom: "1px solid #c6dde2",
+                                            backgroundColor: "var(--emf-teal-150)",
+                                            borderBottom: "1px solid var(--emf-teal-border-strong)",
                                         }}
                                     />
                                 )}
@@ -1886,18 +1909,9 @@ export default function TableViewerPane({
                                                         row,
                                                     )
                                                 }
-                                                onClick={() => {
-                                                    setSelectedRowId(
-                                                        row.id,
-                                                    );
-
-                                                    if (row.defaultAction) {
-                                                        void handleAction(
-                                                            row.defaultAction,
-                                                            row,
-                                                        );
-                                                    }
-                                                }}
+                                                onClick={() =>
+                                                    handleRowClick(row)
+                                                }
                                                 sx={{
                                                     cursor:
                                                         "pointer",
@@ -1906,17 +1920,17 @@ export default function TableViewerPane({
                                                     "& td": {
                                                         backgroundColor:
                                                             selected
-                                                                ? "#eef7f8"
-                                                                : "#ffffff",
+                                                                ? "var(--emf-row-selected)"
+                                                                : "var(--emf-white)",
                                                         borderBottom:
-                                                            "1px solid #f1f5f9",
+                                                            "1px solid var(--emf-slate-100)",
                                                     },
 
                                                     "&:hover td": {
                                                         backgroundColor:
                                                             selected
-                                                                ? "#e3f1f3"
-                                                                : "#f8fafc",
+                                                                ? "var(--emf-row-selected-hover)"
+                                                                : "var(--emf-slate-50)",
                                                     },
 
                                                     ...(selected
@@ -1924,7 +1938,7 @@ export default function TableViewerPane({
                                                             "& td:first-of-type":
                                                             {
                                                                 boxShadow:
-                                                                    "inset 3px 0 0 #3f7f8a",
+                                                                    "inset 3px 0 0 var(--emf-row-selected-accent)",
                                                             },
                                                         }
                                                         : {}),
@@ -2025,13 +2039,13 @@ export default function TableViewerPane({
                                                                 }
                                                                 sx={{
                                                                     color:
-                                                                        "#64748b",
+                                                                        "var(--emf-slate-500)",
                                                                     "&:hover":
                                                                     {
                                                                         backgroundColor:
-                                                                            "#eef2f7",
+                                                                            "var(--emf-surface-soft)",
                                                                         color:
-                                                                            "#0f172a",
+                                                                            "var(--emf-slate-900)",
                                                                     },
                                                                 }}
                                                             >
@@ -2070,9 +2084,9 @@ export default function TableViewerPane({
                                                                     sx={{
                                                                         p: 0,
                                                                         backgroundColor:
-                                                                            "#f8fafc",
+                                                                            "var(--emf-slate-50)",
                                                                         borderBottom:
-                                                                            "1px solid #e2e8f0",
+                                                                            "1px solid var(--emf-slate-200)",
                                                                     }}
                                                                 >
                                                                     <Box
@@ -2081,13 +2095,13 @@ export default function TableViewerPane({
                                                                             mr: 1,
                                                                             my: 1,
                                                                             border:
-                                                                                "1px solid #e2e8f0",
+                                                                                "1px solid var(--emf-slate-200)",
                                                                             borderRadius:
                                                                                 1.5,
                                                                             overflow:
                                                                                 "hidden",
                                                                             backgroundColor:
-                                                                                "#ffffff",
+                                                                                "var(--emf-white)",
                                                                         }}
                                                                     >
                                                                         {childrenData.title && (
@@ -2096,9 +2110,9 @@ export default function TableViewerPane({
                                                                                     px: 1.5,
                                                                                     py: 0.75,
                                                                                     borderBottom:
-                                                                                        "1px solid #d4e5e8",
+                                                                                        "1px solid var(--emf-teal-border)",
                                                                                     background:
-                                                                                        "linear-gradient(90deg, #f1f7f8 0%, #eaf4f5 100%)",
+                                                                                        "linear-gradient(90deg, var(--emf-teal-75) 0%, var(--emf-teal-120) 100%)",
                                                                                 }}
                                                                             >
                                                                                 <Typography
@@ -2108,7 +2122,7 @@ export default function TableViewerPane({
                                                                                         fontWeight:
                                                                                             700,
                                                                                         color:
-                                                                                            "#285e68",
+                                                                                            "var(--emf-teal-800)",
                                                                                     }}
                                                                                 >
                                                                                     {
@@ -2144,11 +2158,11 @@ export default function TableViewerPane({
                                                                                                     px: 1,
                                                                                                     py: 0.65,
                                                                                                     backgroundColor:
-                                                                                                        "#f1f7f8",
+                                                                                                        "var(--emf-teal-75)",
                                                                                                     color:
-                                                                                                        "#356b75",
+                                                                                                        "var(--emf-teal-700)",
                                                                                                     borderBottom:
-                                                                                                        "1px solid #d4e5e8",
+                                                                                                        "1px solid var(--emf-teal-border)",
                                                                                                     fontSize:
                                                                                                         "0.67rem",
                                                                                                     fontWeight:
@@ -2210,7 +2224,13 @@ export default function TableViewerPane({
                                                                                                     "& td":
                                                                                                     {
                                                                                                         borderBottom:
-                                                                                                            "1px solid #f1f5f9",
+                                                                                                            "1px solid var(--emf-slate-100)",
+                                                                                                    },
+
+                                                                                                    "&.Mui-selected td, &.Mui-selected:hover td":
+                                                                                                    {
+                                                                                                        backgroundColor:
+                                                                                                            "var(--emf-row-selected)",
                                                                                                     },
                                                                                                 }}
                                                                                             >
@@ -2286,7 +2306,7 @@ export default function TableViewerPane({
                                                 variant="body2"
                                                 sx={{
                                                     color:
-                                                        "#94a3b8",
+                                                        "var(--emf-slate-400)",
                                                     fontSize:
                                                         "0.78rem",
                                                 }}
@@ -2313,15 +2333,15 @@ export default function TableViewerPane({
                             "space-between",
                         gap: 2,
                         borderTop:
-                            "1px solid #e5e7eb",
+                            "1px solid var(--emf-gray-200)",
                         backgroundColor:
-                            "#ffffff",
+                            "var(--emf-white)",
                     }}
                 >
                     <Typography
                         variant="caption"
                         sx={{
-                            color: "#64748b",
+                            color: "var(--emf-slate-500)",
                             fontSize: "0.68rem",
                         }}
                     >
@@ -2335,7 +2355,7 @@ export default function TableViewerPane({
                             <Typography
                                 variant="caption"
                                 sx={{
-                                    color: "#64748b",
+                                    color: "var(--emf-slate-500)",
                                     fontSize:
                                         "0.68rem",
                                 }}
@@ -2358,7 +2378,7 @@ export default function TableViewerPane({
                     minHeight: 0,
                     display: "flex",
                     flexDirection: "column",
-                    backgroundColor: "#f8fafc",
+                    backgroundColor: "var(--emf-slate-50)",
                 }}
             >
                 <Box
@@ -2369,18 +2389,18 @@ export default function TableViewerPane({
                         alignItems: "center",
                         gap: 1,
                         borderBottom:
-                            "1px solid #dbe2ea",
+                            "1px solid var(--emf-border-soft)",
                         background:
-                            "linear-gradient(90deg, #f8fafc 0%, #ffffff 100%)",
+                            "linear-gradient(90deg, var(--emf-slate-50) 0%, var(--emf-white) 100%)",
                         boxShadow:
-                            "inset 3px 0 0 #3f7f8a",
+                            "inset 3px 0 0 var(--emf-teal-600)",
                     }}
                 >
                     <Typography
                         sx={{
                             fontSize: "0.78rem",
                             fontWeight: 700,
-                            color: "#334155",
+                            color: "var(--emf-slate-700)",
                         }}
                     >
                         {activePane?.kind === "action"
@@ -2426,7 +2446,7 @@ export default function TableViewerPane({
                                 <Typography
                                     variant="body2"
                                     sx={{
-                                        color: "#94a3b8",
+                                        color: "var(--emf-slate-400)",
                                         textAlign: "center",
                                     }}
                                 >
@@ -2460,7 +2480,7 @@ export default function TableViewerPane({
                                         fontWeight:
                                             600,
                                         color:
-                                            "#475569",
+                                            "var(--emf-slate-600)",
                                         mb: 0.5,
                                     }}
                                 >
@@ -2472,7 +2492,7 @@ export default function TableViewerPane({
                                     variant="caption"
                                     sx={{
                                         color:
-                                            "#94a3b8",
+                                            "var(--emf-slate-400)",
                                         lineHeight:
                                             1.6,
                                     }}
@@ -2505,13 +2525,13 @@ export default function TableViewerPane({
                             <CircularProgress
                                 size={22}
                                 thickness={4.5}
-                                sx={{ color: "#3f7f8a" }}
+                                sx={{ color: "var(--emf-teal-600)" }}
                             />
                             <Typography
                                 sx={{
                                     fontSize: "0.8rem",
                                     fontWeight: 600,
-                                    color: "#475569",
+                                    color: "var(--emf-slate-600)",
                                 }}
                             >
                                 Loading...
@@ -2533,7 +2553,7 @@ export default function TableViewerPane({
                     sx: {
                         minWidth: 170,
                         border:
-                            "1px solid #e2e8f0",
+                            "1px solid var(--emf-slate-200)",
                         boxShadow:
                             "0 10px 25px rgba(15,23,42,0.12)",
                     },

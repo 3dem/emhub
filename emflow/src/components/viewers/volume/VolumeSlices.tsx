@@ -7,10 +7,12 @@
 // voxels stays exact even with downsampled images. Canvases are drawn
 // imperatively; a section is only redrawn when its slice or zoom changed and
 // keeps its picture until the next image has loaded (no blank frames).
-// A mask (a sphere or a map) is drawn over the sections, translucent.
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef } from "react";
+// A mask (a sphere or a map) is drawn over the sections, translucent, and a
+// map that colors them (local resolution: colorBy), with the palette and range
+// of the 3D volume.
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, type ReactNode } from "react";
 import styles from "../VolumeViewer.module.css";
-import { maskSlice } from "./densityGrid";
+import { maskSlice, resolutionSlice } from "./densityGrid";
 import {
   HV,
   nearest,
@@ -43,6 +45,10 @@ export type SliceMask = (
   | { type: "map"; density: VolumeDensity; level: number }
 ) & { color: string; opacity: number };
 
+/** A map (local resolution) drawn over the sections in RESOLUTION_PALETTE
+ * over `range` (map units), translucent; no value (<= 0) is transparent. */
+export type SliceColorBy = { density: VolumeDensity; range: [number, number]; opacity: number };
+
 export type VolumeSlicesHandle = {
   setWindow: (a: Axis, win: ZoomWindow) => void;
   clearPending: () => void;
@@ -67,6 +73,10 @@ type Props = {
   rulers: Record<Axis, Ruler | null>;
   /** Shown mask (null: none or hidden). */
   mask?: SliceMask | null;
+  /** Map that colors the sections (null: none or off). */
+  colorBy?: SliceColorBy | null;
+  /** In the free cell right of the Y section (e.g. the color key). */
+  corner?: ReactNode;
   voxelSize: VoxelSize | null;
   getImage: (a: Axis, key: number) => SliceImage | null;
   loadImage: (a: Axis, key: number) => Promise<SliceImage>;
@@ -107,6 +117,9 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   // Colored sections of a map mask, by axis, slice, color and level
   const maskImages = useRef<{ density: VolumeDensity | null; images: Map<string, HTMLCanvasElement> }>(
     { density: null, images: new Map() });
+  // Colored sections of the colorBy map, by axis, slice and range
+  const colorImages = useRef<{ density: VolumeDensity | null; images: Map<string, HTMLCanvasElement> }>(
+    { density: null, images: new Map() });
 
   const sv = (v: View) => v.cw / v.win.w;
   const toVox = (v: View, cx: number, cy: number): [number, number] => {
@@ -146,6 +159,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     const { pos, sel, mode, partsOn, particles: P, tolerance, hideLines, rulers, voxelSize, particleColor } = p.current;
     const ctx = v.ov, [ha, va] = HV[a];
     ctx.clearRect(0, 0, v.cw, v.ch);
+    drawColorBy(a, v);
     drawMask(a, v);
     // Crosshair lines of the other two sections
     if (!hideLines) {
@@ -209,6 +223,28 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
       ctx.setLineDash([]);
     }
   }, []);
+
+  // The colorBy map at the shown slice of axis a
+  const drawColorBy = (a: Axis, v: View) => {
+    const c = p.current.colorBy;
+    if (!c) return;
+    const key = currentKey(a);
+    const cache = colorImages.current;
+    if (cache.density !== c.density) cache.images = new Map();
+    cache.density = c.density;
+    const id = `${a}:${key}:${c.range[0]}:${c.range[1]}`;
+    let img = cache.images.get(id);
+    if (!img) {
+      img = resolutionSlice(c.density, a, key, c.range);
+      cache.images.set(id, img);
+    }
+    const ctx = v.ov, sz = p.current.size[a], w = v.win;
+    const rx = img.width / sz[0], ry = img.height / sz[1];
+    ctx.save();
+    ctx.globalAlpha = c.opacity;
+    ctx.drawImage(img, w.x0 * rx, w.y0 * ry, w.w * rx, w.h * ry, 0, 0, v.cw, v.ch);
+    ctx.restore();
+  };
 
   // The mask at the shown slice of axis a
   const drawMask = (a: Axis, v: View) => {
@@ -278,7 +314,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   useEffect(() => {
     drawAll();
   }, [props.pos, props.sel, props.mode, props.partsOn, props.hideLines, props.rulers, props.tolerance,
-      props.particleColor, props.mask, drawAll]);
+      props.particleColor, props.mask, props.colorBy, drawAll]);
 
   useImperativeHandle(ref, () => ({
     setWindow(a, win) {
@@ -458,7 +494,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
       {slider("y")}
       <div />
       {figure("y")}
-      <div />
+      <div className={styles.gridCorner}>{props.corner}</div>
       {figure("z")}
       {figure("x")}
       {slider("z")}

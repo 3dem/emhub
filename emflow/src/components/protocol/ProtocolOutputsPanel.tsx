@@ -216,7 +216,7 @@ export default function ProtocolOutputsPanel({
                 <Typography
                     variant="body2"
                     sx={{
-                        color: "#6b7280",
+                        color: "var(--emf-gray-500)",
                         fontSize: 12,
                         textAlign: "center",
                         py: 4,
@@ -239,7 +239,7 @@ export default function ProtocolOutputsPanel({
                     }}
                 >
                     <CircularProgress size={20} />
-                    <Typography variant="caption" sx={{ fontSize: "0.75rem", color: "#4b5563" }}>
+                    <Typography variant="caption" sx={{ fontSize: "0.75rem", color: "var(--emf-gray-600)" }}>
                         Loading preview...
                     </Typography>
                 </Box>
@@ -294,8 +294,8 @@ export default function ProtocolOutputsPanel({
                     sx={{
                         p: 2,
                         borderRadius: 2,
-                        backgroundColor: "#fff",
-                        border: "1px solid #e5e7eb",
+                        backgroundColor: "var(--emf-white)",
+                        border: "1px solid var(--emf-gray-200)",
                         boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                         maxWidth: "100%",
                         maxHeight: "100%",
@@ -304,7 +304,7 @@ export default function ProtocolOutputsPanel({
                         wordBreak: "break-word",
                         fontSize: ".75rem",
                         lineHeight: 1.4,
-                        color: "#111827",
+                        color: "var(--emf-gray-900)",
                     }}
                 >
                     {previewData.text}
@@ -336,8 +336,8 @@ export default function ProtocolOutputsPanel({
                             height: "100%",
                             borderRadius: 2,
                             overflow: "hidden",
-                            border: "1px solid #e5e7eb",
-                            backgroundColor: "#fff",
+                            border: "1px solid var(--emf-gray-200)",
+                            backgroundColor: "var(--emf-white)",
                         }}
                     >
                         <object data={previewData.url} type="application/pdf" width="100%" height="100%">
@@ -363,8 +363,8 @@ export default function ProtocolOutputsPanel({
                             width: "100%",
                             maxHeight: "100%",
                             overflow: "auto",
-                            backgroundColor: "#fff",
-                            border: "1px solid #e5e7eb",
+                            backgroundColor: "var(--emf-white)",
+                            border: "1px solid var(--emf-gray-200)",
                             borderRadius: 2,
                         }}
                     >
@@ -379,7 +379,7 @@ export default function ProtocolOutputsPanel({
                                 style={{
                                     position: "sticky",
                                     top: 0,
-                                    background: "#f3f4f6",
+                                    background: "var(--emf-gray-100)",
                                 }}
                             >
                                 <tr>
@@ -389,7 +389,7 @@ export default function ProtocolOutputsPanel({
                                             style={{
                                                 textAlign: "left",
                                                 padding: "6px 8px",
-                                                borderBottom: "1px solid #e5e7eb",
+                                                borderBottom: "1px solid var(--emf-gray-200)",
                                             }}
                                         >
                                             {c}
@@ -399,7 +399,7 @@ export default function ProtocolOutputsPanel({
                             </thead>
                             <tbody>
                                 {rows.map((r, i) => (
-                                    <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                                    <tr key={i} style={{ borderBottom: "1px solid var(--emf-gray-100)" }}>
                                         {cols.map((c) => (
                                             <td
                                                 key={c}
@@ -429,13 +429,13 @@ export default function ProtocolOutputsPanel({
                         <Box
                             sx={{
                                 width: "100%",
-                                backgroundColor: "#fff",
-                                border: "1px solid #e5e7eb",
+                                backgroundColor: "var(--emf-white)",
+                                border: "1px solid var(--emf-gray-200)",
                                 borderRadius: 2,
                                 p: 1,
                             }}
                         >
-                            <Typography variant="caption" sx={{ color: "#6b7280" }}>
+                            <Typography variant="caption" sx={{ color: "var(--emf-gray-500)" }}>
                                 Tables
                             </Typography>
                             <Box
@@ -475,8 +475,8 @@ export default function ProtocolOutputsPanel({
                             width: "100%",
                             maxHeight: "100%",
                             overflow: "auto",
-                            backgroundColor: "#fff",
-                            border: "1px solid #e5e7eb",
+                            backgroundColor: "var(--emf-white)",
+                            border: "1px solid var(--emf-gray-200)",
                             borderRadius: 2,
                         }}
                     >
@@ -496,7 +496,7 @@ export default function ProtocolOutputsPanel({
                             >
                                 Back to tables
                             </Button>
-                            <Typography variant="caption" sx={{ color: "#6b7280" }}>
+                            <Typography variant="caption" sx={{ color: "var(--emf-gray-500)" }}>
                                 {rows.length} rows {previewData.meta?.rowCount ? `(server: ${previewData.meta.rowCount})` : ""}
                             </Typography>
                         </Box>
@@ -512,7 +512,7 @@ export default function ProtocolOutputsPanel({
                                 style={{
                                     position: "sticky",
                                     top: 0,
-                                    background: "#f3f4f6",
+                                    background: "var(--emf-gray-100)",
                                 }}
                             >
                                 <tr>
@@ -522,7 +522,7 @@ export default function ProtocolOutputsPanel({
                                             style={{
                                                 textAlign: "left",
                                                 padding: "6px 8px",
-                                                borderBottom: "1px solid #e5e7eb",
+                                                borderBottom: "1px solid var(--emf-gray-200)",
                                             }}
                                         >
                                             {c}
@@ -532,7 +532,7 @@ export default function ProtocolOutputsPanel({
                             </thead>
                             <tbody>
                                 {rows.map((r, i) => (
-                                    <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                                    <tr key={i} style={{ borderBottom: "1px solid var(--emf-gray-100)" }}>
                                         {cols.map((c) => (
                                             <td
                                                 key={c}
@@ -565,13 +565,13 @@ export default function ProtocolOutputsPanel({
                     <Box
                         sx={{
                             width: "100%",
-                            backgroundColor: "#fff",
-                            border: "1px solid #e5e7eb",
+                            backgroundColor: "var(--emf-white)",
+                            border: "1px solid var(--emf-gray-200)",
                             borderRadius: 2,
                             p: 1,
                         }}
                     >
-                        <Typography variant="caption" sx={{ color: "#6b7280" }}>
+                        <Typography variant="caption" sx={{ color: "var(--emf-gray-500)" }}>
                             Archive entries
                         </Typography>
                         <Box
@@ -588,20 +588,20 @@ export default function ProtocolOutputsPanel({
                                         display: "flex",
                                         gap: 1,
                                         py: 0.5,
-                                        borderBottom: "1px dashed #f3f4f6",
+                                        borderBottom: "1px dashed var(--emf-gray-100)",
                                     }}
                                 >
                                     <Typography
                                         variant="body2"
                                         sx={{
                                             fontSize: "0.75rem",
-                                            color: e.isDir ? "#111827" : "#374151",
+                                            color: e.isDir ? "var(--emf-gray-900)" : "var(--emf-gray-700)",
                                         }}
                                     >
                                         {e.name}
                                     </Typography>
                                     {!e.isDir && (
-                                        <Typography variant="caption" sx={{ color: "#6b7280" }}>
+                                        <Typography variant="caption" sx={{ color: "var(--emf-gray-500)" }}>
                                             {typeof e.size === "number" ? `• ${e.size} B` : ""}
                                             {typeof e.compressedSize === "number" ? ` (compressed ${e.compressedSize} B)` : ""}
                                         </Typography>
@@ -619,8 +619,8 @@ export default function ProtocolOutputsPanel({
                         sx={{
                             p: 2,
                             borderRadius: 2,
-                            backgroundColor: "#fff",
-                            border: "1px solid #e5e7eb",
+                            backgroundColor: "var(--emf-white)",
+                            border: "1px solid var(--emf-gray-200)",
                             boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                             maxWidth: "100%",
                             maxHeight: "100%",
@@ -629,7 +629,7 @@ export default function ProtocolOutputsPanel({
                             wordBreak: "break-word",
                             fontSize: "0.75rem",
                             lineHeight: 1.4,
-                            color: "#111827",
+                            color: "var(--emf-gray-900)",
                         }}
                     >
                         {previewData.text}
@@ -642,8 +642,8 @@ export default function ProtocolOutputsPanel({
                         sx={{
                             width: "100%",
                             borderRadius: 2,
-                            backgroundColor: "#fff",
-                            border: "1px solid #e5e7eb",
+                            backgroundColor: "var(--emf-white)",
+                            border: "1px solid var(--emf-gray-200)",
                             p: 2,
                         }}
                     >
@@ -653,7 +653,7 @@ export default function ProtocolOutputsPanel({
                         <Typography
                             variant="caption"
                             sx={{
-                                color: "#6b7280",
+                                color: "var(--emf-gray-500)",
                                 display: "block",
                                 mb: 1,
                             }}
@@ -679,15 +679,15 @@ export default function ProtocolOutputsPanel({
                                 width: "100%",
                                 maxHeight: "100%",
                                 overflowY: "auto",
-                                border: "2px dashed #e5e7eb",
+                                border: "2px dashed var(--emf-gray-200)",
                                 borderRadius: 2,
-                                backgroundColor: "#fff",
+                                backgroundColor: "var(--emf-white)",
                                 textAlign: "left",
                                 p: 2,
                                 fontSize: "0.7rem",
                                 lineHeight: 1.4,
                                 fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                                color: "#1f2937",
+                                color: "var(--emf-gray-800)",
                                 wordBreak: "break-word",
                                 whiteSpace: "pre-wrap",
                             }}
@@ -703,9 +703,9 @@ export default function ProtocolOutputsPanel({
                             width: "100%",
                             minHeight: "100%",
                             maxHeight: "100%",
-                            border: "2px dashed #e5e7eb",
+                            border: "2px dashed var(--emf-gray-200)",
                             borderRadius: 2,
-                            backgroundColor: "#fff",
+                            backgroundColor: "var(--emf-white)",
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "center",
@@ -713,7 +713,7 @@ export default function ProtocolOutputsPanel({
                             textAlign: "center",
                             px: 2,
                             py: 3,
-                            color: "#6b7280",
+                            color: "var(--emf-gray-500)",
                             fontSize: "0.8rem",
                             lineHeight: 1.4,
                             wordBreak: "break-word",
@@ -722,7 +722,7 @@ export default function ProtocolOutputsPanel({
                         <Typography
                             variant="body2"
                             sx={{
-                                color: "#4b5563",
+                                color: "var(--emf-gray-600)",
                                 fontSize: "0.75rem",
                                 mb: 1,
                                 lineHeight: 1.4,
@@ -752,10 +752,10 @@ export default function ProtocolOutputsPanel({
                         maxWidth: "45%",
                         minWidth: 0,
                         minHeight: 0,
-                        backgroundColor: "#fff",
+                        backgroundColor: "var(--emf-white)",
                         borderRadius: 2,
                         boxShadow: "0px 2px 6px rgba(0,0,0,0.1)",
-                        border: "1px solid #e5e7eb",
+                        border: "1px solid var(--emf-gray-200)",
                         display: "flex",
                         flexDirection: "column",
                         overflow: "hidden",
@@ -765,7 +765,7 @@ export default function ProtocolOutputsPanel({
                         sx={{
                             px: 1.5,
                             py: 1,
-                            borderBottom: "1px solid #e5e7eb",
+                            borderBottom: "1px solid var(--emf-gray-200)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
@@ -776,7 +776,7 @@ export default function ProtocolOutputsPanel({
                             sx={{
                                 fontWeight: 600,
                                 fontSize: "0.8rem",
-                                color: "#111827",
+                                color: "var(--emf-gray-900)",
                             }}
                         >
                             Outputs
@@ -784,7 +784,7 @@ export default function ProtocolOutputsPanel({
                         <Typography
                             variant="caption"
                             sx={{
-                                color: "#6b7280",
+                                color: "var(--emf-gray-500)",
                                 fontSize: "0.7rem",
                             }}
                         >
@@ -804,7 +804,7 @@ export default function ProtocolOutputsPanel({
                             <Typography
                                 variant="body2"
                                 sx={{
-                                    color: "#6b7280",
+                                    color: "var(--emf-gray-500)",
                                     fontSize: "0.8rem",
                                     textAlign: "center",
                                     py: 4,
@@ -825,18 +825,18 @@ export default function ProtocolOutputsPanel({
                                         px: 1,
                                         py: 1,
                                         mb: 1,
-                                        backgroundColor: selectedOutputIdx === idx ? "#eef2ff" : "transparent",
+                                        backgroundColor: selectedOutputIdx === idx ? "var(--emf-indigo-50)" : "transparent",
                                         borderColor: selectedOutputIdx === idx ? "#6366f1" : "transparent",
                                         "&:hover": {
-                                            backgroundColor: selectedOutputIdx === idx ? "#eef2ff" : "#f9fafb",
-                                            borderColor: selectedOutputIdx === idx ? "#6366f1" : "#e5e7eb",
+                                            backgroundColor: selectedOutputIdx === idx ? "var(--emf-indigo-50)" : "var(--emf-gray-50)",
+                                            borderColor: selectedOutputIdx === idx ? "#6366f1" : "var(--emf-gray-200)",
                                         },
                                     }}
                                 >
                                     <Typography
                                         variant="body2"
                                         sx={{
-                                            color: "#111827",
+                                            color: "var(--emf-gray-900)",
                                             fontSize: "0.7rem",
                                             fontWeight: selectedOutputIdx === idx ? 600 : 500,
                                             lineHeight: 1.4,
@@ -857,10 +857,10 @@ export default function ProtocolOutputsPanel({
                         flex: "1 1 0",
                         minWidth: 0,
                         minHeight: 0,
-                        backgroundColor: "#fff",
+                        backgroundColor: "var(--emf-white)",
                         borderRadius: 2,
                         boxShadow: "0px 2px 6px rgba(0,0,0,0.1)",
-                        border: "1px solid #e5e7eb",
+                        border: "1px solid var(--emf-gray-200)",
                         display: "flex",
                         flexDirection: "column",
                         overflow: "hidden",
@@ -870,7 +870,7 @@ export default function ProtocolOutputsPanel({
                         sx={{
                             px: 1.5,
                             py: 1,
-                            borderBottom: "1px solid #e5e7eb",
+                            borderBottom: "1px solid var(--emf-gray-200)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
@@ -879,7 +879,7 @@ export default function ProtocolOutputsPanel({
                     >
                         <Typography
                             variant="subtitle2"
-                            sx={{ fontWeight: 600, fontSize: "0.8rem", color: "#111827" }}
+                            sx={{ fontWeight: 600, fontSize: "0.8rem", color: "var(--emf-gray-900)" }}
                         >
                             Preview
                         </Typography>
@@ -910,7 +910,7 @@ export default function ProtocolOutputsPanel({
                             overflowX: "hidden",
                             p: 1,
                             pb: 6,
-                            backgroundColor: "#f9fafb",
+                            backgroundColor: "var(--emf-gray-50)",
                             display: "flex",
                             justifyContent: "center",
                             alignItems: "flex-start",

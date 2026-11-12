@@ -7,6 +7,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { createTheme, ThemeProvider as MuiThemeProvider, type ThemeOptions } from "@mui/material/styles";
 import { ROOT_CLASS } from "./constants";
+import { useTheme } from "../context/ThemeContext";
 
 const OverlayRootContext = createContext<HTMLElement | null>(null);
 
@@ -64,6 +65,8 @@ export function OverlayRootProvider({
 }
 
 function OverlayMuiTheme({ children }: { children: ReactNode }) {
-  const theme = useEmflowMuiTheme();
+  // MUI components (dialogs, menus, tooltips, inputs) follow the widget theme
+  const { theme: mode } = useTheme();
+  const theme = useEmflowMuiTheme({ palette: { mode } });
   return <MuiThemeProvider theme={theme}>{children}</MuiThemeProvider>;
 }

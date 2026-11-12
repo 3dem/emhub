@@ -8,6 +8,7 @@ import { ProtocolsTree, type ProtocolNode } from "./ProtocolTree";
 import { BoxCubeIcon } from "@/icons";
 import styles from "./ProtocolsDrawer.module.css";
 import { useProjectService } from "@/ProjectServiceContext";
+import { useTheme } from "@/context/ThemeContext";
 
 interface ProtocolsDrawerProps {
   projectId: number | null;
@@ -25,28 +26,6 @@ interface ProtocolsDrawerProps {
 }
 
 type Insets = { top: number; right: number; bottom: number; left: number };
-
-const getHostIsDarkFromElement = (el: HTMLElement | null): boolean => {
-  if (!el || typeof document === "undefined") return false;
-
-  const widgetRoot = el.closest(`.${ROOT_CLASS}`) as HTMLElement | null;
-  const probe = widgetRoot ?? el;
-
-  const probeDark =
-    probe.classList.contains("dark") || probe.getAttribute("data-theme") === "dark";
-
-  if (probeDark) return true;
-
-  const html = document.documentElement;
-  const body = document.body;
-
-  return Boolean(
-    html.classList.contains("dark") ||
-      html.getAttribute("data-theme") === "dark" ||
-      body?.classList.contains("dark") ||
-      body?.getAttribute("data-theme") === "dark",
-  );
-};
 
 const computeInsetsFromRect = (rect: DOMRect): Insets => {
   const vw = typeof window !== "undefined" ? window.innerWidth : 0;
@@ -73,30 +52,8 @@ export const ProtocolsDrawer: FC<ProtocolsDrawerProps> = ({
   const overlayRoot = useOverlayRoot();
   const hostRef = useRef<HTMLDivElement | null>(null);
 
-  const [hostIsDark, setHostIsDark] = useState(false);
-
-  useEffect(() => {
-    // syncHostDarkMode
-    const sync = () => setHostIsDark(getHostIsDarkFromElement(hostRef.current));
-    sync();
-
-    const widgetRoot = hostRef.current?.closest(`.${ROOT_CLASS}`) as HTMLElement | null;
-
-    const obs = new MutationObserver(() => sync());
-    try {
-      if (widgetRoot) {
-        obs.observe(widgetRoot, { attributes: true, attributeFilter: ["class", "data-theme"] });
-      }
-      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme"] });
-      if (document.body) {
-        obs.observe(document.body, { attributes: true, attributeFilter: ["class", "data-theme"] });
-      }
-    } catch {
-      // noOp
-    }
-
-    return () => obs.disconnect();
-  }, []);
+  // The widget theme (ThemeContext), not the host page's
+  const hostIsDark = useTheme().theme === "dark";
 
   const [protocols, setProtocols] = useState<ProtocolNode[]>([]);
   const [loading, setLoading] = useState(false);
