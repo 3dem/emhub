@@ -249,6 +249,22 @@ const FULL_PADDING = 24;
  * everywhere while debugging. */
 export const DEBUG_TIMING = false;
 
+/** A measured height (px) to size the view from, and its last applied
+ * values (with their times): true when it is not to be applied, as the
+ * last one, or as a flip between two values (something that wraps at one
+ * size and not at the other would size the view forever): after A, B, A
+ * within a second, B again. Other changes, also a slower return, are
+ * applied (and kept in seen). */
+function skipFlip(seen: { e: number; t: number }[], e: number): boolean {
+  const n = seen.length, now = performance.now();
+  if (n && Math.abs(seen[n - 1].e - e) <= 1) return true;
+  if (n >= 3 && now - seen[n - 3].t < 1000 && Math.abs(seen[n - 1].e - seen[n - 3].e) <= 1
+      && Math.abs(seen[n - 2].e - e) <= 1) return true;
+  seen.push({ e, t: now });
+  if (seen.length > 4) seen.shift();
+  return false;
+}
+
 /** The debug line: host steps, request, size, decoding and filters. */
 function debugText(info: DensityDebug): string {
   const d = info.density;
@@ -807,14 +823,18 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         return [Math.round(w), Math.round(h), Math.round(Math.max(h, room)), undefined];
       }
       const w = Math.round(Math.max(200, Math.min(box.width - 24, h * 1.2)));
-      // 14: the gap of .wrap3d between the scene and the panel
-      const sh = Math.round(Math.max(120, Math.min(w, room - iterBarH - isoPanelNeed - 14)));
-      // .isoPanel has a 4 px right padding (content box)
-      return [w, sh, Math.max(120, Math.round(room - sh - iterBarH - 14)), w - 4];
+      // 14: the gap of .wrap3d between the scene and the panel. Rounded
+      // down, so the panel gets at least the height it needs: a pixel less
+      // and it would scroll
+      const sh = Math.floor(Math.max(120, Math.min(w, room - iterBarH - isoPanelNeed - 14)));
+      // .isoCols is a border box: the panel is as wide as the scene
+      return [w, sh, Math.max(120, Math.floor(room - sh - iterBarH - 14)), w];
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [box, extra.volume3d, isoPanelNeed, iterBarH]);
+    // The last heights the panel needed (it reports it after each render)
+    const isoPanelSeen = useRef<{ e: number; t: number }[]>([]);
     const onIsoPanelHeight = useCallback((ph: number) => {
-      setIsoPanelNeed((cur) => (Math.abs(cur - ph) > 1 ? ph : cur));
+      if (!skipFlip(isoPanelSeen.current, ph)) setIsoPanelNeed(ph);
     }, []);
 
     // Measured after each render of the shown tab: from the top of the first
@@ -829,17 +849,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         : (tab === "view3d" ? view3dBox : isoBox).current?.offsetHeight ?? 0;
       if (!content || !main) return;
       const e = Math.ceil(content - main);
-      // A height that flips between two values (something that wraps at one
-      // size and not at the other) would size the view forever: after
-      // A, B, A within a second, B again is not applied (other changes,
-      // also a slower return, are)
-      const h = extraSeen.current[tab], now = performance.now();
-      if (Math.abs(extra[tab] - e) <= 1) return;
-      const n = h.length;
-      if (n >= 3 && now - h[n - 3].t < 1000 && Math.abs(h[n - 1].e - h[n - 3].e) <= 1
-          && Math.abs(h[n - 2].e - e) <= 1) return;
-      h.push({ e, t: now });
-      if (h.length > 4) h.shift();
+      if (Math.abs(extra[tab] - e) <= 1 || skipFlip(extraSeen.current[tab], e)) return;
       setExtra((cur) => ({ ...cur, [tab]: e }));
     });
 

@@ -370,14 +370,21 @@
   overflow-x: hidden;
   padding-right: 4px;
   box-sizing: content-box;
+  /* The room of a scrollbar is always kept (classic scrollbars take width):
+     the content has the same width whether it scrolls or not, so lines do
+     not wrap when the scrollbar comes, and the height the panel needs (the
+     scene is sized from it) does not depend on it */
+  scrollbar-gutter: stable;
 }
 
 /* Below the scene (VolumeViewer when there is no room beside it): its two
-   groups side by side, as wide as the scene */
+   groups side by side, as wide as the scene (its whole width, the gutter
+   in) */
 .isoCols {
   display: flex;
   gap: 14px;
   align-items: flex-start;
+  box-sizing: border-box;
 }
 
 .isoCols .isoGroup {
