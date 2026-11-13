@@ -193,7 +193,8 @@
         {%- endmacro %}
         <small class="text-muted ml-3">
             {% if nPages > 1 %}{{ firstRow }}&ndash;{{ firstRow + rows|length - 1 }} of {% endif %}{{ nRowsTotal }}
-            tilt series{% if filter == 'attn' %} needing review{% endif %}
+            tilt series{% if filter == 'attn' %} needing review{% elif filter == 'fewkept' %}
+            that would keep fewer than {{ '%.0f'|format(100 * config.keptLimit) if config.keptLimit is not none else '?' }}% of their tilts{% endif %}
         </small>
         {{ pager() }}
         <div class="ml-auto">
@@ -204,6 +205,14 @@
                 <button type="button"
                         class="btn btn-outline-light {% if filter == 'attn' %}active{% endif %}"
                         onclick="otfSetFilter('attn')">Needs review</button>
+                {# The tilt series under the "Too few tilts kept" threshold, when it is set #}
+                {% if config.keptLimit is not none or filter == 'fewkept' %}
+                <button type="button"
+                        class="btn btn-outline-light {% if filter == 'fewkept' %}active{% endif %}"
+                        onclick="otfSetFilter('fewkept')"
+                        title="Tilt series that would keep fewer than {{ '%.0f'|format(100 * config.keptLimit) if config.keptLimit is not none else '?' }}% of their tilts once the tilts the curation rule proposes and those unticked are left out (Thresholds: Too few tilts kept)">
+                    Too few tilts kept <span class="badge badge-pill {{ 'badge-warning' if config.fewKept else 'badge-light' }}">{{ config.fewKept|length }}</span></button>
+                {% endif %}
             </div>
             <div class="btn-group btn-group-sm otf-toggle" role="group">
                 <button type="button"
@@ -231,6 +240,12 @@
         <span class="otf-select-summary">
             <span id="otf-select-summary"></span>
             <small class="otf-save-state ml-2"></small>
+            {# Not in the refreshed part: the window and the unsaved changes
+               live in the page (tomo_otf_dashboard.html) #}
+            <button type="button" class="btn btn-sm btn-outline-light ml-3 otf-thresholds-btn"
+                    onclick="otfOpenThresholds()"
+                    title="The thresholds tilts and tilt series are categorized with, saved in {{ config.path }}">
+                <i class="fas fa-sliders-h mr-1"></i>Thresholds<span class="otf-draft-dot" hidden></span></button>
             {% if canEdit %}
                 <button type="button" class="btn btn-sm btn-outline-primary ml-3 otf-propose"
                         onclick="otfProposeExclusions()"
@@ -268,14 +283,14 @@
                     {% if showEarly %}{{ sortable('early', 'Early motion (Å)', 'otf-num') }}{% endif %}
                     {{ sortable('defocus', 'Defocus (µm)', 'otf-num') }}
                     {{ sortable('ctf', 'CTF fit resolution (Å)', 'otf-num') }}
-                    {{ sortable('axis', 'Tilt axis (°)', 'otf-num') }}
+                    {% if showTiltAxis %}{{ sortable('axis', 'Tilt axis (°)', 'otf-num') }}{% endif %}
                     {{ sortable('roughness', 'Shift roughness (Å)', 'otf-num') }}
                     <th>Per-tilt QC{% if fingerprintLabel %} ({{ fingerprintLabel }}){% endif %}</th>
                     {{ sortable('stage', 'Stages') }}
                 </tr>
             </thead>
             <tbody>
-            {% set nMetricCols = 7 if showEarly else 6 %}
+            {% set nMetricCols = (7 if showEarly else 6) - (0 if showTiltAxis else 1) %}
             {# The row opens with the name from its attribute: a quote in a
                name cannot break out of the code #}
             {% for r in rows %}
@@ -357,12 +372,14 @@
                             {% elif r.ctfRes.notReported %}<span class="otf-sd">n/a</span>
                             {% else %}&ndash;{% endif %}
                         </td>
+                        {% if showTiltAxis %}
                         <td class="otf-num">
                             {% if r.tiltAxis.mean is not none %}
                                 {{ '%.2f'|format(r.tiltAxis.mean) }}
                                 <span class="otf-sd">&plusmn;{{ '%.2f'|format(r.tiltAxis.std) }}</span>
                             {% else %}&ndash;{% endif %}
                         </td>
+                        {% endif %}
                         <td class="otf-num">
                             {% if r.shiftRoughness is not none %}{{ '%.1f'|format(r.shiftRoughness) }}{% else %}&ndash;{% endif %}
                         </td>
@@ -397,6 +414,9 @@
     var allSeries = {{ allSeries|tojson }};
     // For the page's Propose exclusions and Create subset, as of this refresh
     window.otfProposalInputs = {{ proposals|tojson }};
+    // The thresholds as saved, for the Thresholds window and the drag of
+    // the guides; the unsaved changes are the page's
+    otfSetConfig({{ config|tojson }}, {{ canEdit|tojson }});
     window.otfSubsetInput = {{ subsetInput|tojson }};
     window.otfAllSeries = allSeries;
     function namesOf(key) {

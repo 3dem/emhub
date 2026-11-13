@@ -444,6 +444,10 @@ export type TableViewerImageSliderContent = {
   /** "volume": shown by VolumeViewer (X, Y and Z slices, or only a density);
    * "stack": one slider per axis. */
   layout?: "volume" | "stack";
+  /** Small cells (e.g. the 2 x 2 grid of the classes of an iteration): no
+   * "Volume dimensions" line (the host puts the box in the title) and less
+   * padding, so the viewer takes the cell. */
+  compact?: boolean;
   /** Picking coordinates overlaid on the Z-axis slider. */
   coordinates?: {
     x: number[];

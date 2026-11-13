@@ -11,6 +11,7 @@ import unittest
 
 from emhub.data.processing.job_views import (job_view_outputs, build_job_view_table,
                                              build_job_view_pane, job_view_value)
+from emhub.data.processing.relion_iterations import map_iterations
 
 OPTIMISER = """
 # version 50001
@@ -220,9 +221,15 @@ class TestRelionIterations(unittest.TestCase):
         table = build_job_view_table(self.root, value)
         self.assertEqual([r['cells']['it'] for r in table['rows']], ['Overall', 2, 1])
         cells = table['rows'][1]['cells']
-        self.assertEqual(cells['classes'], 3)
+        self.assertNotIn('classes', cells)
+        self.assertNotIn('classes', [c['id'] for c in table['columns']])
         self.assertEqual(cells['changesClasses'], 5.0)  # 0.1 / 2, in %
-        self.assertEqual(table['rows'][1]['actions'][0]['id'], 'volumes')
+        # The plots and the classes of an iteration: two buttons of the row
+        show = table['rows'][1]['cellContexts']['show']['actions']
+        self.assertEqual([(a['id'], a['label']) for a in show],
+                         [('iteration', 'plots'), ('volumes', 'classes')])
+        self.assertEqual(table['rows'][1]['actions'], [])
+        self.assertNotIn('cellContexts', table['rows'][0])
 
         pane = build_job_view_pane(self.root, value, 'overall', {'optimiser': 'overall'})
         dist = pane['cells']['bottomRight']['figure']['data']
@@ -238,6 +245,56 @@ class TestRelionIterations(unittest.TestCase):
         self.assertEqual(len(ssnr['figure']['data']), 3)
         self.assertEqual(ssnr['figure']['layout']['yaxis']['type'], 'log')
         self.assertEqual(pane['cells']['right']['figure']['data'][0]['y'], [50.0, 40.0, 10.0])
+
+        # The classes: compact cells (the viewer takes the cell), the box in
+        # the title, most populated first
+        import numpy as np
+        import mrcfile
+        for c in (1, 2, 3):
+            with mrcfile.new(os.path.join(self.root, job, f'run_it002_class{c:03d}.mrc')) as m:
+                m.set_data(np.random.rand(16, 16, 16).astype(np.float32))
+        pane = build_job_view_pane(self.root, value, 'volumes',
+                                   {'optimiser': 'run_it002_optimiser.star'})
+        cells = [pane['cells'][s] for s in ('topLeft', 'topRight', 'bottomLeft')]
+        self.assertTrue(all(c['compact'] for c in cells))
+        self.assertTrue(cells[0]['title'].startswith('Class 1 — 50.0%'))
+        self.assertTrue(all(c['title'].endswith(' · 16³') for c in cells))
+
+    def _maps(self, job, names):
+        for name in names:
+            self._write(f'{job}/{name}', '')
+
+    def test_map_iterations_refine(self):
+        # The series of a Refine3D map: half 1 of the iterations, the final
+        # map last, with the FSC of each model (VolumeViewer's playback)
+        job = self._refine()
+        self._maps(job, [f'run_it{it:03d}_half{h}_class001.mrc' for it in range(4) for h in (1, 2)]
+                   + ['run_class001.mrc', 'run_half1_class001_unfil.mrc'])
+        data = map_iterations(os.path.join(self.root, job, 'run_class001.mrc'))
+        items = data['items']
+        self.assertEqual(data['classId'], 1)
+        self.assertEqual([i['file'] for i in items],
+                         [f'run_it{it:03d}_half1_class001.mrc' for it in range(4)] + ['run_class001.mrc'])
+        self.assertEqual([i['label'] for i in items][-2:], ['Iteration 3', 'Final'])
+        self.assertEqual(data['current'], 4)
+        self.assertEqual(items[1]['resolution'], 19.0)
+        self.assertEqual(items[-1]['resolution'], 8.1)
+        # Without the origin and the frequencies not computed (FSC 0)
+        self.assertEqual(items[-1]['fsc']['fsc'], [1.0, 0.99, 0.5, 0.1])
+        self.assertEqual(len(items[-1]['fsc']['resolution']), 4)
+
+    def test_map_iterations_class3d(self):
+        job = self._class3d()
+        self._maps(job, [f'run_it{it:03d}_class{c:03d}.mrc' for it in range(3) for c in (1, 2, 3)])
+        data = map_iterations(os.path.join(self.root, job, 'run_it001_class002.mrc'))
+        self.assertEqual([i['file'] for i in data['items']],
+                         [f'run_it{it:03d}_class002.mrc' for it in range(3)])
+        self.assertEqual(data['current'], 1)
+        self.assertEqual([i['classDistribution'] for i in data['items']], [0.3, 0.35, 0.4])
+        # Not a Relion map, or a single map: no series
+        self.assertIsNone(map_iterations(os.path.join(self.root, job, 'other.mrc')))
+        self._maps('Class3D/job066', ['run_it025_class001.mrc'])
+        self.assertIsNone(map_iterations(os.path.join(self.root, 'Class3D/job066/run_it025_class001.mrc')))
 
 
 if __name__ == '__main__':

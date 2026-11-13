@@ -17,16 +17,22 @@ rlnChangesOptimalClasses). The rows show:
     end), the FSC between the half maps (gold standard) and the SSNR.
   - An iteration of Class3D: the SSNR of the classes (as relion_star_plottable
     ... data_model_class_N rlnResolution rlnSsnrMap) and the class
-    distribution; its most populated class volumes with the 'classes' action.
+    distribution ('plots'); its most populated class volumes ('classes'),
+    both buttons of the Show column of the row.
 
     data = load_relion_iterations(root, job_dir, refine)
     table = build_iterations_table(data, title)
     pane = build_iteration_pane(root, data, action_id, row_cells)
+
+Also the series of a Relion map, for emflow's VolumeViewer to play the map
+through the iterations of its job (map_iterations, see "Map series" below).
 """
 
 import math
 import os
 import re
+import threading
+from collections import OrderedDict
 
 from emtools.metadata import StarFile
 
@@ -40,6 +46,9 @@ ACTION_OVERALL = {'id': 'overall', 'label': 'plots'}
 ACTION_ITERATION = {'id': 'iteration', 'label': 'results'}
 ACTION_VOLUMES = {'id': 'volumes', 'label': 'classes'}
 OVERALL_ROW = 'overall'
+# Class3D: the plots or the classes of an iteration, two buttons in a column
+# (always visible; a click on another row shows the same for it)
+SHOW_COLUMN = 'show'
 
 # Class volumes shown for an iteration of a 3D classification (a 2 x 2 grid)
 MAX_CLASS_VOLUMES = 4
@@ -208,7 +217,7 @@ def build_iterations_table(data, title):
     if not data.refine:
         columns.append({'id': 'changesClasses', 'label': 'Δ classes (%)',
                         'align': 'right', 'sortable': True})
-        columns.append({'id': 'classes', 'label': 'Classes', 'align': 'right'})
+        columns.append({'id': SHOW_COLUMN, 'label': 'Show', 'align': 'left'})
     columns.append({'id': 'pmax', 'label': 'Pmax', 'align': 'right', 'sortable': True})
 
     rows = [{'id': OVERALL_ROW, 'cells': {'it': 'Overall', 'optimiser': OVERALL_ROW},
@@ -226,12 +235,14 @@ def build_iterations_table(data, title):
             'changesOffsets': _round(v.get('changesOffsets'), 3),
             'changesClasses': (None if changes_classes is None
                                else round(100 * changes_classes, 2)),
-            'classes': len(i.classes),
             'pmax': _round(v.get('pmax'), 3),
         }
-        rows.append({'id': i.name, 'cells': cells,
-                     'actions': [] if data.refine else [dict(ACTION_VOLUMES)],
-                     'defaultAction': dict(ACTION_ITERATION)})
+        row = {'id': i.name, 'cells': cells, 'actions': [],
+               'defaultAction': dict(ACTION_ITERATION)}
+        if not data.refine:
+            row['cellContexts'] = {SHOW_COLUMN: {'actions': [
+                dict(ACTION_ITERATION, label='plots'), dict(ACTION_VOLUMES)]}}
+        rows.append(row)
 
     n = sum(not i.final for i in data.iterations)
     info = f'{n} iterations'
@@ -466,7 +477,7 @@ def _class_distribution_bars(it):
 def build_iteration_results_pane(root, data, it):
     """ Results of an iteration. Refine3D: its map on the left, the FSC and
     the SSNR on the right; Class3D: the SSNR and the distribution of the
-    classes (their volumes with the 'classes' action). """
+    classes (their volumes with the 'classes' button). """
     if data.refine:
         return {'kind': 'grid', 'title': f'{it.label} — {os.path.basename(it.model)}',
                 'layout': 'span-left',
@@ -527,9 +538,21 @@ def build_iteration_volumes_pane(root, data, it):
         return _volume(f'{it.label} — {cells[0][0]}', cells[0][1], CLASS3D_MAX_VOXELS)
     slots = ('topLeft', 'topRight', 'bottomLeft', 'bottomRight')
     max_voxels = CLASS3D_MAX_VOXELS // len(cells)
+
+    def _cell(title, volume):
+        # Small cells: the viewer takes the cell (no dimensions line, less
+        # padding), the box in the title
+        content = _volume(title, volume, max_voxels)
+        dims = content.get('dimensions') or []
+        if dims:
+            box = f'{dims[0]}³' if len(set(dims)) == 1 else ' × '.join(map(str, dims))
+            content['title'] = f'{title} · {box}'
+        content['compact'] = True
+        return content
+
     return {'kind': 'grid', 'title': f'{it.label} — {len(cells)} most populated classes',
             'layout': '2x2' if len(cells) > 2 else 'cols',
-            'cells': {slot: _volume(t, v, max_voxels)
+            'cells': {slot: _cell(t, v)
                       for slot, (t, v) in zip(slots if len(cells) > 2 else ('left', 'right'),
                                               cells)}}
 
@@ -543,3 +566,144 @@ def build_iteration_pane(root, data, action_id, row_cells):
     if action_id == ACTION_VOLUMES['id']:
         return build_iteration_volumes_pane(root, data, it)
     raise Exception(f'Unknown action {action_id!r}')
+
+
+# ---------------------------- Map series ---------------------------------
+#
+# A map of a Relion job (run_it025_class003.mrc, run_class001.mrc,
+# run_it011_half1_class001.mrc, run_ct5_it030_class002.mrc when the job was
+# continued) belongs to a series: the same class at every iteration of the
+# job, the final map last. Each iteration has a model STAR file next to its
+# maps (run_it025_model.star; run_it011_half1_model.star in Refine3D, whose
+# iterations only have half maps; run_model.star for the final one) with its
+# resolution (model_general), the share and resolution of each class
+# (model_classes) and, for Refine3D, the gold-standard FSC (model_class_N;
+# not computed in Class3D, so it is then left out). Reading a model file can
+# be slow (a network file system: about a second each), so its values are
+# kept in memory per file (path, modification time and size): a finished
+# iteration never changes.
+
+# The map of an iteration: prefix, continue number, iteration, half, class
+_ITERATION_MAP = re.compile(
+    r'^(?P<prefix>.+?)_(?:ct(?P<ct>\d+)_)?it(?P<it>\d+)_(?P<half>half[12]_)?class(?P<cls>\d+)\.mrc$')
+# The final map of a job (no iteration)
+_FINAL_MAP = re.compile(r'^(?P<prefix>.+?)_(?P<half>half[12]_)?class(?P<cls>\d+)\.mrc$')
+
+_stats_cache = OrderedDict()
+_stats_lock = threading.Lock()
+_STATS_CACHE_SIZE = 2000
+
+
+def _parse_map(name):
+    """ (prefix, ct, iteration, half, class) of a map file name (iteration
+    None for the final map), or None. """
+    if m := _ITERATION_MAP.match(name):
+        return m['prefix'], int(m['ct'] or 0), int(m['it']), m['half'] or '', int(m['cls'])
+    if m := _FINAL_MAP.match(name):
+        return m['prefix'], 0, None, m['half'] or '', int(m['cls'])
+    return None
+
+
+def _map_model_star(folder, prefix, ct, it, half):
+    """ The model STAR file of the iteration of a map. """
+    if it is None:
+        return os.path.join(folder, f'{prefix}_model.star')
+    ct_part = f'ct{ct}_' if ct else ''
+    model = os.path.join(folder, f'{prefix}_{ct_part}it{it:03d}_{half}model.star')
+    if not os.path.exists(model) and not half:
+        # Refine3D: only the models of the half sets
+        alt = os.path.join(folder, f'{prefix}_{ct_part}it{it:03d}_half1_model.star')
+        if os.path.exists(alt):
+            return alt
+    return model
+
+
+def _resolution(value):
+    """ A resolution in Å, None when not estimated yet (Relion writes inf or
+    999 then). """
+    return value if value and 0 < value < 999 else None
+
+
+def _map_model_stats(model_star, class_id):
+    """ Resolution, class share and resolution, and FSC of a class in a model
+    STAR file (None values when missing); None without the file. Kept in
+    memory per file. """
+    try:
+        st = os.stat(model_star)
+    except OSError:
+        return None
+    key = (os.path.abspath(model_star), st.st_mtime, st.st_size, class_id)
+    with _stats_lock:
+        if key in _stats_cache:
+            _stats_cache.move_to_end(key)
+            return _stats_cache[key]
+    stats = {'resolution': None, 'classDistribution': None,
+             'classResolution': None, 'fsc': None}
+    with StarFile(model_star) as sf:
+        names = sf.getTableNames()
+        if 'model_general' in names:
+            g = sf.getTable('model_general', guessType=False)[0]._asdict()
+            stats['resolution'] = _resolution(_float(g.get('rlnCurrentResolution')))
+        if 'model_classes' in names:
+            rows = sf.getTable('model_classes', guessType=False)
+            if 0 < class_id <= len(rows):
+                row = rows[class_id - 1]._asdict()
+                stats['classDistribution'] = _float(row.get('rlnClassDistribution'))
+                stats['classResolution'] = _resolution(_float(row.get('rlnEstimatedResolution')))
+    try:
+        curves = _class_curves(model_star, class_id, 'rlnGoldStandardFsc')
+    except Exception:
+        curves = []
+    for c, xs, _, ys in curves:
+        if c != class_id:
+            continue
+        pts = [(x, y) for x, y in zip(xs, ys) if x is not None and y is not None]
+        # Class3D does not compute it (all the same value)
+        if len(pts) > 2 and len({round(y, 6) for _, y in pts}) > 1:
+            stats['fsc'] = {'resolution': [x for x, _ in pts], 'fsc': [y for _, y in pts]}
+    with _stats_lock:
+        _stats_cache[key] = stats
+        while len(_stats_cache) > _STATS_CACHE_SIZE:
+            _stats_cache.popitem(last=False)
+    return stats
+
+
+def is_relion_map(name):
+    """ True for the file name of a map of a Relion iteration or job. """
+    return _parse_map(name) is not None
+
+
+def map_iterations(map_path):
+    """ The series of the Relion map at map_path: every iteration of the
+    same class (and half, for Refine3D: half 1 of the iterations, the full
+    final map) in its folder, in order (continued runs after, the final map
+    last), with the values of each model STAR. None if the file name is not
+    a Relion map or the series has a single map. Each item: {iteration (None:
+    final), label, file, resolution, classDistribution, classResolution,
+    fsc}; `current`: the index of map_path. """
+    folder, name = os.path.split(map_path)
+    parsed = _parse_map(name)
+    if not parsed:
+        return None
+    prefix, _, _, _, cls = parsed
+    series = []
+    for f in os.listdir(folder):
+        p = _parse_map(f)
+        if not p or p[0] != prefix or p[4] != cls:
+            continue
+        _, ct, it, half, _ = p
+        # The iterations of one half (Refine3D: half 1), and the full maps
+        if half == 'half2_' or (it is None and half):
+            continue
+        series.append((ct, it, half, f))
+    if len(series) < 2:
+        return None
+    # Iterations by continue and number, the final map last
+    series.sort(key=lambda s: (s[1] is None, s[0], s[1] or 0))
+    items = []
+    for ct, it, half, f in series:
+        stats = _map_model_stats(_map_model_star(folder, prefix, ct, it, half), cls) or {}
+        label = 'Final' if it is None else (f'Iteration {it}' + (f' (continue {ct})' if ct else ''))
+        items.append(dict(stats, iteration=it, label=label, file=f))
+    current = next((i for i, s in enumerate(series) if s[3] == name), len(items) - 1)
+    return {'classId': cls, 'items': items, 'current': current}

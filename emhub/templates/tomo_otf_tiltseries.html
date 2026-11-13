@@ -73,18 +73,31 @@
            it without scrolling away from the plots.  Stacked on narrow
            screens. #}
         <div class="row">
-        <div class="{{ 'col-lg-7' if thumbs else 'col-12' }}">
+        <div class="{{ 'col-lg-7' if thumbs else 'col-12' }}" id="otf-strips-col">
         {# The tab is the heading; the legend and the order (of the strips and
            the filmstrip) share one row #}
         <div class="d-flex align-items-center mb-1">
             <small class="text-muted mr-2">
                 <span class="otf-dot mr-1" style="background: var(--otf-data)"></span>within target
                 <span class="otf-dot otf-shape-triangle ml-2 mr-1" style="background: var(--otf-review)"></span>off target
-                <span class="otf-dot otf-shape-diamond ml-2 mr-1" style="background: var(--otf-bad)"></span>unusable;
-                dashed lines: target (amber) and reject limit (red){% if hasDropped %};
-                <span class="otf-dot mr-1" style="background: var(--otf-waiting)"></span>dropped during processing{% endif %}
+                <span class="otf-dot otf-shape-diamond ml-2 mr-1" style="background: var(--otf-bad)"></span>unusable{% if hasDropped %}
+                <span class="otf-dot ml-2 mr-1" style="background: var(--otf-waiting)"></span>dropped during processing{% endif %}
             </small>
-            <div class="btn-group btn-group-sm otf-toggle ml-auto text-nowrap" role="group">
+            {# Which metrics are plotted: the configuration's 'display', changed
+               here as in the Thresholds window (saved with it) #}
+            <div class="dropdown otf-toggle otf-toggle-xs ml-auto mr-2">
+                <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle" id="otf-metrics-btn"
+                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                        title="The metrics plotted here; kept with the thresholds (Save configuration file in the Thresholds window)">
+                    Metrics <span class="otf-metrics-count"></span></button>
+                <div class="dropdown-menu dropdown-menu-right otf-metrics-menu" aria-labelledby="otf-metrics-btn">
+                    {% for s in strips %}
+                        <label><input type="checkbox" class="otf-metric-cb otf-th-input" data-key="display"
+                                      data-field="{{ s.metric }}" {% if s.display %}checked{% endif %}>{{ s.label }}{% if s.unit and s.key in ('matchPeak', 'matchNcc') %} ({{ s.unit }}){% endif %}</label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="btn-group btn-group-sm otf-toggle otf-toggle-xs text-nowrap" role="group">
                 <button type="button"
                         class="btn btn-outline-light {% if order == 'angle' %}active{% endif %}"
                         onclick='otfShowTiltSeries({{ tomoName|tojson }}, "angle")'>By tilt angle</button>
@@ -95,7 +108,32 @@
         </div>
 
         {% for s in strips %}
-            <div id="otf-strip-{{ s.key }}" class="otf-strip" style="height: {{ 104 if loop.last else 84 }}px"></div>
+            {# The title, and a box per threshold of the strip: typed in, stepped
+               with - / +, or set by dragging its dashed line #}
+            <div class="otf-strip-wrap" {% if not s.display %}hidden{% endif %}>
+                <div class="otf-strip-head">
+                    {# Folds the plot to this line, as code folding: the others
+                       take its height (while the window is open, see otfApplyHidden) #}
+                    <button type="button" class="otf-strip-toggle" aria-expanded="true"
+                            title="Fold or unfold this plot"><span class="otf-strip-caret">&#9662;</span>
+                        <span class="otf-strip-title">{{ s.label }}{% if s.unit %} ({{ s.unit }}){% endif %}</span></button>
+                    {% for c in s.controls %}
+                        <span class="otf-th-ctl otf-th-role-{{ c.role }}" data-key="{{ c.key }}"
+                              data-field="{{ c.field }}" data-scale="{{ c.scale }}" data-step="{{ c.step }}">
+                            <span class="otf-th-ctl-label">{{ c.label }}</span><button
+                                type="button" class="otf-th-step" data-dir="-1" tabindex="-1"
+                                aria-label="Lower">&minus;</button><input
+                                type="number" class="otf-th-box otf-th-input" data-key="{{ c.key }}" data-field="{{ c.field }}"
+                                data-scale="{{ c.scale }}" data-unit="{{ s.unit }}"
+                                step="{{ c.step }}" placeholder="off"
+                                value="{{ '' if c.value is none else '%g'|format(c.value) }}"><button
+                                type="button" class="otf-th-step" data-dir="1" tabindex="-1"
+                                aria-label="Raise">+</button>
+                        </span>
+                    {% endfor %}
+                </div>
+                <div id="otf-strip-{{ s.key }}" class="otf-strip" style="height: {{ 104 if loop.last else 84 }}px"></div>
+            </div>
         {% endfor %}
 
         {% if not strips %}
@@ -181,6 +219,8 @@
         var dataColor = otfCss('--otf-data'), reviewColor = otfCss('--otf-review'),
             badColor = otfCss('--otf-bad');
         var tomoName = {{ tomoName|tojson }};
+        // Shown again with the same order when a threshold changes
+        window.otfTsShown = {name: tomoName, order: {{ order|tojson }}};
 
         // Identify each tilt the same way in every strip's hover
         var tiltText = x.map(function(_, j) {
@@ -205,11 +245,18 @@
                     name: name, hoverinfo: 'skip'};
         }
 
-        // A guide far above the data would squash it; draw only nearby ones
-        function near(y, values) {
-            var vmax = Math.max.apply(null, values.filter(function(v) { return v !== null; }));
-            var g = Array.isArray(y) ? Math.min.apply(null, y) : y;
-            return y !== null && isFinite(vmax) && g <= vmax * 1.25;
+        /* The level guides of a strip: a dashed line per threshold that is
+           a level (not the per-tilt CTF fit target), always drawn so the
+           plot and the Thresholds window show the same.  Each is a shape so
+           it can be dragged; [key, field] is the threshold it is.  A value
+           being typed in its box (s.typed) moves it before it is set. */
+        function levelGuides(s) {
+            return s.controls.filter(function(c) { return c.kind === 'level'; }).map(function(c) {
+                var typed = (s.typed || {})[c.key + '.' + c.field];   // null: emptied
+                var y = typed !== undefined ? typed : c.value;
+                return {y: y, path: [c.key, c.field],
+                        color: c.role === 'reject' ? badColor : reviewColor};
+            }).filter(function(g) { return g.y !== null && g.y !== undefined; });
         }
 
         // The selected tilt, drawn as a blue line in every strip
@@ -220,17 +267,169 @@
                 y0: 0, y1: 1, line: {color: dataColor, width: 2}
             }];
         }
+        // The guides first, so their index in the shapes is their index here
+        function stripShapes(s) {
+            return levelGuides(s).map(function(g) {
+                return {type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: g.y, y1: g.y,
+                        line: {color: g.color, width: 1.5, dash: 'dash'}};
+            }).concat(selectedShapes());
+        }
+
+        /* A guide dragged: its new level, rounded to 3 digits, becomes the
+           threshold (unsaved, the page's: otfSetThreshold), and the window
+           is shown again judged with it.  Anything else moved (the selected
+           tilt's line) goes back. */
+        function otfGuideMoved(div, s, ev) {
+            var guides = levelGuides(s), moved = false;
+            guides.forEach(function(g, i) {
+                var y0 = ev['shapes[' + i + '].y0'], y1 = ev['shapes[' + i + '].y1'];
+                if (y0 === undefined && y1 === undefined) return;
+                var y = (y0 !== undefined && y1 !== undefined) ? (y0 + y1) / 2
+                        : (y0 !== undefined ? y0 : y1);
+                y = Number(Number(y).toPrecision(3));
+                moved = true;
+                var $box = $(div).closest('.otf-strip-wrap')
+                    .find('.otf-th-box[data-key="' + g.path[0] + '"][data-field="' + g.path[1] + '"]');
+                $box.val(y);
+                otfSetThreshold(g.path[0], g.path[1], Number((y / s.scale).toPrecision(10)));
+            });
+            var other = Object.keys(ev).some(function(k) {
+                var m = /^shapes\[(\d+)\]/.exec(k);
+                return m && Number(m[1]) >= guides.length;
+            });
+            if (other || moved) Plotly.relayout(div, {shapes: stripShapes(s)});
+        }
+
+        /* The boxes beside the titles.  Typing moves the line at once; the
+           value is set (and the window judged again) on Enter, leaving the
+           box or the arrows, and by - / +, one step each. */
+        function otfStripOf(el) {
+            var key = $(el).closest('.otf-strip-wrap').find('.otf-strip').attr('id').replace('otf-strip-', '');
+            return strips.filter(function(s) { return s.key === key; })[0];
+        }
+        function otfBoxValue(box) {
+            var t = String(box.value).trim();
+            if (t === '') return null;
+            var n = Number(t);
+            return isFinite(n) ? n : undefined;
+        }
+        function otfBoxSet(box) {
+            var s = otfStripOf(box), v = otfBoxValue(box);
+            $(box).toggleClass('is-invalid', v === undefined);
+            if (v === undefined || !s) return;
+            window.otfTsFocus = {key: box.dataset.key, field: box.dataset.field};
+            otfSetThreshold(box.dataset.key, box.dataset.field,
+                            v === null ? null : Number((v / s.scale).toPrecision(10)));
+        }
+        var $qc = $('#otf-tab-qc');
+        $qc.on('input', '.otf-th-box', function() {
+            // Emptied (off): its line goes at once, as it will once set
+            var s = otfStripOf(this), v = otfBoxValue(this);
+            if (!s || v === undefined) return;
+            (s.typed = s.typed || {})[this.dataset.key + '.' + this.dataset.field] = v;
+            var div = document.getElementById('otf-strip-' + s.key);
+            if (div && div.layout) Plotly.relayout(div, {shapes: stripShapes(s)});
+        }).on('change', '.otf-th-box', function() {
+            otfBoxSet(this);
+        }).on('keydown', '.otf-th-box', function(e) {
+            // Enter sets the value (the filmstrip ignores keys typed in a
+            // box; Escape still closes the window)
+            if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); otfBoxSet(this); }
+        }).on('click', '.otf-th-step', function() {
+            var $ctl = $(this).closest('.otf-th-ctl'), box = $ctl.find('.otf-th-box')[0];
+            var step = Number($ctl.data('step')) || 1, v = otfBoxValue(box);
+            if (v === undefined) return;
+            // From off, + starts at one step
+            v = Number(((v === null ? 0 : v) + Number(this.dataset.dir) * step).toPrecision(10));
+            box.value = v;
+            otfBoxSet(box);
+        });
+        // Shown again after a change: back to the box that was being used
+        if (window.otfTsFocus) {
+            var f = window.otfTsFocus;
+            window.otfTsFocus = null;
+            var $box = $qc.find('.otf-th-box[data-key="' + f.key + '"][data-field="' + f.field + '"]');
+            window.setTimeout(function() { $box.trigger('focus'); }, 0);
+        }
+        if (window.otfPaintThresholds) otfPaintThresholds();
 
         /* The strips share the height left once the window fits the screen
            (otfFitStrips); the last one also carries the x axis */
-        var STRIP_HEIGHT = 84, STRIP_MIN = 48, STRIP_AXIS = 20, stripHeight = STRIP_HEIGHT;
+        var STRIP_HEIGHT = 130, STRIP_MIN = 38, STRIP_AXIS = 20, stripHeight = 84;
+        /* The width of the plots: their column's, set rather than left to
+           Plotly, which takes 700 px when drawn in a window not shown yet
+           and does not always follow it once shown (otfWidthObserver) */
+        function stripWidth() {
+            var col = document.getElementById('otf-strips-col');
+            return (col && col.clientWidth) ? col.clientWidth - 30 : undefined;   // its padding
+        }
 
-        strips.forEach(function(s, i) {
+        /* The plots folded (by key).  Only while this tilt series is open:
+           kept when its window is shown again (a threshold changed); opened
+           again, it has all its plots unfolded */
+        try { localStorage.removeItem('otfHiddenStrips'); } catch (e) {}   // kept by older versions
+        if (!window.otfFolded || window.otfFolded.name !== tomoName)
+            window.otfFolded = {name: tomoName, keys: []};
+        var hidden = new Set(window.otfFolded.keys);
+        // Plotted: shown (the configuration's display) and not folded
+        function visibleStrips() {
+            return strips.filter(function(s) { return s.display && !hidden.has(s.key); });
+        }
+        function isLast(s) { var v = visibleStrips(); return v[v.length - 1] === s; }
+        // A folded plot keeps its title line (and threshold boxes) only
+        function otfApplyHidden() {
+            strips.forEach(function(s) {
+                var folded = hidden.has(s.key);
+                var $wrap = $('#otf-strip-' + s.key).closest('.otf-strip-wrap')
+                    .toggleClass('otf-strip-folded', folded).prop('hidden', !s.display);
+                $wrap.find('.otf-strip-toggle').attr('aria-expanded', String(!folded))
+                     .find('.otf-strip-caret').html(folded ? '&#9656;' : '&#9662;');
+            });
+        }
+        function otfMetricsCount() {
+            $('.otf-metrics-count').text('(' + strips.filter(function(s) { return s.display; }).length +
+                                         ' of ' + strips.length + ')');
+        }
+        // The x axis goes with the last plot shown; heights shared again
+        function otfRelayStrips() {
+            visibleStrips().forEach(function(s) {
+                var div = document.getElementById('otf-strip-' + s.key);
+                if (div && div.otfDraw) div.otfDraw();
+            });
+            otfFitStrips(true);
+        }
+        // Several can be ticked in a row: the menu stays open
+        $('#otf-tab-qc .otf-metrics-menu').on('click', function(e) { e.stopPropagation(); })
+            // Escape closes the menu, not the window under it
+            .on('keydown', function(e) {
+                if (e.key !== 'Escape') return;
+                e.stopPropagation();
+                $('#otf-metrics-btn').dropdown('hide').trigger('focus');
+            });
+        $('#otf-tab-qc').on('change', '.otf-metric-cb', function() {
+            var metric = this.dataset.field, on = this.checked;
+            strips.forEach(function(s) { if (s.metric === metric) s.display = on; });
+            otfSetThreshold('display', metric, on, true);
+            otfApplyHidden();
+            otfMetricsCount();
+            otfRelayStrips();
+        });
+        otfMetricsCount();
+        $('#otf-tab-qc').on('click', '.otf-strip-toggle', function() {
+            var key = $(this).closest('.otf-strip-wrap').find('.otf-strip').attr('id').replace('otf-strip-', '');
+            if (hidden.has(key)) hidden.delete(key); else hidden.add(key);
+            window.otfFolded.keys = Array.from(hidden);
+            otfApplyHidden();
+            otfRelayStrips();
+        });
+        otfApplyHidden();
+
+        strips.forEach(function(s) {
             var div = document.getElementById('otf-strip-' + s.key);
             if (!div) return;
 
-            var last = (i === strips.length - 1);
             otfPlot(div, function() {
+                var last = isLast(s);
                 var traces = [{
                     type: 'scatter', mode: 'lines+markers',
                     x: x, y: s.values, text: tiltText,
@@ -238,14 +437,17 @@
                     line: {color: otfCss('--otf-connector'), width: 1},
                     hovertemplate: '%{text}<br>' + s.label + ': %{y:.3f} ' + s.unit + '<extra></extra>'
                 }];
-                // Dashed guides: target (amber) and reject limit (red)
-                if (near(s.target, s.values)) traces.push(guide(s.target, reviewColor, 'target'));
-                if (near(s.reject, s.values)) traces.push(guide(s.reject, badColor, 'reject'));
+                // Dashed guides: target (amber) and reject limit (red).  The
+                // level ones are shapes (stripShapes), to drag; the CTF fit
+                // target, which follows the tilt angle, a tick per tilt
+                if (s.perTiltTarget) traces.push(guide(s.perTiltTarget, reviewColor, 'target'));
 
-                /* Label above the strip: a rotated y title does not fit 84px. */
+                /* The title and the boxes are above the plot, in its top
+                   margin (.otf-strip-head): a rotated y title does not fit 84px. */
                 Plotly.react(div, traces, otfThemeLayout({
-                    margin: {l: 48, r: 12, t: 16, b: (last ? 30 : 10)},
+                    margin: {l: 32, r: 8, t: 22, b: (last ? 30 : 10)},
                     height: stripHeight + (last ? STRIP_AXIS : 0),
+                    width: stripWidth(),
                     showlegend: false,
                     hovermode: 'closest',
                     xaxis: {
@@ -253,16 +455,13 @@
                         showticklabels: last,
                         zeroline: false
                     },
-                    yaxis: {zeroline: false},
-                    annotations: [{
-                        text: s.label + (s.unit ? ' (' + s.unit + ')' : ''),
-                        xref: 'paper', yref: 'paper', x: 0, y: 1,
-                        xanchor: 'left', yanchor: 'bottom', showarrow: false,
-                        font: {size: 11, color: otfCss('--otf-ink')}
-                    }],
-                    shapes: selectedShapes()
-                }), {displayModeBar: false, responsive: true});
+                    // Few ticks: at these heights more of them overlap
+                    yaxis: {zeroline: false, nticks: 4, tickfont: {size: 9}},
+                    shapes: stripShapes(s)
+                }), {displayModeBar: false, responsive: true,
+                     edits: {shapePosition: levelGuides(s).length > 0}});
             });
+            div.on('plotly_relayout', function(ev) { otfGuideMoved(div, s, ev); });
 
             div.on('plotly_hover', function(ev) {
                 var p = ev.points[0];
@@ -302,7 +501,7 @@
             selected = index;
             strips.forEach(function(s) {
                 var div = document.getElementById('otf-strip-' + s.key);
-                if (div) Plotly.relayout(div, {shapes: selectedShapes()});
+                if (div) Plotly.relayout(div, {shapes: stripShapes(s)});
             });
             // One selection at a time: it replaces any hover highlight too
             $strip.find('.otf-thumb').removeClass('otf-thumb-selected otf-thumb-active')
@@ -453,20 +652,22 @@
            window is over by, down to STRIP_MIN each (beyond that it
            scrolls), and take it back when there is room.  Measured once the
            window is laid out; again when the browser window is resized. */
-        function otfFitStrips() {
+        function otfFitStrips(force) {
             var $m = $('#otf-tiltseries-modal');
             if (!strips.length || !$m.hasClass('show') || !$('#otf-tab-qc').hasClass('active')) return;
             var dialog = $m.find('.modal-dialog')[0];
             var margins = 2 * parseFloat(getComputedStyle(dialog).marginTop || 0);
             var spare = window.innerHeight - margins - dialog.getBoundingClientRect().height;
+            var visible = visibleStrips();
+            if (!visible.length) return;
             // Rounded down: a fraction of a pixel over still scrolls
             var h = Math.floor(Math.max(STRIP_MIN, Math.min(STRIP_HEIGHT,
-                                                            stripHeight + spare / strips.length)));
-            if (h === stripHeight) return;
+                                                            stripHeight + spare / visible.length)));
+            if (h === stripHeight && !force) return;
             stripHeight = h;
-            strips.forEach(function(s, i) {
+            visible.forEach(function(s) {
                 var div = document.getElementById('otf-strip-' + s.key);
-                var height = h + (i === strips.length - 1 ? STRIP_AXIS : 0);
+                var height = h + (isLast(s) ? STRIP_AXIS : 0);
                 if (!div) return;
                 div.style.height = height + 'px';
                 if (div.layout) Plotly.relayout(div, {height: height});
@@ -480,9 +681,26 @@
         // profile load), so fit whenever its size changes.  One observer and
         // one resize handler at a time: each window replaces the last's.
         if (window.otfFitObserver) window.otfFitObserver.disconnect();
+        if (window.otfWidthObserver) window.otfWidthObserver.disconnect();
         if (window.ResizeObserver) {
             window.otfFitObserver = new ResizeObserver(otfFitSoon);
             window.otfFitObserver.observe($('#otf-tiltseries-modal .modal-dialog')[0]);
+            /* The plots take the width of their column whenever it changes:
+               drawn before the window has its final width (hidden, or as it
+               is shown again), Plotly would keep the width it had then */
+            var stripsCol = document.getElementById('otf-strips-col'), lastWidth = 0;
+            if (stripsCol) {
+                window.otfWidthObserver = new ResizeObserver(function() {
+                    var w = stripWidth();
+                    if (!w || w === lastWidth) return;
+                    lastWidth = w;
+                    strips.forEach(function(s) {
+                        var div = document.getElementById('otf-strip-' + s.key);
+                        if (div && div.layout) Plotly.relayout(div, {width: w});
+                    });
+                });
+                window.otfWidthObserver.observe(stripsCol);
+            }
         }
         $('#otf-tiltseries-modal').one('shown.bs.modal', otfFitSoon);
         $(window).off('resize.otfFit').on('resize.otfFit', otfFitSoon);

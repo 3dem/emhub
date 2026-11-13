@@ -2571,9 +2571,27 @@ export default function ProtocolNodeCard({
                               <ShortcutHint text={shortcuts.rename} />
                             </div>
                           </DropdownMenuItem>)}
+                      </>
+                    )}
 
-                        {(isMenuItemVisible("browse") || isMenuItemVisible("rename")) && (
-                          <DropdownMenuSeparator />)}
+                    {/* Duplicate, also shown while selecting a path */}
+                    {showDuplicateItem && (
+                      <DropdownMenuItem onSelect={() => handleDuplicate()}>
+                        <div className={styles.menuRow}>
+                          <span className={styles.menuLeft}>
+                            <Copy className={styles.menuItemIcon} />
+                            <span>Duplicate</span>
+                          </span>
+                          <ShortcutHint text={shortcuts.duplicate} />
+                        </div>
+                      </DropdownMenuItem>
+                    )}
+
+                    {(showDuplicateItem || (!reduceMenus && (isMenuItemVisible("browse") || isMenuItemVisible("rename")))) && (
+                      <DropdownMenuSeparator />)}
+
+                    {!reduceMenus && (
+                      <>
 
                         {isMenuItemVisible("selectFrom") && (
                           <DropdownMenuItem onSelect={() => handleSelectFrom()}>
@@ -2798,19 +2816,8 @@ export default function ProtocolNodeCard({
                       </DropdownMenuSub>
                     )}
 
-                    {/* Duplicate, and Workflow: copy / paste (also to other projects) and export */}
-                    {(showDuplicateItem || hasWorkflowMenu) && <DropdownMenuSeparator />}
-                    {showDuplicateItem && (
-                      <DropdownMenuItem onSelect={() => handleDuplicate()}>
-                        <div className={styles.menuRow}>
-                          <span className={styles.menuLeft}>
-                            <Copy className={styles.menuItemIcon} />
-                            <span>Duplicate</span>
-                          </span>
-                          <ShortcutHint text={shortcuts.duplicate} />
-                        </div>
-                      </DropdownMenuItem>
-                    )}
+                    {/* Workflow: copy / paste (also to other projects) and export */}
+                    {hasWorkflowMenu && <DropdownMenuSeparator />}
                     {hasWorkflowMenu && (
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger>
@@ -3052,9 +3059,27 @@ export default function ProtocolNodeCard({
                   <ShortcutHint text={shortcuts.rename} />
                 </div>
               </ContextMenuItem>)}
+          </>
+        )}
 
-            {(isMenuItemVisible("rename") || isMenuItemVisible("browse")) && (
-              <ContextMenuSeparator />)}
+        {/* Duplicate, also shown while selecting a path */}
+        {showDuplicateItem && (
+          <ContextMenuItem onClick={handleDuplicate}>
+            <div className={styles.menuRow}>
+              <span className={styles.menuLeft}>
+                <Copy className={styles.menuItemIcon} />
+                <span>Duplicate</span>
+              </span>
+              <ShortcutHint text={shortcuts.duplicate} />
+            </div>
+          </ContextMenuItem>
+        )}
+
+        {(showDuplicateItem || (!reduceMenus && (isMenuItemVisible("rename") || isMenuItemVisible("browse")))) && (
+          <ContextMenuSeparator />)}
+
+        {!reduceMenus && (
+          <>
 
 
             {isMenuItemVisible("selectFrom") && (
@@ -3278,19 +3303,8 @@ export default function ProtocolNodeCard({
           </ContextMenuSub>)}
 
 
-        {/* Duplicate, and Workflow: copy / paste (also to other projects) and export */}
-        {(showDuplicateItem || hasWorkflowMenu) && <ContextMenuSeparator />}
-        {showDuplicateItem && (
-          <ContextMenuItem onClick={handleDuplicate}>
-            <div className={styles.menuRow}>
-              <span className={styles.menuLeft}>
-                <Copy className={styles.menuItemIcon} />
-                <span>Duplicate</span>
-              </span>
-              <ShortcutHint text={shortcuts.duplicate} />
-            </div>
-          </ContextMenuItem>
-        )}
+        {/* Workflow: copy / paste (also to other projects) and export */}
+        {hasWorkflowMenu && <ContextMenuSeparator />}
         {hasWorkflowMenu && (
           <ContextMenuSub>
             <ContextMenuSubTrigger>
