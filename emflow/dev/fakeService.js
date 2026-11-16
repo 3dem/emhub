@@ -122,15 +122,17 @@ const GEOMETRY_COLUMNS = ["shape", "center_x", "center_y", "center_z", "rot", "t
 const GEOMETRY_FORM = {
   name: GEOMETRY_PROTOCOL,
   label: "EMwrap Geometry Mask",
-  wizards: [{ id: "geometry_mask", label: "Geometry mask wizard", params: ["shapes"] }],
+  wizards: [{ id: "geometry_mask", label: "Geometry mask wizard", params: ["soft_edge", "shapes"] }],
   sections: [{
     label: "Input",
     params: [
       { name: "input_volume", label: "Input volume (optional):", paramClass: "PathParam", default: "Refine3D/job020/run_class001.mrc" },
       { label: "Box size (px)", paramClass: "Line", params: ["x", "y", "z"].map((a) =>
         ({ name: `box_${a}`, label: `${a.toUpperCase()}:`, paramClass: "IntParam", default: 64 })) },
-      { name: "shapes", label: "Shapes", paramClass: "TableParam", wizard: "geometry_mask",
-        params: GEOMETRY_COLUMNS.map((n) => ({ name: n, label: n, paramClass: n === "shape" ? "StringParam" : "FloatParam" })) },
+      { name: "soft_edge", label: "Soft edge (px):", paramClass: "FloatParam", default: 0, wizard: "geometry_mask" },
+      { label: "Shapes", paramClass: "Group", params: [
+        { name: "shapes", label: "Shapes", paramClass: "TableParam", wizard: "geometry_mask",
+          params: GEOMETRY_COLUMNS.map((n) => ({ name: n, label: n, paramClass: n === "shape" ? "StringParam" : "FloatParam" })) }] },
     ],
   }],
 };
@@ -144,17 +146,24 @@ function eulerMatrix(rot, tilt, psi) {
   return [[cg * cb * ca - sg * sa, cg * cb * sa + sg * ca, -cg * sb],
           [-sg * cb * ca - cg * sa, -sg * cb * sa + cg * ca, sg * sb], [sb * ca, sb * sa, cb]];
 }
-function fakeGeometryMask(n, shapes) {
+// Signed distance (px) of local coordinates to the shape surface (negative inside)
+function shapeDistance(s, u, v, w) {
+  if (s.shape === "sphere") return Math.hypot(u, v, w) - s.radius;
+  const q = s.shape === "cylinder" ? [Math.hypot(u, v) - s.radius, Math.abs(w) - s.height / 2]
+    : [Math.abs(u) - s.size_x / 2, Math.abs(v) - s.size_y / 2, Math.abs(w) - s.size_z / 2];
+  return Math.hypot(...q.map((c) => Math.max(c, 0))) + Math.min(Math.max(...q), 0);
+}
+function fakeGeometryMask(n, shapes, softEdge = 0) {
   const ms = shapes.map((s) => ({ s, A: eulerMatrix(+s.rot || 0, +s.tilt || 0, +s.psi || 0) }));
   return fakeGrid(n, (x, y, z) => {
     const p = [x, y, z].map((v) => ((v + 1) * (n - 1)) / 2);
-    return ms.some(({ s, A }) => {
-      const d = [p[0] - s.center_x, p[1] - s.center_y, p[2] - s.center_z];
-      const [u, v, w] = A.map((r) => r[0] * d[0] + r[1] * d[1] + r[2] * d[2]);
-      if (s.shape === "sphere") return u * u + v * v + w * w <= s.radius ** 2;
-      if (s.shape === "cylinder") return u * u + v * v <= s.radius ** 2 && Math.abs(w) <= s.height / 2;
-      return Math.abs(u) <= s.size_x / 2 && Math.abs(v) <= s.size_y / 2 && Math.abs(w) <= s.size_z / 2;
-    }) ? 1 : 0;
+    const d = Math.min(...ms.map(({ s, A }) => {
+      const r = [p[0] - s.center_x, p[1] - s.center_y, p[2] - s.center_z];
+      const [u, v, w] = A.map((a) => a[0] * r[0] + a[1] * r[1] + a[2] * r[2]);
+      return shapeDistance(s, u, v, w);
+    }));
+    if (softEdge > 0) return 0.5 + 0.5 * Math.cos(Math.PI * Math.min(Math.max(d / softEdge, 0), 1));
+    return d <= 0 ? 1 : 0;
   });
 }
 const geometryErrors = (shapes) => shapes.length ? shapes.flatMap((s, i) =>
@@ -729,10 +738,11 @@ export function createFakeService() {
         shapes = shapes.length ? shapes : [geometryShape("sphere", n)];
         const volume = params.input_volume ? { kind: "volume", path: params.input_volume, dimensions: dims,
                                                voxelSize: FAKE_MAP_ANGPIX, density: fakeMap(n) } : null;
-        return { id: wizardId, label: "Geometry mask wizard", ui: "GeometryMaskWizard", inputs: { shapes },
+        const softEdge = parseFloat(params.soft_edge) || 0;
+        return { id: wizardId, label: "Geometry mask wizard", ui: "GeometryMaskWizard", inputs: { shapes, soft_edge: softEdge },
                  data: { volume, dimensions: dims, angpix: FAKE_MAP_ANGPIX, binning: 1,
                          defaults: Object.fromEntries(Object.keys(SIZES).map((k) => [k, geometryShape(k, n)])),
-                         mask: fakeGeometryMask(n, shapes), mask_fraction: 0.1 },
+                         mask: fakeGeometryMask(n, shapes, softEdge), mask_fraction: 0.1 },
                  warnings: [] };
       }
       if (wizardId === "template") {
@@ -802,7 +812,7 @@ export function createFakeService() {
       if (wizardId === "geometry_mask") {
         const errors = geometryErrors(outputs.shapes ?? []);
         if (errors.length) return { errors };
-        return { data: { mask: fakeGeometryMask(64, outputs.shapes), mask_fraction: 0.1 }, warnings: [] };
+        return { data: { mask: fakeGeometryMask(64, outputs.shapes, outputs.soft_edge), mask_fraction: 0.1 }, warnings: [] };
       }
       if (wizardId === "template") {
         if (!(outputs.box > 0) || !(outputs.radius > 0)) return { errors: ["The box size and mask radius should be positive numbers."] };
@@ -820,7 +830,7 @@ export function createFakeService() {
       if (wizardId === "geometry_mask") {
         const errors = geometryErrors(outputs.shapes ?? []);
         if (errors.length) return { errors };
-        return { params: { shapes: outputs.shapes }, warnings: [] };
+        return { params: { shapes: outputs.shapes, soft_edge: outputs.soft_edge }, warnings: [] };
       }
       if (wizardId === "template") {
         return { params: { [PT + "input-voxel-size-angstrom"]: outputs.in_angpix, [PT + "output-voxel-size-angstrom"]: outputs.out_angpix,
