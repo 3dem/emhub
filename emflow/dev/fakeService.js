@@ -83,8 +83,38 @@ const MASK_CREATE_FORM = {
     ],
   }],
 };
+// The template wizard of emw-pytom-create_template (PyTomTemplateWizard):
+// the blobs map as template (fake operations) and a soft sphere as mask
+const PYTOM_PROTOCOL = "emw-pytom-create_template";
+const PT = "pytom_create_template.", PM = "pytom_create_mask.";
+const PYTOM_FORM = {
+  name: PYTOM_PROTOCOL,
+  label: "PyTom Create Template",
+  wizards: [{ id: "template", label: "Template and mask wizard",
+              params: [PT + "input-voxel-size-angstrom", PT + "output-voxel-size-angstrom", PM + "radius", PM + "sigma"] }],
+  sections: [{
+    label: "Create",
+    params: [
+      { name: PT + "input-map", label: "Input map (MAP)", paramClass: "PathParam", default: "Refine3D/job020/run_class001.mrc" },
+      { label: "Voxel Size (A)", paramClass: "Line", params: [
+        { name: PT + "input-voxel-size-angstrom", label: "Input", paramClass: "FloatParam", default: 2, wizard: "template" },
+        { name: PT + "output-voxel-size-angstrom", label: "Output", paramClass: "FloatParam", default: 4, wizard: "template" }] },
+      { name: PT + "box-size", label: "Output box size (px)", paramClass: "IntParam", default: 32 },
+      { name: PM + "radius", label: "Radius (px)", paramClass: "FloatParam", default: 12, wizard: "template" },
+      { name: PM + "sigma", label: "Sigma (px)", paramClass: "FloatParam", default: 1, wizard: "template" },
+    ],
+  }],
+};
+const fakePyTomData = ({ box = 32, radius = 12, sigma = 1, invert = false, out_angpix = 4 }) => {
+  const r = (2 * radius) / box, s = (2 * Math.max(sigma, 0.01)) / box;
+  return {
+    template: fakeGrid(box, (x, y, z) => (invert ? 1 - blobs(x, y, z) : blobs(x, y, z))),
+    mask: fakeGrid(box, (x, y, z) => { const d = Math.hypot(x, y, z) - r; return d <= 0 ? 1 : Math.exp(-0.5 * (d / s) ** 2); }),
+    binning: 1, box, angpix: out_angpix,
+  };
+};
 const DEV_FORMS = { [WIZARD_PROTOCOL]: WIZARD_FORM, [MASK_PROTOCOL]: MASK_FORM,
-                    [MASK_CREATE_PROTOCOL]: MASK_CREATE_FORM };
+                    [MASK_CREATE_PROTOCOL]: MASK_CREATE_FORM, [PYTOM_PROTOCOL]: PYTOM_FORM };
 const wizardMenu = {
   Wizards: { text: "Wizards (dev)", value: null, icon: null, tag: null, openItem: true, visible: true,
     childs: [{ text: "Warp - Export Particles", value: WIZARD_PROTOCOL, icon: null, tag: "protocol",
@@ -92,6 +122,8 @@ const wizardMenu = {
              { text: "Relion Tomo 3D Classification", value: MASK_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] },
              { text: "Relion Mask Create", value: MASK_CREATE_PROTOCOL, icon: null, tag: "protocol",
+               openItem: true, visible: true, childs: [] },
+             { text: "PyTom Create Template", value: PYTOM_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] }] },
 };
 const FAKE_MAP_ANGPIX = 2;
@@ -639,6 +671,18 @@ export function createFakeService() {
     // VolumeMaskWizard with the Relion Class3D one
     openWizard: async (projectId, protocolId, cls, wizardId, params) => {
       log("openWizard", { protocolId, cls, wizardId, params });
+      if (wizardId === "template") {
+        if (!params[PT + "input-map"]) return { errors: ["Select the input map before opening the wizard."] };
+        const inputs = { in_angpix: parseFloat(params[PT + "input-voxel-size-angstrom"]) || 2,
+                         out_angpix: parseFloat(params[PT + "output-voxel-size-angstrom"]) || 4,
+                         box: parseInt(params[PT + "box-size"]) || 32,
+                         radius: parseFloat(params[PM + "radius"]) || 12, sigma: parseFloat(params[PM + "sigma"]) || 1,
+                         center: false, invert: false, mirror: false };
+        return { id: wizardId, label: "Template and mask wizard", ui: "PyTomTemplateWizard", inputs,
+                 data: { input: { path: params[PT + "input-map"], dimensions: [64, 64, 64], voxelSize: 2 },
+                         ...fakePyTomData(inputs) },
+                 warnings: [] };
+      }
       if (wizardId === "mask_create") {
         if (params["relion_mask_create.denovo"] === true || params["relion_mask_create.denovo"] === "Yes")
           return { errors: ["The wizard creates masks from a volume: turn off 'De novo creation'."] };
@@ -691,6 +735,10 @@ export function createFakeService() {
     previewWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
       log("previewWizard", { wizardId, outputs });
       await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (wizardId === "template") {
+        if (!(outputs.box > 0) || !(outputs.radius > 0)) return { errors: ["The box size and mask radius should be positive numbers."] };
+        return { data: fakePyTomData(outputs), warnings: [] };
+      }
       if (!Number.isFinite(outputs.threshold)) return { errors: ["The initial threshold should be a number."] };
       const mask = fakeCreatedMask(64, outputs);
       const u8 = Uint8Array.from(atob(mask.data), (c) => c.charCodeAt(0));
@@ -700,6 +748,12 @@ export function createFakeService() {
     },
     applyWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
       log("applyWizard", { wizardId, params, outputs });
+      if (wizardId === "template") {
+        return { params: { [PT + "input-voxel-size-angstrom"]: outputs.in_angpix, [PT + "output-voxel-size-angstrom"]: outputs.out_angpix,
+                           [PT + "box-size"]: outputs.box, [PT + "center"]: outputs.center, [PT + "invert"]: outputs.invert,
+                           [PT + "mirror"]: outputs.mirror, [PM + "radius"]: outputs.radius, [PM + "sigma"]: outputs.sigma },
+                 warnings: [] };
+      }
       if (wizardId === "mask_create") {
         return { params: { [MC + "ini_threshold"]: outputs.threshold, [MC + "lowpass"]: outputs.lowpass ?? -1,
                            [MC + "extend_inimask"]: outputs.extend, [MC + "width_soft_edge"]: outputs.soft_edge,
