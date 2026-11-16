@@ -1097,11 +1097,7 @@ input[type=checkbox].otf-th-state-saved { outline: 2px solid #2ec551; }
                 });
                 $body.append($t);
             });
-            var $files = $m.find('.otf-config-files').empty()
-                .append($('<option value=""></option>').text(cfg.files.length ? 'Load from another file of the project…'
-                                                                                : 'No other configuration file in the project'));
-            cfg.files.forEach(function(p) { $files.append($('<option></option>').attr('value', p).text(p)); });
-            $files.prop('disabled', !cfg.files.length);
+            otfRenderConfigFiles();
             $m.find('.otf-config-save').prop('hidden', !st.canEdit);
             $m.find('.otf-config-readonly').prop('hidden', st.canEdit);
         } else {
@@ -1124,9 +1120,34 @@ input[type=checkbox].otf-th-state-saved { outline: 2px solid #2ec551; }
         });
         otfPaintThresholds();
     };
+    /* The other configuration files of the project, to load from: listed
+       when the window opens (it looks through every job folder, too slow
+       for each refresh); null while they are looked for. */
+    var otfConfigFiles = null;
+    function otfRenderConfigFiles() {
+        var files = otfConfigFiles;
+        var $files = $(OTF_CONFIG_MODAL).find('.otf-config-files').empty()
+            .append($('<option value=""></option>').text(
+                files === null ? 'Looking for other configuration files…'
+                : files.length ? 'Load from another file of the project…'
+                : 'No other configuration file in the project'));
+        (files || []).forEach(function(p) { $files.append($('<option></option>').attr('value', p).text(p)); });
+        $files.prop('disabled', !(files && files.length));
+    }
+    function otfLoadConfigFiles() {
+        otfConfigFiles = null;
+        otfRenderConfigFiles();
+        send_ajax_json(Api.urls.tomo_otf_config_files,
+                       $.extend({}, OTF_SOURCE, {job_id: OTF_JOB_ID}),
+                       function(data) {
+                           otfConfigFiles = (!data.error && data.config && data.config.files) || [];
+                           otfRenderConfigFiles();
+                       });
+    }
     window.otfOpenThresholds = function() {
         if (!otfConfigState().cfg) { showError('The thresholds are not loaded yet.'); return; }
         otfRenderThresholds(true);
+        otfLoadConfigFiles();
         $(OTF_CONFIG_MODAL).modal('show');
     };
     // The values of a set of thresholds, as changes from the saved ones

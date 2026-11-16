@@ -1014,6 +1014,23 @@ def tomo_otf_save_config():
     return _handle_item(_handle, 'config')
 
 
+@api_bp.route('/tomo_otf_config_files', methods=['POST'])
+@flask_login.login_required
+def tomo_otf_config_files():
+    """ The other tilt QC configuration files of the project
+    (OtfSession.config_files()), for the dashboard's Thresholds window to
+    offer loading from. """
+    def _handle(**attrs):
+        from emhub.data.processing.tomo_otf import OtfSession
+        from emhub.data.content.dc_tomo_otf import resolve_tomo_otf_source
+        source = resolve_tomo_otf_source(app.dm, app.user, **attrs)
+        session = OtfSession(source['path'], analysis_job=attrs.get('job_id') or None,
+                             thresholds=source['thresholds'])
+        return {'files': session.config_files()}
+
+    return _handle_item(_handle, 'config')
+
+
 @api_bp.route('/tomo_otf_read_config', methods=['POST'])
 @flask_login.login_required
 def tomo_otf_read_config():
