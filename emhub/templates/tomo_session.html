@@ -6,6 +6,15 @@
 
 <div class="mt-2 p-0">
 
+    {# Header and breadcrumb, as in the Tomo OTF dashboard #}
+    <div class="px-3 pt-4">
+    {% with title = 'Tomography Project: ' ~ tomo_session['title'] %}
+    {% with navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), (tomo_session['path'], '')] %}
+    {% include 'include_header.html' %}
+    {% endwith %}
+    {% endwith %}
+    </div>
+
     <div class="row col-12 m-0 p-0" id="session-content">
         {% if mode == 'workflow' %}
             {% include 'tomo_processing_content.html' %}
@@ -29,8 +38,6 @@
     var tomo_session_path = {{ tomo_session['path']|tojson }};
     var tomo_session_title = {{ tomo_session['title']|tojson }};
 
-    // alert("Running: "+ $('#topbar-content').html());
-    $('#topbar-content').html(`<span class="h5 ml-3">Tomography Project:</span><span class="h5 ml-3 text-dark">${tomo_session_title}</span>`);
     // Remove the left sidebar
     //$('.nav-left-sidebar').fadeOut();
 
