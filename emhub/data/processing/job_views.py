@@ -14,6 +14,9 @@ register it with register_job_view.
 """
 
 import os
+import tempfile
+
+from emtools.metadata import StarFile
 
 from . import project_file_path, resolve_project_root
 from .star_columns import (load_star_columns, build_star_columns_table,
@@ -197,6 +200,92 @@ class RelionIterationsView(JobView):
         return build_iteration_pane(root, self._load(root, job_dir), action_id, row_cells)
 
 
+class WarpTsAlignProgressView(JobView):
+    """ The aligned tilt series of a Warp TS alignment while it runs (or
+    after a failure), as its output (aligned_tilt_series.star), that is only
+    written when all of them are done: the same table, with the same
+    viewers, from the files written so far, plus the status of each tilt
+    series. emwrap builds the rows (WarpBaseTsAlign.alignmentProgress), as
+    for the output, without writing anything in the job folder. The tilt
+    series STAR of an aligned one is written to a temporary file to show it.
+    """
+    id = 'tsalign-progress'
+    label = 'Alignment progress'
+    jobtypes = ('emw-warp-tsalign',)
+    source = 'job.star'
+    statuses = ('Running', 'Failed', 'Aborted')
+    # The table of the output (TomogramGroupMetadata.star.emwrap.tsalign)
+    TYPE_KEY = 'tiltseriesaligned'
+    STATUS_COL = {'id': 'alignStatus', 'label': 'Status', 'align': 'left',
+                  'sortable': True}
+    ALIGNED, NOT_ALIGNED = 'aligned', 'not aligned'
+    PATH_COLS = ('rlnTomoTiltSeriesStarFile', 'rlnTiltSeriesAligned')
+
+    def _progress(self, root, job_dir, ts_name=None):
+        """ [(star_cells, table)] of the tilt series (see alignmentProgress),
+        with the paths of star_cells relative to root, as in the output. """
+        # Imported here: emwrap's Warp wrappers are only needed by this view
+        from emwrap.warp.warp_tsalign import WarpTsAlign
+
+        job = WarpTsAlign.fromJobFolder(root, job_dir)
+        progress = []
+        for ts_dict, table in job.alignmentProgress(ts_name):
+            for col in self.PATH_COLS:
+                if os.path.isabs(ts_dict.get(col) or ''):
+                    ts_dict[col] = os.path.relpath(ts_dict[col], root)
+            ts_dict['alignStatus'] = self.ALIGNED if table else self.NOT_ALIGNED
+            progress.append((ts_dict, table))
+        return progress
+
+    def table(self, root, job_dir):
+        from emhub.blueprints.api_viewers import build_tilt_series_table
+
+        progress = self._progress(root, job_dir)
+        aligned = sum(1 for _, table in progress if table)
+        job_id = os.path.relpath(job_dir, root)
+        return build_tilt_series_table(
+            [ts_dict for ts_dict, _ in progress], self.TYPE_KEY, root=root,
+            title=f'{self.label} — {job_id} ({aligned} of {len(progress)} aligned)',
+            extra_columns=[self.STATUS_COL],
+            extra_cells=lambda cells: {'alignStatus': cells['alignStatus']})
+
+    def pane(self, root, job_dir, action_id, row_cells):
+        from emhub.blueprints import api_viewers as av
+
+        ts_name = row_cells.get('tomoName')
+        progress = self._progress(root, job_dir, ts_name) if ts_name else []
+        if not progress:
+            raise Exception(f'Unknown tilt series of {self.label}: {ts_name!r}')
+        ts_dict, table = progress[0]
+        # The cells of the row now (it might be aligned since the table was loaded)
+        row_cells = dict(row_cells, **av._table_view_row_cells(
+            av.TABLE_VIEW_SPECS[self.TYPE_KEY], ts_dict))
+        star_rel = row_cells.get('starFilePath')
+
+        def _build(star_full):
+            if action_id == 'ts-view':
+                return av.build_tilt_series_grid_pane_content(
+                    root, row_cells, star_rel, ts_name, star_full=star_full)
+            if action_id == 'aligned-slices':
+                stack_rel = av.resolve_row_aligned_stack_path(row_cells)
+                if not stack_rel:
+                    raise Exception('Missing aligned tilt series stack path')
+                return av.build_tilt_series_viewer_pane_content(
+                    root, star_rel, stack_rel, title=stack_rel, star_full=star_full)
+            return av.build_series_star_pane_content(
+                action_id, root, star_rel, ts_name, self.TYPE_KEY, star_full=star_full)
+
+        if table is None:  # Not aligned: its input tilt series STAR
+            return _build(None)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            star_full = os.path.join(tmp, os.path.basename(star_rel))
+            with StarFile(star_full, 'w') as sf:
+                sf.writeTable(ts_name, table, computeFormat='left')
+            return _build(star_full)
+
+
 register_job_view(CtfPlotsView())
 register_job_view(MotionPlotsView())
 register_job_view(RelionIterationsView())
+register_job_view(WarpTsAlignProgressView())
