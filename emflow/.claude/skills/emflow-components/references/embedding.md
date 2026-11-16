@@ -53,7 +53,12 @@ EMFlow.DataLoader.emhub();   // EMhub API: body {attrs: payload}, throws the res
 `load(path, payload)` caches responses (LRU, `maxEntries` 200) and shares a
 request in flight; `image(src)` decodes and caches images (url or base64);
 `invalidate(prefix?)`. Components get the mount's loader with
-`useDataLoader()` / `useLoad(path, payload)`. Without `loader` a mount uses a
+`useDataLoader()` / `useLoad(path, payload, {cache?})`. The cache is keyed by
+path + payload only, so a request for a file that can change (e.g. a job run
+again) must carry its version: EMhub's `volume_density_source` and
+`volume_crop_source` add `version` ('<mtime_ns>-<size>', revalidated on NFS),
+and `VolumeViewerDialog` loads its small pane (`/api/get_volume_viewer`) with
+`cache: false` so each open gets the current versions. Without `loader` a mount uses a
 shared default (fetch, no base url). VolumeViewer and Plot take a
 `source: {path, payload}`; VolumeViewer accepts EMhub's
 `resolve_table_view_pane` response (`{paneContent}`) directly.

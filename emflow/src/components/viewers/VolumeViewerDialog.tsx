@@ -22,7 +22,10 @@ const paneOf = (r: any) => (r && typeof r === "object" && "paneContent" in r ? r
 
 export default function VolumeViewerDialog({ decision, onClose, protocolLabel = "" }: VolumeViewerDialogProps) {
   const source = decision.data ? null : decision.source ?? null;
-  const loaded = useLoad<unknown>(source?.path, source?.payload);
+  // Not cached: the pane is small and carries the version of the files
+  // (their density requests are cached by it), so a re-run job shows its
+  // new volume
+  const loaded = useLoad<unknown>(source?.path, source?.payload, { cache: false });
   const pane = decision.data ?? (loaded.status === "ready" ? paneOf(loaded.data) : null);
 
   let body;

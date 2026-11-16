@@ -800,6 +800,20 @@ def _volume_axis_slices(
         return slices, prefix, [xdim, ydim, zdim]
 
 
+def _file_version(root, rel_path):
+    """ Version of a project file, '<mtime_ns>-<size>' (None if missing),
+    revalidated with the file server (a plain stat() may return cached
+    attributes on NFS). It goes in the payload of the data requests of a
+    file, so emflow's DataLoader (cached by payload) loads it again when the
+    file changes, e.g. when a job is run again. """
+    from emwrap.base.project_lock import file_signature
+    try:
+        sig = file_signature(project_file_path(root, rel_path))
+    except Exception:
+        return None
+    return f'{sig[2]}-{sig[1]}' if sig else None
+
+
 def volume_density_source(root, rel_path, max_size=None):
     """ Request of the density of a volume (scaled grid and histogram, see
     emhub.data.volume_density) for emflow's VolumeViewer, which loads it
@@ -809,7 +823,8 @@ def volume_density_source(root, rel_path, max_size=None):
         url = flask.url_for('api.fetch_volume_density')
     except RuntimeError:  # outside a request
         url = '/api/fetch_volume_density'
-    payload = {'root': root, 'path': rel_path}
+    payload = {'root': root, 'path': rel_path,
+               'version': _file_version(root, rel_path)}
     if max_size:
         payload['maxSize'] = int(max_size)
     return {'path': url, 'payload': payload}
@@ -823,7 +838,8 @@ def volume_crop_source(root, rel_path):
         url = flask.url_for('api.fetch_volume_crop')
     except RuntimeError:  # outside a request
         url = '/api/fetch_volume_crop'
-    return {'path': url, 'payload': {'root': root, 'path': rel_path}}
+    return {'path': url, 'payload': {'root': root, 'path': rel_path,
+                                     'version': _file_version(root, rel_path)}}
 
 
 def map_iterations_source(root, rel_path):

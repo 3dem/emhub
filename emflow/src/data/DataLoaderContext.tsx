@@ -25,7 +25,9 @@ export type LoadState<T> =
  * cached and shared by the loader; a stale response (path or payload changed,
  * or unmounted) is ignored.
  */
-export function useLoad<T>(path: string | null | undefined, payload?: unknown): LoadState<T> {
+export function useLoad<T>(path: string | null | undefined, payload?: unknown,
+                           opts: { cache?: boolean } = {}): LoadState<T> {
+  const cache = opts.cache !== false;
   const loader = useDataLoader();
   const payloadKey = JSON.stringify(payload ?? null);
   const [state, setState] = useState<LoadState<T>>({ status: path ? "loading" : "idle" });
@@ -39,13 +41,13 @@ export function useLoad<T>(path: string | null | undefined, payload?: unknown): 
     setState({ status: "loading" });
     const t0 = performance.now();
     loader
-      .load<T>(path, JSON.parse(payloadKey), { signal: ctrl.signal })
+      .load<T>(path, JSON.parse(payloadKey), { signal: ctrl.signal, cache })
       .then((data) => setState({ status: "ready", data, ms: performance.now() - t0 }))
       .catch((error) => {
         if (!ctrl.signal.aborted) setState({ status: "error", error: error instanceof Error ? error : new Error(String(error)) });
       });
     return () => ctrl.abort();
-  }, [loader, path, payloadKey]);
+  }, [loader, path, payloadKey, cache]);
 
   return state;
 }
