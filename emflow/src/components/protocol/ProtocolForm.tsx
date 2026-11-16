@@ -79,6 +79,7 @@ import {
   removeMultiPointerItemAndPad,
   replaceMultiPointerItem,
   setMultiPointerSelection,
+  setParamFields,
   setParamValueAndEditableValue,
   setPointerSelection,
   updateMultiPointerItem,
@@ -1366,7 +1367,13 @@ export default function ProtocolForm({
       let next = prev;
       Object.keys(prev.params || {}).forEach((stateKey) => {
         const name = getParamNameFromStateKey(stateKey);
-        if (name in newParams) {
+        if (!(name in newParams)) return;
+        const param = next.params?.[stateKey];
+        if (getParamClass(param) === "TableParam") {
+          // A table: its rows (a list or a JSON list)
+          const rows = normalizeTableParamValue(newParams[name], getTableColumns(param));
+          next = setParamFields(next, stateKey, { editableValue: rows });
+        } else {
           next = setParamValueAndEditableValue(next, stateKey, String(newParams[name] ?? ""));
         }
       });
@@ -1790,7 +1797,7 @@ export default function ProtocolForm({
         const cellErrors = validateTableRows(rows, columns);
         const emptyRow = buildEmptyTableRow(columns);
 
-        return (
+        return withWizard(
           <ParamRow
             key={stableKey}
             label={def.label || name || ""}

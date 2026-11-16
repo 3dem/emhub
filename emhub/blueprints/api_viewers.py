@@ -1405,6 +1405,8 @@ def _mask_source_map(root, mask_rel):
             values = {}
         if not values.get('relion_mask_create.denovo'):
             candidates.append(values.get('relion_mask_create.volume.i'))
+        # The optional input volume of emw-geometry-mask
+        candidates.append(values.get('input_volume'))
     if mask_rel.endswith('_mask.mrc'):
         candidates.append(mask_rel[:-len('_mask.mrc')] + '.mrc')
 

@@ -113,8 +113,57 @@ const fakePyTomData = ({ box = 32, radius = 12, sigma = 1, invert = false, out_a
     binning: 1, box, angpix: out_angpix,
   };
 };
+// The geometry mask wizard of emw-geometry-mask (GeometryMaskWizard): the
+// union of the shapes (as emwrap.base.geometry_mask) over the blobs map;
+// an empty input volume uses the box size (the mask alone)
+const GEOMETRY_PROTOCOL = "emw-geometry-mask";
+const GEOMETRY_COLUMNS = ["shape", "center_x", "center_y", "center_z", "rot", "tilt", "psi",
+                          "radius", "height", "size_x", "size_y", "size_z"];
+const GEOMETRY_FORM = {
+  name: GEOMETRY_PROTOCOL,
+  label: "EMwrap Geometry Mask",
+  wizards: [{ id: "geometry_mask", label: "Geometry mask wizard", params: ["shapes"] }],
+  sections: [{
+    label: "Input",
+    params: [
+      { name: "input_volume", label: "Input volume (optional):", paramClass: "PathParam", default: "Refine3D/job020/run_class001.mrc" },
+      { label: "Box size (px)", paramClass: "Line", params: ["x", "y", "z"].map((a) =>
+        ({ name: `box_${a}`, label: `${a.toUpperCase()}:`, paramClass: "IntParam", default: 64 })) },
+      { name: "shapes", label: "Shapes", paramClass: "TableParam", wizard: "geometry_mask",
+        params: GEOMETRY_COLUMNS.map((n) => ({ name: n, label: n, paramClass: n === "shape" ? "StringParam" : "FloatParam" })) },
+    ],
+  }],
+};
+const SIZES = { sphere: ["radius"], cylinder: ["radius", "height"], box: ["size_x", "size_y", "size_z"] };
+const geometryShape = (kind, n) => ({ shape: kind, center_x: n / 2, center_y: n / 2, center_z: n / 2, rot: 0, tilt: 0, psi: 0,
+  ...(kind === "sphere" ? { radius: n / 4 } : kind === "cylinder" ? { radius: n / 6, height: n / 2 }
+      : { size_x: n / 3, size_y: n / 3, size_z: n / 3 }) });
+function eulerMatrix(rot, tilt, psi) {
+  const [a, b, g] = [rot, tilt, psi].map((v) => (v * Math.PI) / 180);
+  const [ca, sa, cb, sb, cg, sg] = [Math.cos(a), Math.sin(a), Math.cos(b), Math.sin(b), Math.cos(g), Math.sin(g)];
+  return [[cg * cb * ca - sg * sa, cg * cb * sa + sg * ca, -cg * sb],
+          [-sg * cb * ca - cg * sa, -sg * cb * sa + cg * ca, sg * sb], [sb * ca, sb * sa, cb]];
+}
+function fakeGeometryMask(n, shapes) {
+  const ms = shapes.map((s) => ({ s, A: eulerMatrix(+s.rot || 0, +s.tilt || 0, +s.psi || 0) }));
+  return fakeGrid(n, (x, y, z) => {
+    const p = [x, y, z].map((v) => ((v + 1) * (n - 1)) / 2);
+    return ms.some(({ s, A }) => {
+      const d = [p[0] - s.center_x, p[1] - s.center_y, p[2] - s.center_z];
+      const [u, v, w] = A.map((r) => r[0] * d[0] + r[1] * d[1] + r[2] * d[2]);
+      if (s.shape === "sphere") return u * u + v * v + w * w <= s.radius ** 2;
+      if (s.shape === "cylinder") return u * u + v * v <= s.radius ** 2 && Math.abs(w) <= s.height / 2;
+      return Math.abs(u) <= s.size_x / 2 && Math.abs(v) <= s.size_y / 2 && Math.abs(w) <= s.size_z / 2;
+    }) ? 1 : 0;
+  });
+}
+const geometryErrors = (shapes) => shapes.length ? shapes.flatMap((s, i) =>
+  !SIZES[s.shape] ? [`Shape ${i + 1}: unknown shape '${s.shape}'.`]
+    : SIZES[s.shape].filter((k) => !(s[k] > 0)).map((k) => `Shape ${i + 1} (${s.shape}): '${k}' should be a positive number.`))
+  : ["Add at least one shape to the mask."];
 const DEV_FORMS = { [WIZARD_PROTOCOL]: WIZARD_FORM, [MASK_PROTOCOL]: MASK_FORM,
-                    [MASK_CREATE_PROTOCOL]: MASK_CREATE_FORM, [PYTOM_PROTOCOL]: PYTOM_FORM };
+                    [MASK_CREATE_PROTOCOL]: MASK_CREATE_FORM, [PYTOM_PROTOCOL]: PYTOM_FORM,
+                    [GEOMETRY_PROTOCOL]: GEOMETRY_FORM };
 const wizardMenu = {
   Wizards: { text: "Wizards (dev)", value: null, icon: null, tag: null, openItem: true, visible: true,
     childs: [{ text: "Warp - Export Particles", value: WIZARD_PROTOCOL, icon: null, tag: "protocol",
@@ -124,6 +173,8 @@ const wizardMenu = {
              { text: "Relion Mask Create", value: MASK_CREATE_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] },
              { text: "PyTom Create Template", value: PYTOM_PROTOCOL, icon: null, tag: "protocol",
+               openItem: true, visible: true, childs: [] },
+             { text: "Geometry Mask", value: GEOMETRY_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] }] },
 };
 const FAKE_MAP_ANGPIX = 2;
@@ -671,6 +722,19 @@ export function createFakeService() {
     // VolumeMaskWizard with the Relion Class3D one
     openWizard: async (projectId, protocolId, cls, wizardId, params) => {
       log("openWizard", { protocolId, cls, wizardId, params });
+      if (wizardId === "geometry_mask") {
+        const n = 64, dims = [n, n, n];
+        let shapes = [];
+        try { shapes = JSON.parse(params.shapes || "[]"); } catch { shapes = []; }
+        shapes = shapes.length ? shapes : [geometryShape("sphere", n)];
+        const volume = params.input_volume ? { kind: "volume", path: params.input_volume, dimensions: dims,
+                                               voxelSize: FAKE_MAP_ANGPIX, density: fakeMap(n) } : null;
+        return { id: wizardId, label: "Geometry mask wizard", ui: "GeometryMaskWizard", inputs: { shapes },
+                 data: { volume, dimensions: dims, angpix: FAKE_MAP_ANGPIX, binning: 1,
+                         defaults: Object.fromEntries(Object.keys(SIZES).map((k) => [k, geometryShape(k, n)])),
+                         mask: fakeGeometryMask(n, shapes), mask_fraction: 0.1 },
+                 warnings: [] };
+      }
       if (wizardId === "template") {
         if (!params[PT + "input-map"]) return { errors: ["Select the input map before opening the wizard."] };
         const inputs = { in_angpix: parseFloat(params[PT + "input-voxel-size-angstrom"]) || 2,
@@ -735,6 +799,11 @@ export function createFakeService() {
     previewWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
       log("previewWizard", { wizardId, outputs });
       await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (wizardId === "geometry_mask") {
+        const errors = geometryErrors(outputs.shapes ?? []);
+        if (errors.length) return { errors };
+        return { data: { mask: fakeGeometryMask(64, outputs.shapes), mask_fraction: 0.1 }, warnings: [] };
+      }
       if (wizardId === "template") {
         if (!(outputs.box > 0) || !(outputs.radius > 0)) return { errors: ["The box size and mask radius should be positive numbers."] };
         return { data: fakePyTomData(outputs), warnings: [] };
@@ -748,6 +817,11 @@ export function createFakeService() {
     },
     applyWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
       log("applyWizard", { wizardId, params, outputs });
+      if (wizardId === "geometry_mask") {
+        const errors = geometryErrors(outputs.shapes ?? []);
+        if (errors.length) return { errors };
+        return { params: { shapes: outputs.shapes }, warnings: [] };
+      }
       if (wizardId === "template") {
         return { params: { [PT + "input-voxel-size-angstrom"]: outputs.in_angpix, [PT + "output-voxel-size-angstrom"]: outputs.out_angpix,
                            [PT + "box-size"]: outputs.box, [PT + "center"]: outputs.center, [PT + "invert"]: outputs.invert,

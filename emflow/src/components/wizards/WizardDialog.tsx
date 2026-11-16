@@ -19,6 +19,7 @@ import ExportTomoParticlesWizard from "./ExportTomoParticlesWizard";
 import VolumeMaskWizard from "./VolumeMaskWizard";
 import MaskCreateWizard from "./MaskCreateWizard";
 import PyTomTemplateWizard from "./PyTomTemplateWizard";
+import GeometryMaskWizard from "./GeometryMaskWizard";
 
 export type WizardComponentProps = {
   inputs: Record<string, any>;
@@ -35,9 +36,11 @@ const WIZARD_COMPONENTS: Record<string, (props: WizardComponentProps) => JSX.Ele
   VolumeMaskWizard,
   MaskCreateWizard,
   PyTomTemplateWizard,
+  GeometryMaskWizard,
 };
 // Wider dialogs (md by default)
-const WIZARD_WIDTHS: Record<string, "md" | "lg" | "xl"> = { VolumeMaskWizard: "lg", MaskCreateWizard: "xl", PyTomTemplateWizard: "xl" };
+const WIZARD_WIDTHS: Record<string, "md" | "lg" | "xl"> = { VolumeMaskWizard: "lg", MaskCreateWizard: "xl", PyTomTemplateWizard: "xl",
+                                                         GeometryMaskWizard: "xl" };
 
 type WizardDialogProps = {
   wizard: WizardOpenResult | null;
