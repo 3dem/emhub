@@ -64,9 +64,18 @@ export function OverlayRootProvider({
   );
 }
 
+// The accents of MUI's light palette, also in dark: its dark defaults are
+// pastel (primary #90caf9 with dark text), so buttons (Save, Launch, Close),
+// sliders and checkboxes would change color with the theme
+const ACCENTS: ThemeOptions["palette"] = {
+  primary: { main: "#1976d2", light: "#42a5f5", dark: "#1565c0", contrastText: "#fff" },
+  success: { main: "#2e7d32", light: "#4caf50", dark: "#1b5e20", contrastText: "#fff" },
+  error: { main: "#d32f2f", light: "#ef5350", dark: "#c62828", contrastText: "#fff" },
+};
+
 function OverlayMuiTheme({ children }: { children: ReactNode }) {
   // MUI components (dialogs, menus, tooltips, inputs) follow the widget theme
   const { theme: mode } = useTheme();
-  const theme = useEmflowMuiTheme({ palette: { mode } });
+  const theme = useEmflowMuiTheme({ palette: { mode, ...ACCENTS } });
   return <MuiThemeProvider theme={theme}>{children}</MuiThemeProvider>;
 }
