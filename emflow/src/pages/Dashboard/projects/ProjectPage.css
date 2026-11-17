@@ -185,6 +185,8 @@
   --emf-gray-700: #374151;
   --emf-gray-800: #1f2937;
   --emf-gray-900: #111827;
+  /* Workflow graph edges (graph_utils.ts): behind the cards in both themes */
+  --emf-graph-edge: #cad5e2;
   /* Selected table rows: indigo, apart from the teal table headers */
   --emf-row-selected: #e3e9fd;
   --emf-row-selected-hover: #d5defb;
@@ -241,6 +243,7 @@
   --emf-gray-700: #e5e7eb;
   --emf-gray-800: #f3f4f6;
   --emf-gray-900: #f9fafb;
+  --emf-graph-edge: #4a5a72;
   --emf-row-selected: #26305c;
   --emf-row-selected-hover: #2e3a6c;
   --emf-row-selected-accent: #8fa2f5;
