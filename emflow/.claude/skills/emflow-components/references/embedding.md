@@ -150,7 +150,9 @@ A new component that portals must use one of these targets. A nested MUI
   cards in both), and the MUI palette keeps the light accents in dark
   (`ACCENTS` in `widget/overlay.tsx`: primary #1976d2, success, error), so
   Save / Launch / Close, sliders and checkboxes look the same. The protocol
-  form tabs are a raised box over the blue underline in both themes. SVG
+  form tabs are a raised box over the blue underline in both themes, and
+  its groups (Launchers, Queue...) slate tints of the navy form, the header
+  one step above the box (no neutral greys in dark). SVG
   icons use `fill="currentColor"` (no hard `color`/`fill` on their paths),
   so they follow the text color.
 - Selected table rows (TableViewerPane, rows and child rows) use
