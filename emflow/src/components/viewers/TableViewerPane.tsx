@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
     Box,
     Button,
@@ -19,7 +19,7 @@ import {
     Tooltip,
     Typography,
 } from "@mui/material";
-import { ChevronDown, ChevronRight, MoreHorizontal, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, LayoutGrid, MoreHorizontal, Search, Table2 } from "lucide-react";
 import { useProjectRefresh } from "@/context/ProjectRefreshContext";
 import {
     TableViewerSelectionMenu,
@@ -44,6 +44,11 @@ import type {
 } from "@/services/ProjectService";
 import { getTableViewerActionIcon } from "./TableViewerActionIcons";
 import TableViewerGrid from "./TableViewerGrid";
+import TableViewerGallery, {
+    initialGalleryState,
+    type GalleryViewState,
+} from "./TableViewerGallery";
+import type { VolumeDensity } from "./volume/volumeMath";
 import TableViewerContent, {
     isGenericTableViewerContent,
 } from "./TableViewerContent";
@@ -55,7 +60,14 @@ type TableViewerPaneProps = {
     table: TableViewerData;
     /** Shows another version of the table (TableViewerData.variants). */
     onVariant?: (view: TableViewerVariantData) => void;
+    /** Gallery view settings (TableViewerData.gallery), kept by the host
+     * across versions of the table; the pane keeps its own if omitted. */
+    galleryState?: GalleryViewState;
+    onGalleryStateChange?: (state: GalleryViewState) => void;
 };
+
+// Gallery cards whose density is requested at the same time
+const GALLERY_CONCURRENCY = 3;
 
 type ActivePane =
     | {
@@ -162,8 +174,17 @@ export default function TableViewerPane({
     context,
     table,
     onVariant,
+    galleryState: givenGalleryState,
+    onGalleryStateChange,
 }: TableViewerPaneProps) {
     const svc = useProjectService();
+    // Gallery view (TableViewerData.gallery), instead of the table
+    const [ownGalleryState, setOwnGalleryState] = useState<GalleryViewState>(
+        () => initialGalleryState(table.gallery),
+    );
+    const galleryState = givenGalleryState ?? ownGalleryState;
+    const setGalleryState = onGalleryStateChange ?? setOwnGalleryState;
+    const showGallery = Boolean(table.gallery) && galleryState.show;
     // Another version of the table (e.g. an iteration), loaded by the host
     const variants = onVariant ? table.variants : undefined;
     const [variantLoading, setVariantLoading] = useState<string | null>(null);
@@ -375,6 +396,41 @@ export default function TableViewerPane({
 
         return scopes;
     };
+
+    // The density of each gallery card (its gallery action), requested once
+    // per row, a few at a time
+    const galleryDensitiesRef = useRef(new Map<string, Promise<VolumeDensity>>());
+    const galleryQueueRef = useRef({ active: 0, waiting: [] as (() => void)[] });
+    const loadGalleryDensity = useCallback((row: TableViewerRow) => {
+        const key = String(row.id);
+        let p = galleryDensitiesRef.current.get(key);
+        if (p) return p;
+        const queue = galleryQueueRef.current;
+        p = (async () => {
+            if (queue.active >= GALLERY_CONCURRENCY) {
+                await new Promise<void>((resolve) => queue.waiting.push(resolve));
+            }
+            queue.active++;
+            try {
+                const content = await svc.resolveTableViewerAction(context, {
+                    actionId: table.gallery!.actionId,
+                    rowId: row.id,
+                    rowData: row.data,
+                });
+                const density = (content as { density?: VolumeDensity }).density;
+                if (density && typeof density === "object" && "data" in density) return density;
+                throw new Error(content.kind === "empty" && content.message
+                    ? content.message : "No volume for this item");
+            } finally {
+                queue.active--;
+                queue.waiting.shift()?.();
+            }
+        })();
+        galleryDensitiesRef.current.set(key, p);
+        // A failed request is tried again the next time the card is shown
+        p.catch(() => galleryDensitiesRef.current.delete(key));
+        return p;
+    }, [svc, context, table.gallery]);
 
     // The last action chosen (row, cell or column action), run again when
     // another row is clicked if that row has it (see handleRowClick)
@@ -730,7 +786,7 @@ export default function TableViewerPane({
     } | null>(null);
 
     const handleRowContextMenu = (
-        event: MouseEvent<HTMLTableRowElement>,
+        event: MouseEvent<HTMLElement>,
         row: TableViewerRow,
     ) => {
         if (!selectionColumnId) {
@@ -1474,8 +1530,10 @@ export default function TableViewerPane({
         <Box
             sx={{
                 display: "grid",
-                gridTemplateColumns:
-                    "minmax(520px, 44%) minmax(0, 1fr)",
+                // The gallery takes more width than the table
+                gridTemplateColumns: showGallery
+                    ? "minmax(520px, 56%) minmax(0, 1fr)"
+                    : "minmax(520px, 44%) minmax(0, 1fr)",
                 flex: 1,
                 height: "100%",
                 minHeight: 0,
@@ -1597,6 +1655,45 @@ export default function TableViewerPane({
                         </TextField>
                     )}
                     {variantLoading && <CircularProgress size={16} />}
+
+                    {table.gallery && (
+                        <Box
+                            sx={{
+                                display: "flex",
+                                border: "1px solid var(--emf-border-soft)",
+                                borderRadius: 2,
+                                overflow: "hidden",
+                                flexShrink: 0,
+                            }}
+                        >
+                            {([
+                                [false, "Table", Table2],
+                                [true, "Gallery", LayoutGrid],
+                            ] as const).map(([gallery, label, Icon]) => (
+                                <Tooltip key={label} title={label}>
+                                    <IconButton
+                                        size="small"
+                                        aria-label={label}
+                                        aria-pressed={showGallery === gallery}
+                                        onClick={() => setGalleryState({ ...galleryState, show: gallery })}
+                                        sx={{
+                                            borderRadius: 0,
+                                            px: 0.9,
+                                            height: 32,
+                                            color: showGallery === gallery
+                                                ? "var(--emf-teal-800)"
+                                                : "var(--emf-slate-500)",
+                                            backgroundColor: showGallery === gallery
+                                                ? "var(--emf-teal-110)"
+                                                : "var(--emf-white)",
+                                        }}
+                                    >
+                                        <Icon size={16} strokeWidth={1.8} />
+                                    </IconButton>
+                                </Tooltip>
+                            ))}
+                        </Box>
+                    )}
 
                     {draftEditList.length > 0 && (
                         <Typography
@@ -1771,8 +1868,25 @@ export default function TableViewerPane({
 
                 </Box>
 
+                {showGallery && table.gallery && (
+                    <TableViewerGallery
+                        gallery={table.gallery}
+                        rows={filteredRows}
+                        state={galleryState}
+                        onStateChange={setGalleryState}
+                        loadDensity={loadGalleryDensity}
+                        selectedRowId={selectedRowId}
+                        onOpen={handleRowClick}
+                        selection={selectionColumnId ? {
+                            isChecked: (row) => getEditableBooleanValue(row, selectionColumnId),
+                            onToggle: (event, row) => handleBooleanEdit(event, row, selectionColumnId),
+                        } : null}
+                        onContextMenu={handleRowContextMenu}
+                    />
+                )}
+
                 {/* Table */}
-                <TableContainer
+                {!showGallery && <TableContainer
                     sx={{
                         flex: 1,
                         minHeight: 0,
@@ -2323,7 +2437,7 @@ export default function TableViewerPane({
                                 )}
                         </TableBody>
                     </Table>
-                </TableContainer>
+                </TableContainer>}
 
                 {/* Footer */}
                 <Box

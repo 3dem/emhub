@@ -15,6 +15,7 @@ import type {
     TableViewerData,
 } from "@/services/ProjectService";
 import TableViewerPane from "./TableViewerPane";
+import { initialGalleryState } from "./TableViewerGallery";
 
 type TableViewerDialogProps = {
     open: boolean;
@@ -40,6 +41,8 @@ export default function TableViewerDialog({
         setView({ context: givenContext, table: givenTable });
     }, [givenContext, givenTable]);
     const { context, table } = view;
+    // The gallery view settings stay when another version is shown
+    const [galleryState, setGalleryState] = useState(() => initialGalleryState(givenTable.gallery));
     const resolvedTitle =
         title ||
         table.title ||
@@ -231,6 +234,8 @@ export default function TableViewerDialog({
                     context={context}
                     table={table}
                     onVariant={setView}
+                    galleryState={galleryState}
+                    onGalleryStateChange={setGalleryState}
                 />
             </DialogContent>
         </Dialog>
