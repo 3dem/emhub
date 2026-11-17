@@ -155,6 +155,14 @@ A new component that portals must use one of these targets. A nested MUI
   one step above the box (no neutral greys in dark). SVG
   icons use `fill="currentColor"` (no hard `color`/`fill` on their paths),
   so they follow the text color.
+- MUI surfaces in dark (dialogs such as the wizards, menus, selects) are the
+  widget navy (`DARK_SURFACES` in `widget/overlay.tsx`: paper #111827,
+  default #0b1220, no elevation overlay), not MUI's grey. EMhub's
+  `style.css` colors every `label` (#71748d) and `h1`-`h6` (#3d405c) for its
+  light page; in dark they inherit the text color around them
+  (`:where(.emflow-root.dark) label, h1...` in `ProjectPage.css`, with the
+  host's specificity so class rules still win). Do not rely on a bare
+  `label` or heading taking the theme color without it.
 - Selected table rows (TableViewerPane, rows and child rows) use
   `--emf-row-selected` / `-hover` / `-accent` (the left bar): indigo, so they
   stand apart from the teal table headers in both themes.

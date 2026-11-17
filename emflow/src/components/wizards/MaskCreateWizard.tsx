@@ -151,7 +151,9 @@ export default function MaskCreateWizard({ inputs, data, onChange, preview }: Wi
         {status.computing && (
           <Box role="status"
                sx={{ position: "absolute", inset: 0, zIndex: 2, display: "flex", alignItems: "center",
-                     justifyContent: "center", gap: 1.5, backgroundColor: "rgba(255,255,255,0.55)",
+                     justifyContent: "center", gap: 1.5,
+                     backgroundColor: (theme) => theme.palette.mode === "dark"
+                       ? "rgba(11,18,32,0.6)" : "rgba(255,255,255,0.55)",
                      borderRadius: 1 }}>
             <CircularProgress size={28} />
             <Typography variant="body2">Loading the tentative mask…</Typography>

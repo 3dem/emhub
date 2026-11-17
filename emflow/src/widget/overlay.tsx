@@ -73,9 +73,21 @@ const ACCENTS: ThemeOptions["palette"] = {
   error: { main: "#d32f2f", light: "#ef5350", dark: "#c62828", contrastText: "#fff" },
 };
 
+// Dark surfaces of MUI (dialogs, menus, selects) in the navy of the widget
+// (--emf-pane-bg, --emf-white), as white is in light; MUI's dark default is
+// grey (#121212 lightened by an overlay for each elevation)
+const DARK_SURFACES: ThemeOptions = {
+  palette: { background: { default: "#0b1220", paper: "#111827" } },
+  components: { MuiPaper: { styleOverrides: { root: { backgroundImage: "none" } } } },
+};
+
 function OverlayMuiTheme({ children }: { children: ReactNode }) {
   // MUI components (dialogs, menus, tooltips, inputs) follow the widget theme
   const { theme: mode } = useTheme();
-  const theme = useEmflowMuiTheme({ palette: { mode, ...ACCENTS } });
+  const dark = mode === "dark";
+  const theme = useEmflowMuiTheme({
+    palette: { mode, ...ACCENTS, ...(dark ? DARK_SURFACES.palette : {}) },
+    ...(dark ? { components: DARK_SURFACES.components } : {}),
+  });
   return <MuiThemeProvider theme={theme}>{children}</MuiThemeProvider>;
 }
