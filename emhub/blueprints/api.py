@@ -1264,6 +1264,47 @@ def fetch_volume_density():
     return _handle_item(_handle, 'density')
 
 
+@api_bp.route('/fetch_coordinates_compare_sets', methods=['POST'])
+@flask_login.login_required
+def fetch_coordinates_compare_sets():
+    """ Sets of the coordinates of a tomogram of an emw-coordinates-compare
+    job at a distance, for emflow's VolumeViewer (see
+    emhub.data.processing.coordinates_compare).
+    attrs: root, job (job id), tomoName and distance (Å). """
+    def _handle(**attrs):
+        from emhub.data.processing.coordinates_compare import CoordinatesCompare
+
+        root = resolve_project_root(attrs['root'])
+        job_dir = project_file_path(root, attrs['job'])
+        if not os.path.isdir(job_dir):
+            raise Exception(f"Job folder not found: {attrs['job']}")
+        distance = float(attrs['distance'])
+        if not distance > 0:
+            raise Exception(f'Invalid distance: {distance}')
+        return CoordinatesCompare(root, job_dir).tomo_sets(attrs['tomoName'], distance)
+
+    return _handle_item(_handle, 'coordinates')
+
+
+@api_bp.route('/create_remove_duplicates', methods=['POST'])
+@flask_login.login_required
+def create_remove_duplicates():
+    """ Launch an emw-remove-duplicates job with the duplicates of an
+    emw-coordinates-compare job (a set compared to itself) at a distance, if
+    the current user may change the project (see _check_can_edit_processing).
+    attrs: root, job (job id) and distance (Å; the job's maximum if empty). """
+    def _handle(**attrs):
+        from emhub.data.processing.coordinates_compare import remove_duplicates
+
+        root = resolve_project_root(attrs['root'])
+        _check_can_edit_processing(root, attrs.get('entry_id'), attrs.get('session_id'))
+        if not os.path.isdir(project_file_path(root, attrs['job'])):
+            raise Exception(f"Job folder not found: {attrs['job']}")
+        return remove_duplicates(root, attrs['job'], attrs.get('distance'))
+
+    return _handle_item(_handle, 'subsetResult')
+
+
 @api_bp.route('/fetch_volume_crop', methods=['POST'])
 @flask_login.login_required
 def fetch_volume_crop():

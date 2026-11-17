@@ -462,6 +462,21 @@ export type TableViewerImageSliderContent = {
       faces: number[];
       density?: { shape: [number, number, number]; data: string; voxelSize: number; level: number };
     };
+    /** Several sets of particles, each with its color: the index in `sets`
+     * of each particle (see CoordinateSet in components/viewers/volume/volumeMath.ts). */
+    set?: number[];
+    sets?: { id?: string; label: string; color: string; hidden?: boolean }[];
+    /** Recompute `set`/`sets` at another value (an input of the viewer):
+     * `source` is loaded with `{...payload, distance: value}` and answers
+     * `{set, sets}` or `{coordinates: {set, sets}}`. */
+    recompute?: {
+      label?: string;
+      unit?: string;
+      value: number;
+      min?: number;
+      step?: number;
+      source: { path: string; payload?: Record<string, unknown> };
+    };
   };
 };
 

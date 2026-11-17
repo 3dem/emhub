@@ -26,7 +26,45 @@ export type VolumeCoordinates = {
   /** Picking template: surface (flat vertices in Å, triangle indices) and,
    * optionally, its density to change the threshold (see templateSurface.ts). */
   template?: ParticleTemplate;
+  /** Several sets in the same coordinates (e.g. kept / duplicates, or
+   * A - B / B - A / A & B): the index in `sets` of each particle. Without
+   * them, all the particles are one set (one color). */
+  set?: number[];
+  sets?: CoordinateSet[];
+  /** The host recomputes `set` and `sets` for another value (e.g. a
+   * distance), the particles stay the same. */
+  recompute?: CoordinatesRecompute;
 };
+
+/** One set of the particles of VolumeCoordinates. */
+export type CoordinateSet = {
+  id?: string;
+  label: string;
+  /** CSS hex. */
+  color: string;
+  /** Never drawn nor listed (e.g. B particles at the place of A & B). */
+  hidden?: boolean;
+};
+
+/** Input of the viewer to get the sets at another value: the DataLoader
+ * loads `source` with `{...payload, distance: value}`, answering
+ * `{set, sets}` (or `{coordinates: {set, sets}}`). */
+export type CoordinatesRecompute = {
+  /** Label of the input ("Distance"). */
+  label?: string;
+  unit?: string;
+  value: number;
+  min?: number;
+  step?: number;
+  source: { path: string; payload?: Record<string, unknown> };
+};
+
+/** The sets of the coordinates, or null when they are one set (or the
+ * sets do not match the particles). */
+export function coordinateSets(P: VolumeCoordinates | null | undefined): { set: number[]; sets: CoordinateSet[] } | null {
+  if (!P?.sets?.length || !P.set || P.set.length !== P.x.length) return null;
+  return { set: P.set, sets: P.sets };
+}
 
 /**
  * Density for the iso-surface of the "3D volume" tab: a binned grid (block

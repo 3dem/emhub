@@ -11,6 +11,10 @@ build_job_view_pane.
 To add a view: subclass JobView (id, label, jobtypes, source, table, pane),
 or StarColumnsPlotsView for plots of STAR file columns (only METRICS), and
 register it with register_job_view.
+
+The value can end with ':<option>' ('<job id>#<view id>:<option>'), another
+version of the table of the view (its table 'variants', e.g. a distance):
+then view.table() gets option=<option>.
 """
 
 import os
@@ -27,6 +31,7 @@ from .relion_iterations import (load_relion_iterations, build_iterations_table,
 
 JOB_VIEW_CLASS = 'JobView'
 _SEP = '#'
+_OPTION_SEP = ':'
 
 _JOB_VIEWS = {}  # view id -> JobView
 
@@ -37,10 +42,17 @@ def job_view_value(job_id, view_id):
 
 def parse_job_view_value(value):
     """ Return (job_id, view) of a job view output value. """
-    job_id, sep, view_id = str(value or '').rpartition(_SEP)
+    job_id, view, _ = parse_job_view_option(value)
+    return job_id, view
+
+
+def parse_job_view_option(value):
+    """ Return (job_id, view, option or None) of a job view output value. """
+    job_id, sep, view_part = str(value or '').rpartition(_SEP)
+    view_id, _, option = view_part.partition(_OPTION_SEP)
     if not sep or not job_id or view_id not in _JOB_VIEWS:
         raise Exception(f'Invalid job view: {value!r}')
-    return job_id, _JOB_VIEWS[view_id]
+    return job_id, _JOB_VIEWS[view_id], option or None
 
 
 def register_job_view(view):
@@ -75,8 +87,9 @@ def _job_dir(root, job_id):
 
 
 def build_job_view_table(root, value):
-    job_id, view = parse_job_view_value(value)
-    return view.table(resolve_project_root(root), _job_dir(root, job_id))
+    job_id, view, option = parse_job_view_option(value)
+    kwargs = {'option': option} if option else {}
+    return view.table(resolve_project_root(root), _job_dir(root, job_id), **kwargs)
 
 
 def build_job_view_pane(root, value, action_id, row_cells):
@@ -285,7 +298,103 @@ class WarpTsAlignProgressView(JobView):
             return _build(star_full)
 
 
+class CoordinatesCompareView(JobView):
+    """ Results of emw-coordinates-compare: a row per tomogram with the
+    number of coordinates of each set at a distance (the job's maximum
+    distance, or another one of the 'Distance' select), and its tomogram
+    with the sets in different colors (the distance can be changed there).
+    See coordinates_compare. The job has no output sets, so this is the way
+    to see its results. """
+    id = 'coordinates-compare'
+    label = 'Coordinates Distances'
+    jobtypes = ('emw-coordinates-compare',)
+    source = 'distances.npz'
+    TOMO_ACTION = {'id': 'tomo-view', 'label': 'Tomogram', 'icon': 'tomogram'}
+    # Edit action of the table of a set compared to itself
+    REMOVE_ACTION = 'remove-duplicates'
+    # Distances of the 'Distance' select, as factors of the job's one
+    FACTORS = (0.25, 0.5, 0.75, 1, 1.5, 2, 3)
+
+    @staticmethod
+    def _fmt(d):
+        return f'{d:g}'
+
+    def table(self, root, job_dir, option=None):
+        from .coordinates_compare import CoordinatesCompare
+
+        cc = CoordinatesCompare(root, job_dir)
+        distance = float(option) if option else cc.max_distance
+        if cc.compare_self:
+            columns = [('coords', 'Coordinates'), ('duplicates', 'Duplicates'),
+                       ('kept', 'Kept')]
+            case = 'duplicates, ' + (f'keeping the highest {cc.score_column}'
+                                     if cc.score_column else 'no score')
+        else:
+            columns = [('a', 'A'), ('b', 'B'), ('aMinusB', 'A - B'),
+                       ('bMinusA', 'B - A'), ('aAndB', 'A & B')]
+            case = 'A vs B'
+        rows, totals = [], {}
+        for tomo, counts in cc.counts(distance):
+            for k, v in counts.items():
+                totals[k] = totals.get(k, 0) + v
+            cells = dict(counts, tomoName=tomo, distance=distance)
+            row = {'id': tomo, 'cells': cells, 'actions': [],
+                   'defaultAction': dict(self.TOMO_ACTION)}
+            if cc.tomogram(tomo):
+                row['cellContexts'] = {'tomo': {'actions': [dict(self.TOMO_ACTION)]}}
+            rows.append(row)
+        summary = ', '.join(f'{label}: {totals.get(k, 0)}' for k, label in columns)
+        job_id = os.path.relpath(job_dir, root)
+        table = {
+            'title': (f'{self.label} — {job_id} ({case}, {self._fmt(distance)} Å; '
+                      f'{len(rows)} tomograms; {summary})'),
+            'columns': (
+                [{'id': 'tomoName', 'label': 'Tomo name', 'align': 'left', 'sortable': True}]
+                + [{'id': k, 'label': label, 'align': 'right', 'sortable': True}
+                   for k, label in columns]
+                + [{'id': 'tomo', 'label': 'Tomogram'}]),
+            'rows': rows,
+        }
+        values = sorted({round(cc.max_distance * f, 1) for f in self.FACTORS}
+                        | {round(distance, 1)})
+        table['variants'] = {
+            'label': 'Distance (Å)',
+            'value': f'{self.id}{_OPTION_SEP}{self._fmt(distance)}',
+            'options': [{'id': f'{self.id}{_OPTION_SEP}{self._fmt(v)}',
+                         'label': self._fmt(v) + (' (job)' if v == round(cc.max_distance, 1) else '')}
+                        for v in values],
+        }
+        if cc.compare_self:
+            # A subset without the duplicates at this distance (the host
+            # launches it with remove_duplicates)
+            table['editActions'] = [{
+                'id': self.REMOVE_ACTION,
+                'label': 'Remove duplicates',  # at the distance of the select
+                'disabled': not totals.get('duplicates'),
+            }]
+        if rows:
+            table['initialAction'] = {'rowId': rows[0]['id'], 'actionId': self.TOMO_ACTION['id']}
+        return table
+
+    def pane(self, root, job_dir, action_id, row_cells):
+        from emhub.blueprints.api_viewers import build_tomogram_volume_slider_pane_content
+        from .coordinates_compare import CoordinatesCompare
+
+        if action_id != self.TOMO_ACTION['id']:
+            raise Exception(f'Unknown action {action_id!r} of {self.label}')
+        cc = CoordinatesCompare(root, job_dir)
+        tomo = row_cells.get('tomoName')
+        tomo_rel = cc.tomogram(tomo) if tomo else None
+        if not tomo_rel:
+            raise Exception(f'No tomogram for {tomo!r} in the input sets')
+        distance = float(row_cells.get('distance') or cc.max_distance)
+        return build_tomogram_volume_slider_pane_content(
+            root, tomo_rel, title=f'Tomogram — {tomo}',
+            coordinates=cc.coordinates(tomo, distance))
+
+
 register_job_view(CtfPlotsView())
 register_job_view(MotionPlotsView())
 register_job_view(RelionIterationsView())
 register_job_view(WarpTsAlignProgressView())
+register_job_view(CoordinatesCompareView())

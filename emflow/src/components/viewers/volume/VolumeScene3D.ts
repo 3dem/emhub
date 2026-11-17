@@ -42,6 +42,11 @@ export type SceneState = {
   templateLevel: number | null;
   /** Color of the points and the template (CSS hex). */
   particleColor: string;
+  /** Particles in sets (the coordinates have `sets`): the set of each one,
+   * the color of each set and whether it is shown; null/missing: one set. */
+  particleSet?: number[] | null;
+  setColors?: string[] | null;
+  setShown?: boolean[] | null;
   volOn: boolean;
   inverted: boolean;
   /** Shown planes (at most two). */
@@ -175,6 +180,8 @@ export class VolumeScene3D {
   private tmplLevel: number | null = null;
   /** Indices of the particles shown (all, or near the shown planes). */
   private shown: number[] = [];
+  /** The particles are in sets: colored per particle (vertex and instance colors). */
+  private multi = false;
   private vol: THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial> | null = null;
   private volLoading = false;
   private grid: VolumeDensity | null = null;
@@ -245,9 +252,12 @@ export class VolumeScene3D {
       }
       const pg = new THREE.BufferGeometry();
       pg.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+      this.multi = Boolean(P.sets?.length);
+      if (this.multi) pg.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
       this.points = new THREE.Points(
         pg,
-        new THREE.PointsMaterial({ color: state.particleColor, size: 3.5, sizeAttenuation: false }),
+        new THREE.PointsMaterial({ color: this.multi ? 0xffffff : state.particleColor, size: 3.5,
+                                   sizeAttenuation: false, vertexColors: this.multi }),
       );
       this.scene.add(this.points);
       this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -411,7 +421,9 @@ export class VolumeScene3D {
     const P = this.o.particles;
     if (P && this.points) {
       this.updateShown(P);
-      const color = this.state.particleColor;
+      // With sets, each particle has the color of its set (white materials)
+      const color = this.multi ? "#ffffff" : this.state.particleColor;
+      if (this.multi) this.updateColors();
       this.points.visible = partsOn && !tmplOn && !sphereOn;
       (this.points.material as THREE.PointsMaterial).color.set(color);
       if (this.tmpl) {
@@ -434,7 +446,10 @@ export class VolumeScene3D {
     const { nearOnly, tolerance, active, pos } = this.state;
     const n = Math.min(P.x.length, P.y.length, P.z.length);
     const shown: number[] = [];
+    const S = this.multi ? this.state.particleSet : null;
+    const setShown = this.state.setShown;
     for (let i = 0; i < n; i++) {
+      if (S && setShown && !setShown[S[i]]) continue;
       if (!nearOnly || active.some((a) => Math.abs(P[a][i] - pos[a]) <= tolerance)) shown.push(i);
     }
     this.shown = shown;
@@ -474,6 +489,38 @@ export class VolumeScene3D {
     }
   }
 
+  /** The color of the set of each shown particle: points, spheres, arrows and templates. */
+  private updateColors() {
+    const S = this.state.particleSet, colors = this.state.setColors;
+    if (!S || !colors) return;
+    const byColor = new Map<string, THREE.Color>();
+    const colorOf = (i: number) => {
+      const hex = colors[S[i]] ?? this.state.particleColor;
+      let c = byColor.get(hex);
+      if (!c) byColor.set(hex, (c = new THREE.Color(hex)));
+      return c;
+    };
+    const attr = this.points!.geometry.getAttribute("color") as THREE.BufferAttribute | undefined;
+    if (attr) {
+      const arr = attr.array as Float32Array;
+      this.shown.forEach((i, k) => colorOf(i).toArray(arr, 3 * k));
+      attr.needsUpdate = true;
+    }
+    for (const mesh of [this.tmpl, this.spheres, this.arrows]) {
+      if (!mesh) continue;
+      this.shown.forEach((i, k) => mesh.setColorAt(k, colorOf(i)));
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }
+  }
+
+  /** With sets, the instance colors exist from the start (so the materials
+   * are compiled with them). */
+  private initInstanceColors(mesh: THREE.InstancedMesh, n: number) {
+    if (!this.multi) return;
+    const white = new THREE.Color(0xffffff);
+    for (let i = 0; i < n; i++) mesh.setColorAt(i, white);
+  }
+
   /* Spheres at the particles (translucent, so the arrow shows inside) and,
      when they have angles, an arrow from the centre along each one's Z axis
      (the RELION rotation, as the template), out of the sphere. Both are
@@ -502,6 +549,7 @@ export class VolumeScene3D {
     }
     for (const mesh of [this.spheres, this.arrows]) {
       if (!mesh) continue;
+      this.initInstanceColors(mesh, n);
       mesh.visible = false;
       mesh.frustumCulled = false;
       mesh.count = 0;
@@ -525,6 +573,7 @@ export class VolumeScene3D {
       this.tmplMatrices.push(new THREE.Matrix4().set(
         e[0], e[1], e[2], w.x, e[3], e[4], e[5], w.y, e[6], e[7], e[8], w.z, 0, 0, 0, 1));
     }
+    this.initInstanceColors(mesh, n);
     mesh.visible = false;
     mesh.frustumCulled = false;
     this.scene.add(mesh);

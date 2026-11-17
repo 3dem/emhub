@@ -78,6 +78,11 @@ type Props = {
   hideLines: boolean;
   /** Color of the particle dots (the selected one is red). */
   particleColor: string;
+  /** Particles in sets: the set of each one, the color of each set and
+   * whether it is shown (null: one set, particleColor). */
+  particleSet?: number[] | null;
+  setColors?: string[] | null;
+  setShown?: boolean[] | null;
   inverted: boolean;
   rulers: Record<Axis, Ruler | null>;
   /** Shown mask (null: none or hidden). */
@@ -239,6 +244,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     const v = views.current[a];
     if (!v) return;
     const { pos, sel, mode, partsOn, particles: P, tolerance, hideLines, rulers, voxelSize, particleColor } = p.current;
+    const { particleSet: S, setColors, setShown } = p.current;
     const ctx = v.ov, [ha, va] = HV[a];
     ctx.clearRect(0, 0, v.cw, v.ch);
     drawColorBy(a, v);
@@ -256,11 +262,12 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     if (partsOn && P) {
       for (let i = 0; i < P.x.length; i++) {
         if (Math.abs(P[a][i] - pos[a]) > tolerance) continue;
+        if (S && setShown && !setShown[S[i]]) continue;
         const q = toPx(v, P[ha][i] + 0.5, P[va][i] + 0.5);
         if (q[0] < -8 || q[1] < -8 || q[0] > v.cw + 8 || q[1] > v.ch + 8) continue;
         ctx.beginPath();
         ctx.arc(q[0], q[1], i === sel ? 4 : 2.5, 0, 2 * Math.PI);
-        ctx.fillStyle = i === sel ? "#ff3b30" : particleColor;
+        ctx.fillStyle = i === sel ? "#ff3b30" : (S && setColors ? setColors[S[i]] ?? particleColor : particleColor);
         ctx.fill();
         ctx.lineWidth = 1;
         ctx.strokeStyle = "rgba(0,0,0,.6)";
@@ -396,7 +403,8 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   useEffect(() => {
     drawAll();
   }, [props.pos, props.sel, props.mode, props.partsOn, props.hideLines, props.rulers, props.tolerance,
-      props.particleColor, props.mask, props.filterSigma, props.colorBy, drawAll]);
+      props.particleColor, props.particleSet, props.setColors?.join(), props.setShown?.join(),
+      props.mask, props.filterSigma, props.colorBy, drawAll]);
   // New slice images (e.g. another iteration of a map) or crop source:
   // forget the crops and filtered images and draw again
   useEffect(() => {
@@ -505,7 +513,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   const onClick = (a: Axis, e: React.MouseEvent) => {
     const v = views.current[a];
     if (!v) return;
-    const { mode, partsOn, particles: P, pos, tolerance, dim: d, rulers } = p.current;
+    const { mode, partsOn, particles: P, pos, tolerance, dim: d, rulers, particleSet: S, setShown } = p.current;
     const [cx, cy] = local(a, e);
     const [h, vv] = toVox(v, cx, cy);
     const [ha, va] = HV[a];
@@ -513,6 +521,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
       let best = -1, bd = 10;
       for (let i = 0; i < P.x.length; i++) {
         if (Math.abs(P[a][i] - pos[a]) > tolerance) continue;
+        if (S && setShown && !setShown[S[i]]) continue;
         const q = toPx(v, P[ha][i] + 0.5, P[va][i] + 0.5);
         const dd = Math.hypot(q[0] - cx, q[1] - cy);
         if (dd < bd) { bd = dd; best = i; }

@@ -333,6 +333,9 @@ var TABLE_SUBSET_CLASSES = ['TiltSeriesMovies', 'TiltSeries', 'TiltSeriesAligned
 var TABLE_CLASSES_SUBSET_CLASSES = ['Classes3D'];
 var TABLE_INCLUDE_COL = 'include';
 var TABLE_SUBSET_ACTION = 'create-subset';
+// Edit action of the 'Coordinates Distances' job view of a set compared to
+// itself (job_views.CoordinatesCompareView): an emw-remove-duplicates job
+var TABLE_REMOVE_DUPLICATES_ACTION = 'remove-duplicates';
 
 // emflow handles the 'metadata' action id itself (Scipion metadata viewer),
 // the server one (STAR file metadata) is renamed for the viewer
@@ -403,6 +406,31 @@ async function buildTableViewerAnalyzeDecision(ctx, pointerClass) {
     },
     table: adaptTableViewData(tableViewData, outputPath, pointerClass),
   };
+}
+
+// Launch an emw-remove-duplicates job with the duplicates of the job of a
+// 'Coordinates Distances' table (outputPath '<job>#coordinates-compare[:<distance>]')
+async function createRemoveDuplicates(context) {
+  var parts = (context.outputPath || '').split('#');
+  var option = (parts[1] || '').split(':')[1] || '';
+  var subsetResult = null;
+  await handleRequestData(
+    Api.urls.create_remove_duplicates,
+    {
+      root: project_details.path,
+      entry_id: project_details.id,   // whose project the user must be able to edit
+      job: parts[0],
+      distance: option,
+    },
+    function (data) {
+      subsetResult = data.subsetResult;
+    },
+  );
+  if (!subsetResult)
+    return { success: false, message: 'Could not remove the duplicates.' };
+  if (subsetResult.success)
+    cache.invalidate();
+  return { ...subsetResult, refreshProject: Boolean(subsetResult.success) };
 }
 
 // Launch an emw-subset-classes job with the particles of the selected classes
@@ -1018,8 +1046,15 @@ var svc = {
   // use its path
   async loadTableViewerVariant(context, variantId) {
     var current = context.outputPath || '';
-    var folder = current.split('/').slice(0, -1).join('/');
-    var outputPath = (folder ? folder + '/' : '') + variantId;
+    var outputPath;
+    if (context.pointerClass === 'JobView') {
+      // A job view: '<job id>#<view id>[:<option>]', the variant id is
+      // '<view id>:<option>' (e.g. the distance of Coordinates Distances)
+      outputPath = current.split('#')[0] + '#' + variantId;
+    } else {
+      var folder = current.split('/').slice(0, -1).join('/');
+      outputPath = (folder ? folder + '/' : '') + variantId;
+    }
     var tableViewData = await loadTableViewData(outputPath, context.pointerClass);
     if (!tableViewData.rows || !tableViewData.rows.length)
       throw new Error('Could not load ' + variantId);
@@ -1030,10 +1065,13 @@ var svc = {
   },
 
   /**
-   * Create a subset with the rows left checked in the 'Selected' column.
+   * Create a subset with the rows left checked in the 'Selected' column
+   * (or without the duplicates of a 'Coordinates Distances' table).
    * request: { actionId, edits: [{ rowId, columnId, value }] } (changed cells)
    */
   async executeTableViewerEditAction(context, request) {
+    if (request.actionId === TABLE_REMOVE_DUPLICATES_ACTION)
+      return await createRemoveDuplicates(context);
     if (request.actionId !== TABLE_SUBSET_ACTION)
       return { success: false, message: 'Unknown action: ' + request.actionId };
 

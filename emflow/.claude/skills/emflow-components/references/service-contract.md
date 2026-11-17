@@ -16,7 +16,7 @@ with `?tomoTable` in the url to get a fake Tomograms table viewer with the
 Selected column, Create subset and the TS / Tomogram icon column; its tilt-series icon opens a fake `2x2`
 grid, with `&gridLayout=<layout>` for the other layouts; `?tomoTable=coords`
 gives a TomoCoordinates table whose tomogram icon shows particles on the
-slices; `?classesTable` a fake 3D classes table with its iterations in the Iteration select (`loadTableViewerVariant`); `?outputPrefix` gives the outputs a label prefix, `Out01`... for
+slices; `?classesTable` a fake 3D classes table with its iterations in the Iteration select (`loadTableViewerVariant`); `?compareTable` (`=self` for duplicates) a fake Coordinates Distances job view (Distance select, tomogram panes with particle sets recomputed at another distance by `fakeDataRequest`, the dev page's DataLoader transport); `?outputPrefix` gives the outputs a label prefix, `Out01`... for
 all but the first output of each protocol). Actions take 0.7 s there, to show the pane's loading state. Update
 it when the contract changes.
 
@@ -164,7 +164,23 @@ with `initialAction`) shows a `cols` grid: the values of all tilt images,
 one trace per tilt series, and the histogram (`data/processing/star_columns.py`,
 reusable for any STAR columns). New views subclass `JobView`, or
 `StarColumnsPlotsView` with only their METRICS, and are registered with
-`register_job_view`. It returns `viewer: "volume"` for `Volume` and `VolumeMask` outputs
+`register_job_view`. `Coordinates Distances` (`emw-coordinates-compare`,
+`CoordinatesCompareView`, data from `data/processing/coordinates_compare.py`
+reading the job's `distances.npz`) is a row per tomogram with the counts at a
+distance (set compared to itself: Coordinates, Duplicates (emwrap's
+`coordinates_compare.duplicates`: the highest score kept when the job stored
+`<tomo>.score`, else Relion's rule, a later coordinate within the distance),
+Kept, and the edit action `remove-duplicates` that the host
+(`executeTableViewerEditAction`) sends to `/api/create_remove_duplicates`
+`{root, entry_id, job, distance}`, launching an `emw-remove-duplicates`
+subset job; A vs B: A, B, A - B, B - A,
+A & B) and a `Distance (Å)` variant select (the job's distance and multiples;
+a job view value may end with `:<option>`, `loadTableViewerVariant` of a
+`JobView` replaces the part after `#`); its tomogram icon (default action
+`tomo-view`) shows the tomogram with the particles of A (and B) in sets
+(`set`, `sets`) and a `recompute` request (`/api/fetch_coordinates_compare_sets`
+`{root, job, tomoName, distance}` answering `{coordinates: {set, sets}}`).
+The job registers no output node: this view is its only output. It returns `viewer: "volume"` for `Volume` and `VolumeMask` outputs
 (`.mrc`) with `source` = `/api/get_volume_viewer` `{root, path,
 pointerClass}` (`build_volume_output_pane_content`, `VOLUME_OUTPUT_VIEWER_CONFIG`:
 3D volume first, Slices without the select tool or crosshair, densities of

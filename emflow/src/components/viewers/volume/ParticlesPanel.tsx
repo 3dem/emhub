@@ -25,6 +25,9 @@ export type ParticleOptions = {
 
 type Props = ParticleOptions & {
   count: number;
+  /** The particles are in sets, each with its color (CoordinateSetsBar):
+   * no single color here. */
+  hasSets?: boolean;
   /** A template can be shown (template + voxel size). */
   hasTemplate: boolean;
   /** Its density came too, so the threshold can change. */
@@ -47,9 +50,11 @@ export default function ParticlesPanel(props: Props) {
       <label className={styles.panelRow}>
         <input type="checkbox" checked={partsOn} onChange={(e) => onChange({ partsOn: e.target.checked })} />
         Show particles ({count})
-        <input type="color" className={styles.panelColor} value={color} disabled={!partsOn}
-               title="Color of the particles (dots and template, in both tabs)"
-               onChange={(e) => onChange({ color: e.target.value })} />
+        {!props.hasSets && (
+          <input type="color" className={styles.panelColor} value={color} disabled={!partsOn}
+                 title="Color of the particles (dots and template, in both tabs)"
+                 onChange={(e) => onChange({ color: e.target.value })} />
+        )}
       </label>
 
       <fieldset className={styles.panelGroup} disabled={!partsOn}>
