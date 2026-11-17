@@ -1520,7 +1520,8 @@ export default function TableViewerPane({
                         }
                         placeholder="Search..."
                         sx={{
-                            width: 240,
+                            flex: "0 1 240px",
+                            minWidth: 110,
                             "& .MuiOutlinedInput-root": {
                                 height: 34,
                                 borderRadius: 2,
@@ -1728,6 +1729,8 @@ export default function TableViewerPane({
                                     sx={{
                                         height: 32,
                                         minWidth: 72,
+                                        flexShrink: 0,
+                                        whiteSpace: "nowrap",
                                         px: 1.25,
                                         borderRadius:
                                             1.5,
