@@ -258,6 +258,9 @@ def build_iterations_table(data, title):
 # ---------------------------- Plots -------------------------------------
 
 _MARGIN = {'l': 64, 'r': 56, 't': 24, 'b': 48}
+# Largest shift along x (in iterations) between the classes of the class
+# plots, so classes with the same value do not hide each other
+_CLASS_DODGE = 0.06
 
 
 def _plot(title, traces, layout):
@@ -306,18 +309,23 @@ def _iterations_plot(data, title, series, y_title, y2_title=None):
 def _class_series_plot(data, title, key, y_title, scale=1, stacked=False):
     """ A value of each class (key of the classes) per iteration. """
     n = max((len(i.classes) for i in data.iterations), default=0)
+    # Classes often share a value (the resolution is estimated in Fourier
+    # shells), and the last class drawn would hide the others: each class a
+    # bit apart along x, so the points of all of them show side by side
+    step = 0 if stacked or n < 2 else min(_CLASS_DODGE, 0.3 / (n - 1))
     traces = []
     for c in range(n):
+        dx = round((c - (n - 1) / 2) * step, 3)
         xs, ys = [], []
         for i in data.iterations:
             if c < len(i.classes) and i.x is not None:
                 v = i.classes[c][key]
                 if stacked or (v is not None and v < _NO_CHANGES):
-                    xs.append(i.x)
+                    xs.append(i.x + dx)
                     ys.append(round(scale * (v or 0), 2))
         trace = {'type': 'scatter', 'mode': 'lines' if stacked else 'lines+markers',
                  'name': f'Class {c + 1}', 'x': xs, 'y': ys,
-                 'marker': {'size': 4},
+                 'marker': {'size': 4 if stacked else 6},
                  'hovertemplate': f'Class {c + 1}' + ': %{y}<extra></extra>'}
         if stacked:
             trace['stackgroup'] = 'classes'
@@ -331,6 +339,11 @@ def _class_series_plot(data, title, key, y_title, scale=1, stacked=False):
     }
     if stacked:
         layout['yaxis']['range'] = [0, 100]
+    else:
+        # All the classes of the iteration in the hover, at its iteration
+        # number (not the shifted x)
+        layout['hovermode'] = 'x unified'
+        layout['xaxis']['hoverformat'] = '.0f'
     return _plot(title, traces, layout)
 
 

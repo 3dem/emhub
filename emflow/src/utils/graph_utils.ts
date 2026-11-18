@@ -386,7 +386,8 @@ export function buildGraphElements(
         source: id,
         target: childId,
         animated: false,
-        style: { stroke: "#CAD5E2", strokeWidth: 2 },
+        // --emf-graph-edge: light slate, muted in dark (ProjectPage.css)
+        style: { stroke: "var(--emf-graph-edge, #CAD5E2)", strokeWidth: 2 },
         markerEnd: "url(#circle)",
         sourceHandle: direction === "TB" ? "bottom" : "right",
         targetHandle: direction === "TB" ? "top" : "left",

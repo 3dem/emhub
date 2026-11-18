@@ -309,6 +309,24 @@ export type TableViewerVariantData = {
   table: TableViewerData;
 };
 
+/** A gallery of the rows (e.g. the 3D classes of an iteration), toggled
+ * with the table in its toolbar: a card per row (search and sort apply)
+ * with a section of a small volume, its selection checkbox (the first
+ * boolean edit column, as in the table) and a button for the row's default
+ * action (shown in the viewer pane, as a row click). */
+export type TableViewerGallery = {
+  /** Resolved per row (resolveTableViewerAction, no column) when its card
+   * is shown: a pane content with an inline `density` (VolumeDensity, a
+   * small grid: the card draws its sections). */
+  actionId: string;
+  /** Card header and footer: "{cellId}" is replaced by the row's cell
+   * (empty cells: "–"). */
+  title: string;
+  footer?: string;
+  /** Show the gallery first. */
+  default?: boolean;
+};
+
 export type TableViewerData = {
   title?: string;
   columns: TableViewerColumn[];
@@ -316,6 +334,7 @@ export type TableViewerData = {
 
   initialAction?: TableViewerInitialAction;
   variants?: TableViewerVariants;
+  gallery?: TableViewerGallery;
 
   actions?: TableViewerAction[];
 

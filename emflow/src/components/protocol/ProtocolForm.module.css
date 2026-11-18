@@ -384,9 +384,10 @@
 }
 
 :global(.dark) .protocolForm :global(.MuiTab-root.Mui-selected) {
-  background-color: rgba(59, 130, 246, 0.18) !important;
-  color: #f8fafc !important;
-  border-radius: 8px;
+  /* As the light tabs: a raised box (white there) over the blue underline
+     (MuiTabs-indicator), not a blue filled box */
+  background-color: rgba(148, 163, 184, 0.12) !important;
+  color: #93c5fd !important;
 }
 
 :global(.dark) .protocolForm :global(.MuiButtonBase-root.MuiTabScrollButton-root) {

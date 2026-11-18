@@ -2135,10 +2135,14 @@ export default function ProtocolForm({
             key={stableKey}
             sx={{
               mb: 2,
-              border: "1px dashed #ccc",
+              border: "1px dashed",
               borderRadius: 1,
               p: 1,
-              backgroundColor: (theme) => (theme.palette.mode === "dark" ? "#2c2c2c" : "#f9fafb"),
+              // Dark: slate tints of the navy form (as the multi-param rows),
+              // the box and its header one step apart, as in light
+              borderColor: (theme) => (theme.palette.mode === "dark" ? "rgba(148, 163, 184, 0.32)" : "#ccc"),
+              backgroundColor: (theme) =>
+                theme.palette.mode === "dark" ? "rgba(148, 163, 184, 0.05)" : "#f9fafb",
             }}
           >
             <Box
@@ -2154,14 +2158,14 @@ export default function ProtocolForm({
                 py: 0.75,
                 borderRadius: 1,
                 backgroundColor: (theme) =>
-                  theme.palette.mode === "dark" ? "rgba(255,255,255,0.06)" : "#e2e2e4",
+                  theme.palette.mode === "dark" ? "rgba(148, 163, 184, 0.14)" : "#e2e2e4",
                 border: "1px solid",
                 borderColor: (theme) =>
-                  theme.palette.mode === "dark" ? "rgba(255,255,255,0.10)" : "#e2e2e4",
+                  theme.palette.mode === "dark" ? "rgba(148, 163, 184, 0.22)" : "#e2e2e4",
 
                 "&:hover": {
                   backgroundColor: (theme) =>
-                    theme.palette.mode === "dark" ? "rgba(255,255,255,0.10)" : "#e2e2e4",
+                    theme.palette.mode === "dark" ? "rgba(148, 163, 184, 0.2)" : "#e2e2e4",
                 },
               }}
               onClick={toggleExpand}

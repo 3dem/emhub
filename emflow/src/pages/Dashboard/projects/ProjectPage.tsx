@@ -5580,10 +5580,13 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     return { backgroundColor: colorMap[status ?? ""] ?? "#eee" };
   };
 
+  // Minimap colors of the node statuses: the card colors (statusColors in
+  // ProtocolNodeCard.tsx and, in dark, its .status-* tints, a bit lighter
+  // so they show at the minimap scale)
   const statusColorMap: Record<string, string> = {
     running: "#FCCE62",
     saved: "#D9F1FA",
-    launched: "#D9F1FA",
+    launched: "#DCE3FD",
     finished: "#D2F5CB",
     failed: "#F5CCCB",
     aborted: "#F5CCCB",
@@ -5592,6 +5595,18 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     scheduled: "#f7f3bf",
     new: "#1E90FF",
   };
+  const statusColorMapDark: Record<string, string> = {
+    running: "#7a6220",
+    saved: "#24566d",
+    launched: "#3a4582",
+    finished: "#2f5a38",
+    failed: "#6a3540",
+    aborted: "#6a3540",
+    interactive: "#57522a",
+    root: "#24566d",
+    scheduled: "#57522a",
+    new: "#24566d",
+  };
 
   const getMiniMapNodeColor = useCallback(
     (node: Node<StatusNodeData>) => {
@@ -5599,7 +5614,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       const dataAny: any = (node as any).data ?? {};
       const status = String(dataAny.status ?? "").toLowerCase();
 
-      const byStatus = statusColorMap[status];
+      const byStatus = (hostIsDark ? statusColorMapDark : statusColorMap)[status];
       if (byStatus) return byStatus;
 
       return hostIsDark ? "#1f2937" : "#e5e7eb";

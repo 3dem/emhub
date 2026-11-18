@@ -235,6 +235,15 @@ class TestRelionIterations(unittest.TestCase):
         dist = pane['cells']['bottomRight']['figure']['data']
         self.assertEqual(dist[1]['y'], [35.0, 40.0])
         self.assertEqual(pane['cells']['bottomLeft']['title'], 'Class resolution per iteration')
+        # Classes with the same resolution do not hide each other: each one a
+        # bit apart along x, around the iteration, and all in the hover
+        res_fig = pane['cells']['bottomLeft']['figure']
+        firsts = [t['x'][0] for t in res_fig['data']]
+        self.assertEqual(firsts, sorted(set(firsts)))
+        self.assertAlmostEqual(sum(firsts) / len(firsts), 1)
+        self.assertEqual(res_fig['layout']['hovermode'], 'x unified')
+        self.assertEqual(dist[0]['x'], [1, 2])
+        self.assertNotIn('hovermode', pane['cells']['bottomRight']['figure']['layout'])
         changes = pane['cells']['topRight']['figure']['data']
         self.assertEqual([t['yaxis'] for t in changes], ['y', 'y', 'y2'])
 
