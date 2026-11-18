@@ -22,17 +22,26 @@ from .processing_scipion import ScipionSessionData
 
 
 def resolve_processing_path(project_path):
-    """Expand a leading ~ for filesystem access."""
-    if project_path and project_path.startswith('~'):
-        return os.path.expanduser(project_path)
-    return project_path
+    """ Absolute path of a processing (or data) path, for filesystem access.
+
+    Paths are stored as the user typed them: absolute, with a leading ~,
+    or relative.  A relative path is relative to the home folder of the
+    user running EMhub (e.g. 'coescb/home/...' for ~/coescb/home/...),
+    never to the server's working directory, which is wherever the
+    server happened to start and differs between Flask helpers (os.stat
+    uses it, send_from_directory uses the app root instead).
+    """
+    if not project_path:
+        return project_path
+    path = os.path.expanduser(project_path)
+    if not os.path.isabs(path):
+        path = os.path.join(os.path.expanduser('~'), path)
+    return os.path.abspath(path)
 
 
 def resolve_project_root(project_path):
-    """Expand ~ and return absolute path for filesystem access."""
-    if not project_path:
-        return project_path
-    return os.path.abspath(os.path.expanduser(project_path))
+    """ Same as resolve_processing_path, kept for its callers. """
+    return resolve_processing_path(project_path)
 
 
 def _path_inside(path, base):
