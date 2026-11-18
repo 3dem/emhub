@@ -242,21 +242,28 @@ const FAKE_NCOORDS = [12, 7, 0];
 // A 3D classes table of one Relion iteration (as EMhub's
 // build_classes3d_table), with the job's iterations as variants
 function fakeClasses3DTable(it) {
-  const n = 4;
+  const n = 6;
   const name = (k) => `run_it${String(k).padStart(3, "0")}_optimiser.star`;
   const rows = Array.from({ length: n }, (_, i) => {
     const particles = Math.round(4000 * (1 + Math.sin(i + it / 5)) + 500);
-    return { id: i + 1, data: {}, cells: { classId: i + 1, volume: `run_it${String(it).padStart(3, "0")}_class00${i + 1}.mrc`,
+    // Selected column as EMhub's adapter adds it; volume default action
+    return { id: i + 1, data: { classId: i + 1 }, defaultAction: { id: "volume", label: "volume" },
+      cellContexts: { include: { edit: { type: "boolean", field: "include" } } },
+      cells: { include: true, classId: i + 1, volume: `run_it${String(it).padStart(3, "0")}_class00${i + 1}.mrc`,
       particles, percent: 25, resolution: Math.round((40 - it * 1.1 + i * 2.5) * 100) / 100 } };
   });
   return {
     title: `3D classes — Iteration ${it} (${n} classes)`,
     columns: [
+      { id: "include", label: "Selected", align: "center", width: 70 },
       { id: "classId", label: "Class", sortable: true }, { id: "volume", label: "Volume" },
       { id: "particles", label: "Particles", sortable: true }, { id: "percent", label: "% Particles", sortable: true },
       { id: "resolution", label: "Resolution (Å)", sortable: true },
     ],
     rows,
+    editActions: [{ id: "create-subset", label: "Create subset", requiresChanges: true }],
+    // A card per class (EMhub: the gallery action sends a small grid)
+    gallery: { actionId: "gallery", title: "Class {classId}", footer: "{resolution} Å · {particles} particles ({percent}%)" },
     variants: { label: "Iteration", value: name(it), options: Array.from({ length: 26 }, (_, k) => ({ id: name(k), label: `Iteration ${k}` })) },
   };
 }
@@ -847,6 +854,12 @@ export function createFakeService() {
       // A host round trip, so the pane shows its loading state
       await new Promise((resolve) => setTimeout(resolve, 700));
       const name = request.rowData?.tomoName ?? request.rowId;
+      // Gallery card / volume of a fake 3D class
+      if (request.actionId === "gallery" || request.actionId === "volume") {
+        const k = 40 + 6 * Number(request.rowData?.classId ?? 0);
+        return { kind: "imageSlider", layout: "volume", title: `Class ${request.rowData?.classId}`,
+                 dimensions: [k, k, k], voxelSize: FAKE_MAP_ANGPIX, density: fakeMap(k) };
+      }
       if (request.actionId === "ts-view") {
         // Other grid layouts with ?gridLayout=cols|rows|span-top|span-bottom|span-left|span-right
         const layout = new URLSearchParams(location.search).get("gridLayout") ?? "2x2";

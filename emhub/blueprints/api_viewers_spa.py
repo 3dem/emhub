@@ -29,7 +29,8 @@ html and plotly), so no viewer specific code is needed:
       averages of each batch (as in the session dashboard).
     - Classes3D: table of the 3D classes of a Relion iteration (optimiser
       STAR), with the class volume and its number of particles, and the
-      X/Y/Z slices of the volume.
+      X/Y/Z slices of the volume; also shown as a gallery, a card per class
+      with the sections of a small grid of its volume.
     - Particles: table of micrographs with their number of particles, and
       the particles coordinates over the micrograph and a grid with some of
       the particles images.
@@ -64,6 +65,8 @@ _ACTION_CLASSES2D = {'id': 'classes2d', 'label': 'classes'}
 _ACTION_COORDINATES = {'id': 'coordinates', 'label': 'coordinates', 'column': 'micrograph'}
 _ACTION_PARTICLES = {'id': 'particles', 'label': 'particles', 'column': 'stack'}
 _ACTION_VOLUME = {'id': 'volume', 'label': 'volume', 'column': 'volume'}
+# Small grid of a class volume for its card in the gallery (not a column action)
+_ACTION_GALLERY = {'id': 'gallery', 'label': 'gallery'}
 
 # Particles preview grid (columns x rows)
 PARTICLES_GRID = (5, 5)
@@ -157,6 +160,12 @@ SPA_TABLE_VIEW_SPECS = {
         'actions': [_ACTION_VOLUME],
         # Show the volume when clicking on a class row
         'default_action': _ACTION_VOLUME,
+        # A card per class (TableViewerData.gallery), {cell id} templates
+        'gallery': {
+            'actionId': _ACTION_GALLERY['id'],
+            'title': 'Class {classId}',
+            'footer': '{resolution} Å · {particles} particles ({percent}%)',
+        },
     },
 }
 
@@ -269,7 +278,10 @@ def build_spa_table(full_path, type_key):
 def build_spa_pane_content(action_id, root, type_key, row_cells, output_path=None,
                            row_label=None):
     """Build the pane content for an action on a SPA table row."""
-    actions = {a['id'] for a in SPA_TABLE_VIEW_SPECS[type_key]['actions']}
+    spec = SPA_TABLE_VIEW_SPECS[type_key]
+    actions = {a['id'] for a in spec['actions']}
+    if 'gallery' in spec:
+        actions.add(spec['gallery']['actionId'])
     if action_id not in actions:
         raise Exception(f'Action {action_id!r} is not supported for {type_key}')
 
@@ -293,6 +305,8 @@ def build_spa_pane_content(action_id, root, type_key, row_cells, output_path=Non
         return build_particles_grid_pane_content(root, row_cells, output_path)
     if action_id == 'volume':
         return build_class3d_volume_pane_content(root, row_cells)
+    if action_id == 'gallery':
+        return build_class3d_gallery_pane_content(root, row_cells)
 
     raise Exception(f'Unsupported table view action: {action_id}')
 
@@ -835,7 +849,8 @@ def build_classes3d_table(full_path):
     return {'title': title,
             'columns': _table_view_column_actions(spec),
             'rows': rows,
-            'variants': _iteration_variants(full_path)}
+            'variants': _iteration_variants(full_path),
+            'gallery': spec['gallery']}
 
 
 
@@ -857,6 +872,23 @@ def build_class3d_volume_pane_content(root, row_cells):
     if its := map_iterations_source(root, volume):
         content['iterations'] = its
     return content
+
+
+def build_class3d_gallery_pane_content(root, row_cells):
+    """Card of a 3D class in the gallery of the Classes3D table: a small
+    grid of its volume (inline density, see load_volume_preview), whose
+    sections the card draws. """
+    from emhub.data.volume_density import load_volume_preview
+
+    volume = row_cells.get('volumePath')
+    if not volume:
+        raise Exception('Missing class volume path')
+    vol_path = _resolve_data_path(root, volume)
+    if not vol_path or not os.path.isfile(vol_path):
+        raise Exception(f'Class volume not found: {volume}')
+    return {'kind': 'imageSlider', 'layout': 'volume',
+            'title': f"Class {row_cells.get('classId')}",
+            'density': load_volume_preview(vol_path)}
 
 
 def create_classes_subset(root, star_path, classes):

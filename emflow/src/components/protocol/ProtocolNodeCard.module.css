@@ -1145,49 +1145,57 @@
     0 14px 34px rgba(0, 0, 0, 0.34);
 }
 
-:global(.dark) .status-running,
+/* Status colors in dark: the hues of the light cards (statusColors in
+   ProtocolNodeCard.tsx) as deep tints, so a status keeps its color when the
+   theme changes (finished green, saved / new cyan, launched periwinkle,
+   failed red, running amber, scheduled / interactive yellow). The minimap
+   uses the same colors (statusColorMapDark in ProjectPage.tsx). */
+:global(.dark) .status-running {
+  background-color: #4a3b12 !important;
+  border-color: rgba(252, 206, 98, 0.5);
+}
+
 :global(.dark) .status-scheduled,
 :global(.dark) .status-interactive {
-  background-color: #211f14 !important;
-  background-image:
-    radial-gradient(circle at top left, rgba(250, 204, 21, 0.10), transparent 34%),
-    linear-gradient(135deg, #262315, #151923) !important;
-  border-color: rgba(234, 179, 8, 0.22);
+  background-color: #37341a !important;
+  border-color: rgba(247, 243, 191, 0.32);
 }
 
 :global(.dark) .status-finished {
-  background-color: #11231e !important;
-  background-image:
-    radial-gradient(circle at top left, rgba(34, 197, 94, 0.09), transparent 34%),
-    linear-gradient(135deg, #142821, #111827) !important;
-  border-color: rgba(34, 197, 94, 0.20);
+  background-color: #1f3a25 !important;
+  border-color: rgba(134, 239, 172, 0.32);
 }
 
 :global(.dark) .status-failed,
 :global(.dark) .status-aborted {
-  background-color: #251820 !important;
-  background-image:
-    radial-gradient(circle at top left, rgba(248, 113, 113, 0.10), transparent 34%),
-    linear-gradient(135deg, #2c1c24, #151923) !important;
-  border-color: rgba(248, 113, 113, 0.22);
+  background-color: #45232a !important;
+  border-color: rgba(252, 165, 165, 0.38);
 }
 
 :global(.dark) .status-launched {
-  background-color: #1a1d3a !important;
-  background-image:
-    radial-gradient(circle at top left, rgba(129, 140, 248, 0.12), transparent 34%),
-    linear-gradient(135deg, #1f2342, #111827) !important;
-  border-color: rgba(129, 140, 248, 0.24);
+  background-color: #272f58 !important;
+  border-color: rgba(165, 180, 252, 0.38);
 }
 
 :global(.dark) .status-saved,
 :global(.dark) .status-new,
 :global(.dark) .status-root {
-  background-color: #162033 !important;
-  background-image:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 34%),
-    linear-gradient(135deg, #1b2537, #111827) !important;
-  border-color: rgba(56, 189, 248, 0.18);
+  background-color: #173a4b !important;
+  border-color: rgba(125, 211, 252, 0.32);
+}
+
+:global(.dark) .status-running,
+:global(.dark) .status-scheduled,
+:global(.dark) .status-interactive,
+:global(.dark) .status-finished,
+:global(.dark) .status-failed,
+:global(.dark) .status-aborted,
+:global(.dark) .status-launched,
+:global(.dark) .status-saved,
+:global(.dark) .status-new,
+:global(.dark) .status-root {
+  /* Flat as the light cards, with a faint top light */
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 45%) !important;
 }
 
 :global(.dark) .header {
@@ -1516,9 +1524,10 @@
 }
 
 :global(.dark) .collapsedGroup {
-  background-color: #1d3d2c !important;
-  background-image: linear-gradient(135deg, #21452f, #142821) !important;
-  border-color: rgba(34, 197, 94, 0.45);
+  /* Stronger green than a finished job, as in light */
+  background-color: #285a33 !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 45%) !important;
+  border-color: rgba(134, 239, 172, 0.6);
 }
 
 .clusterJobPillClickable {

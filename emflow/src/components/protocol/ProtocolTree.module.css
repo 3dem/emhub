@@ -151,6 +151,8 @@
   border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
+  /* The row's text color (otherwise the host's button color: black in dark) */
+  color: inherit;
   opacity: 0.85;
 }
 

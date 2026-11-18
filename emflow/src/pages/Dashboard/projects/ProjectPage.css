@@ -185,6 +185,8 @@
   --emf-gray-700: #374151;
   --emf-gray-800: #1f2937;
   --emf-gray-900: #111827;
+  /* Workflow graph edges (graph_utils.ts): behind the cards in both themes */
+  --emf-graph-edge: #cad5e2;
   /* Selected table rows: indigo, apart from the teal table headers */
   --emf-row-selected: #e3e9fd;
   --emf-row-selected-hover: #d5defb;
@@ -241,6 +243,7 @@
   --emf-gray-700: #e5e7eb;
   --emf-gray-800: #f3f4f6;
   --emf-gray-900: #f9fafb;
+  --emf-graph-edge: #4a5a72;
   --emf-row-selected: #26305c;
   --emf-row-selected-hover: #2e3a6c;
   --emf-row-selected-accent: #8fa2f5;
@@ -277,6 +280,21 @@
   /* headerControlSizing */
   --ppHeaderControlHeight: 34px;
   --ppHeaderControlFontSize: 0.82rem;
+}
+
+/* EMhub's style.css colors every label (#71748d) and heading (#3d405c) for
+   its light page: in dark they were dark on dark (dialog titles, checkbox and
+   slider labels). They take the text color around them instead. :where()
+   keeps the host's specificity (0,0,1; emflow.css loads later), so any
+   class rule (MUI labels, modules) still wins. */
+:where(.emflow-root.dark) label,
+:where(.emflow-root.dark) h1,
+:where(.emflow-root.dark) h2,
+:where(.emflow-root.dark) h3,
+:where(.emflow-root.dark) h4,
+:where(.emflow-root.dark) h5,
+:where(.emflow-root.dark) h6 {
+  color: inherit;
 }
 
 .emflow-root.dark {

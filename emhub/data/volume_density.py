@@ -24,6 +24,10 @@ side longer than ``max_size`` (Fourier cropping of the whole map with emtools,
 as for maps; ``binning`` is then the real scale factor). Its bytes are zlib
 compressed (``encoding: 'zlib'``) when that is worth it. ``timing`` has the
 seconds of each step on the server (``cached`` when it was in memory).
+
+``load_volume_preview`` gives a much smaller grid of a map (longest side
+<= 96, no histogram or statistics) for thumbnails, e.g. the cards of the
+gallery of 3D classes, kept in its own memory cache.
 """
 
 import base64
@@ -134,6 +138,23 @@ def _histogram_chunks(data, bins, lo, hi):
     return counts, below, above
 
 
+def _encode_grid(grid, compress_bytes=_COMPRESS_BYTES):
+    """ uint8 grid over the range of the grid (its own 0.01-99.99
+    percentiles), as base64 (zlib compressed when bigger than compress_bytes
+    and worth it): (u8, data_b64, encoding, value_range). """
+    q0, q1 = (float(v) for v in np.percentile(grid, [0.01, 99.99]))
+    if not q1 > q0:
+        q0, q1 = float(grid.min()), float(grid.max()) or 1.0
+    u8 = np.clip(np.round((grid - q0) * (255.0 / (q1 - q0))), 0, 255).astype(np.uint8)
+    raw = u8.tobytes()
+    encoding = None
+    if len(raw) > compress_bytes:
+        packed = zlib.compress(raw, 1)
+        if len(packed) < 0.9 * len(raw):
+            raw, encoding = packed, 'zlib'
+    return u8, base64.b64encode(raw).decode('ascii'), encoding, (q0, q1)
+
+
 def _compute(path, max_voxels, max_size, bins):
     import mrcfile
 
@@ -180,18 +201,7 @@ def _compute(path, max_voxels, max_size, bins):
     shown_above = int(np.count_nonzero(grid > hi))
     timer.step('histogram')
 
-    # uint8 over the range of the grid (its own 0.01-99.99 percentiles)
-    q0, q1 = (float(v) for v in np.percentile(grid, [0.01, 99.99]))
-    if not q1 > q0:
-        q0, q1 = float(grid.min()), float(grid.max()) or 1.0
-    u8 = np.clip(np.round((grid - q0) * (255.0 / (q1 - q0))), 0, 255).astype(np.uint8)
-    raw = u8.tobytes()
-    encoding = None
-    if len(raw) > _COMPRESS_BYTES:
-        packed = zlib.compress(raw, 1)
-        if len(packed) < 0.9 * len(raw):
-            raw, encoding = packed, 'zlib'
-    data_b64 = base64.b64encode(raw).decode('ascii')
+    u8, data_b64, encoding, (q0, q1) = _encode_grid(grid)
     timer.step('encode')
 
     nz, ny, nx = grid.shape
@@ -251,4 +261,53 @@ def load_volume_density(path, max_voxels=None, max_size=None, bins=HISTOGRAM_BIN
         _cache[key] = result
         while len(_cache) > _CACHE_SIZE:
             _cache.popitem(last=False)
+    return result
+
+
+# Small grids of maps for thumbnails (e.g. the 3D classes gallery)
+PREVIEW_MAX_SIZE = 96
+_preview_cache = OrderedDict()
+_PREVIEW_CACHE_SIZE = 256
+
+
+def load_volume_preview(path, max_size=PREVIEW_MAX_SIZE):
+    """ A small grid of the map at path, for thumbnails that draw its
+    sections (e.g. emflow's gallery of 3D classes): Fourier scaled to a
+    longest side <= max_size (as maps in load_volume_density), uint8 over
+    its 0.01-99.99 percentiles, without histogram or statistics. Same
+    fields as the density otherwise (shape, binning, data, encoding,
+    valueRange, dimensions). Kept in memory (keyed by path, modification
+    time and size), apart from the bigger densities. """
+    import mrcfile
+
+    max_size = max(16, min(256, int(max_size or PREVIEW_MAX_SIZE)))
+    st = os.stat(path)
+    key = (os.path.abspath(path), st.st_mtime, st.st_size, max_size)
+    with _cache_lock:
+        if key in _preview_cache:
+            _preview_cache.move_to_end(key)
+            return _preview_cache[key]
+
+    with mrcfile.mmap(path, permissive=True) as mrc:
+        if mrc.data.ndim != 3:
+            raise Exception(f'Not a volume (shape {mrc.data.shape}): {path}')
+        grid = np.array(mrc.data, dtype=np.float32)
+    Z, Y, X = grid.shape
+    if max(Z, Y, X) > max_size:
+        from emtools.image import Image
+        grid = Image._fourier_rescale(grid, max_size / max(Z, Y, X)).astype(np.float32, copy=False)
+    nz, ny, nx = grid.shape
+    _, data_b64, encoding, (q0, q1) = _encode_grid(grid, compress_bytes=16 * 1024)
+    result = {
+        'shape': [int(nz), int(ny), int(nx)],
+        'binning': float(max(Z, Y, X) / max(nz, ny, nx)),
+        'data': data_b64,
+        'encoding': encoding,
+        'valueRange': [q0, q1],
+        'dimensions': [X, Y, Z],
+    }
+    with _cache_lock:
+        _preview_cache[key] = result
+        while len(_preview_cache) > _PREVIEW_CACHE_SIZE:
+            _preview_cache.popitem(last=False)
     return result

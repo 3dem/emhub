@@ -16,7 +16,7 @@ with `?tomoTable` in the url to get a fake Tomograms table viewer with the
 Selected column, Create subset and the TS / Tomogram icon column; its tilt-series icon opens a fake `2x2`
 grid, with `&gridLayout=<layout>` for the other layouts; `?tomoTable=coords`
 gives a TomoCoordinates table whose tomogram icon shows particles on the
-slices; `?classesTable` a fake 3D classes table with its iterations in the Iteration select (`loadTableViewerVariant`); `?compareTable` (`=self` for duplicates) a fake Coordinates Distances job view (Distance select, tomogram panes with particle sets recomputed at another distance by `fakeDataRequest`, the dev page's DataLoader transport); `?outputPrefix` gives the outputs a label prefix, `Out01`... for
+slices; `?classesTable` a fake 3D classes table with its iterations in the Iteration select (`loadTableViewerVariant`), the Selected column, Create subset and the gallery (`table.gallery`); `?compareTable` (`=self` for duplicates) a fake Coordinates Distances job view (Distance select, tomogram panes with particle sets recomputed at another distance by `fakeDataRequest`, the dev page's DataLoader transport); `?outputPrefix` gives the outputs a label prefix, `Out01`... for
 all but the first output of each protocol). Actions take 0.7 s there, to show the pane's loading state. Update
 it when the contract changes.
 
@@ -220,8 +220,23 @@ table: TableViewerData = {
           children?}],
   actions?, editActions?: [{id, label, requiresChanges?}], page?,
   initialAction?: {rowId, actionId?, columnId?},
-  variants?: {label, value, options: [{id, label}]} }   // other versions, e.g. iterations
+  variants?: {label, value, options: [{id, label}]},   // other versions, e.g. iterations
+  gallery?: {actionId, title, footer?, default?} }      // a card per row (TableViewerGallery)
 ```
+
+- `gallery`: the table can be shown as a gallery (`TableViewerGallery.tsx`,
+  a Table / Gallery toggle in the toolbar; `default: true` shows it first).
+  Each card resolves `actionId` for its row (`resolveTableViewerAction`
+  without a column) and expects a pane content with an inline `density`
+  (`VolumeDensity`, a small grid: the card draws its sections). `title` and `footer` are templates: `{cellId}` is replaced
+  by the row's cell (empty: "–"). EMhub: the Classes3D table sends
+  `{actionId: "gallery", title: "Class {classId}", footer: "{resolution} Å ·
+  {particles} particles ({percent}%)"}`; its `gallery` action
+  (`build_class3d_gallery_pane_content`) answers `{kind: "imageSlider",
+  layout: "volume", title, density}` with `load_volume_preview` of
+  `data/volume_density.py` (Fourier scaled to a longest side ≤ 96, uint8,
+  no histogram or statistics, zlib; its own memory cache of 256 maps, apart
+  from the bigger densities).
 
 - `initialAction`: when the table is shown, its row is selected and its
   action resolved as if clicked (once per table object): `actionId` is
