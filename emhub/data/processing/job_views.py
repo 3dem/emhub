@@ -312,41 +312,73 @@ class CoordinatesCompareView(JobView):
     TOMO_ACTION = {'id': 'tomo-view', 'label': 'Tomogram', 'icon': 'tomogram'}
     # Edit action of the table of a set compared to itself
     REMOVE_ACTION = 'remove-duplicates'
-    # Distances of the 'Distance' select, as factors of the job's one
-    FACTORS = (0.25, 0.5, 0.75, 1, 1.5, 2, 3)
-
+    # Edit action of the table of two sets
+    MERGE_ACTION = 'merge-sets'
     @staticmethod
     def _fmt(d):
         return f'{d:g}'
 
+    def variant(self, cc, distance, edge=None):
+        """ The option of the view: '<distance>[:<edge>]' (Å; edge 0: none). """
+        value = f'{self.id}{_OPTION_SEP}{self._fmt(distance)}'
+        return value + (f'{_OPTION_SEP}{self._fmt(edge or 0)}' if cc.has_edges else '')
+
+    @staticmethod
+    def _option(cc, option):
+        """ (distance, edge) of a view option '<distance>[:<edge>]'; the
+        job's maximum distance by default, and the edge distance the same
+        as the distance (see CoordinatesCompare.resolve_edge). """
+        parts = (option or '').split(_OPTION_SEP)
+        try:
+            distance = float(parts[0]) if parts[0] else cc.max_distance
+        except ValueError:
+            raise Exception(f'Invalid distance: {option!r}')
+        if not distance > 0:
+            raise Exception(f'Invalid distance: {option!r}')
+        return distance, cc.resolve_edge(parts[1] if len(parts) > 1 else None, distance)
+
+    @staticmethod
+    def _edge_column(cc):
+        """ The Near edge column, if the job stored the edge distances. """
+        return [('edge', 'Near edge')] if cc.has_edges else []
+
     def table(self, root, job_dir, option=None):
-        from .coordinates_compare import CoordinatesCompare
+        from .coordinates_compare import CoordinatesCompare, MERGE_PARTS
 
         cc = CoordinatesCompare(root, job_dir)
-        distance = float(option) if option else cc.max_distance
+        distance, edge = self._option(cc, option)
         if cc.compare_self:
-            columns = [('coords', 'Coordinates'), ('duplicates', 'Duplicates'),
-                       ('kept', 'Kept')]
+            columns = [('coords', 'Coordinates')] + self._edge_column(cc) + [
+                ('duplicates', 'Duplicates'), ('kept', 'Kept')]
             case = 'duplicates, ' + (f'keeping the highest {cc.score_column}'
                                      if cc.score_column else 'no score')
         else:
-            columns = [('a', 'A'), ('b', 'B'), ('aMinusB', 'A - B'),
-                       ('bMinusA', 'B - A'), ('aAndB', 'A & B')]
+            columns = [('a', 'A'), ('b', 'B')] + self._edge_column(cc) + [
+                ('aMinusB', 'A - B'), ('bMinusA', 'B - A'), ('aAndB', 'A & B')]
             case = 'A vs B'
         rows, totals = [], {}
-        for tomo, counts in cc.counts(distance):
+        for tomo, counts in cc.counts(distance, edge):
+            if not cc.has_edges:
+                counts.pop('edge')
             for k, v in counts.items():
                 totals[k] = totals.get(k, 0) + v
-            cells = dict(counts, tomoName=tomo, distance=distance)
+            cells = dict(counts, tomoName=tomo, distance=distance, edgeDistance=edge or 0)
             row = {'id': tomo, 'cells': cells, 'actions': [],
-                   'defaultAction': dict(self.TOMO_ACTION)}
+                   'defaultAction': dict(self.TOMO_ACTION), 'cellContexts': {}}
             if cc.tomogram(tomo):
-                row['cellContexts'] = {'tomo': {'actions': [dict(self.TOMO_ACTION)]}}
+                row['cellContexts']['tomo'] = {'actions': [dict(self.TOMO_ACTION)]}
+            if not cc.compare_self:
+                # The sets to merge (Merge), all selected, next to their count
+                for col in MERGE_PARTS:
+                    row['cellContexts'][col] = {'edit': {
+                        'type': 'boolean', 'field': col, 'checked': True,
+                        'disabled': not counts[col]}}
             rows.append(row)
         summary = ', '.join(f'{label}: {totals.get(k, 0)}' for k, label in columns)
         job_id = os.path.relpath(job_dir, root)
         table = {
-            'title': (f'{self.label} — {job_id} ({case}, {self._fmt(distance)} Å; '
+            'title': (f'{self.label} — {job_id} ({case}, {self._fmt(distance)} Å'
+                      + (f', edge {self._fmt(edge)} Å' if edge else '') + '; '
                       f'{len(rows)} tomograms; {summary})'),
             'columns': (
                 [{'id': 'tomoName', 'label': 'Tomo name', 'align': 'left', 'sortable': True}]
@@ -355,23 +387,33 @@ class CoordinatesCompareView(JobView):
                 + [{'id': 'tomo', 'label': 'Tomogram'}]),
             'rows': rows,
         }
-        values = sorted({round(cc.max_distance * f, 1) for f in self.FACTORS}
-                        | {round(distance, 1)})
+        # The distances are chosen in the tomogram viewer: the table follows
+        # them (variants.template with its values, loaded in place)
+        values = {'distance': distance}
+        template = f'{self.id}{_OPTION_SEP}{{distance}}'
+        if cc.has_edges:
+            values['edge'] = edge or 0
+            template += f'{_OPTION_SEP}{{edge}}'
         table['variants'] = {
             'label': 'Distance (Å)',
-            'value': f'{self.id}{_OPTION_SEP}{self._fmt(distance)}',
-            'options': [{'id': f'{self.id}{_OPTION_SEP}{self._fmt(v)}',
-                         'label': self._fmt(v) + (' (job)' if v == round(cc.max_distance, 1) else '')}
-                        for v in values],
+            'value': self.variant(cc, distance, edge),
+            'options': [],
+            'template': template,
+            'values': values,
         }
         if cc.compare_self:
-            # A subset without the duplicates at this distance (the host
-            # launches it with remove_duplicates)
+            # A subset without the duplicates at this distance and those
+            # near the edges (the host launches it with remove_duplicates)
             table['editActions'] = [{
                 'id': self.REMOVE_ACTION,
-                'label': 'Remove duplicates',  # at the distance of the select
-                'disabled': not totals.get('duplicates'),
+                # At the distances of the inputs
+                'label': 'Remove duplicates / edges' if edge else 'Remove duplicates',
+                'disabled': not (totals.get('duplicates') or totals.get('edge')),
             }]
+        else:
+            # A set without the overlapping coordinates of A and B (those
+            # checked of each row; the host launches it with merge_sets)
+            table['editActions'] = [{'id': self.MERGE_ACTION, 'label': 'Merge'}]
         if rows:
             table['initialAction'] = {'rowId': rows[0]['id'], 'actionId': self.TOMO_ACTION['id']}
         return table
@@ -388,9 +430,10 @@ class CoordinatesCompareView(JobView):
         if not tomo_rel:
             raise Exception(f'No tomogram for {tomo!r} in the input sets')
         distance = float(row_cells.get('distance') or cc.max_distance)
+        edge = cc.resolve_edge(row_cells.get('edgeDistance'), distance)
         return build_tomogram_volume_slider_pane_content(
             root, tomo_rel, title=f'Tomogram — {tomo}',
-            coordinates=cc.coordinates(tomo, distance))
+            coordinates=cc.coordinates(tomo, distance, edge))
 
 
 register_job_view(CtfPlotsView())

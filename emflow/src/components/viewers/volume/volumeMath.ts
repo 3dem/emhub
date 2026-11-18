@@ -46,18 +46,55 @@ export type CoordinateSet = {
   hidden?: boolean;
 };
 
-/** Input of the viewer to get the sets at another value: the DataLoader
- * loads `source` with `{...payload, distance: value}`, answering
- * `{set, sets}` (or `{coordinates: {set, sets}}`). */
-export type CoordinatesRecompute = {
-  /** Label of the input ("Distance"). */
+/** An input of the viewer the sets depend on (e.g. a distance). */
+export type CoordinatesRecomputeInput = {
+  /** Key of its value in the request ("distance"). */
+  id: string;
+  /** Id of the set it decides (e.g. "duplicates"): drawn in that set's
+   * group of the sets bar, else after the sets. */
+  set?: string;
   label?: string;
+  /** Tooltip (what the value means). */
+  title?: string;
+  /** The value (Å) is a margin from the box faces (e.g. the distance to the
+   * edges): drawn translucent in the color of its set, in Slices and on the
+   * 3D planes, while that set is shown. */
+  margin?: boolean;
   unit?: string;
   value: number;
   min?: number;
   step?: number;
+};
+
+/** Inputs of the viewer to get the sets at other values: the DataLoader
+ * loads `source` with `{...payload, <input id>: value...}`, answering
+ * `{set, sets}` (or `{coordinates: {set, sets}}`). One input (`distance`)
+ * is `label`/`unit`/`value`/`min`/`step`; several are `inputs`. */
+export type CoordinatesRecompute = {
+  /** Label of the input ("Distance"). */
+  label?: string;
+  unit?: string;
+  value?: number;
+  min?: number;
+  step?: number;
+  inputs?: CoordinatesRecomputeInput[];
   source: { path: string; payload?: Record<string, unknown> };
 };
+
+/** Margin of the box drawn over the volume (CoordinatesRecomputeInput.margin):
+ * its width from each face, voxels per axis, color and opacity. */
+export type BoxMargin = { vox: Vec3; color: string; opacity: number };
+
+/** Opacity of the box margin. */
+export const BOX_MARGIN_OPACITY = 0.22;
+
+/** The inputs of a recompute (its `inputs`, or its single `distance`). */
+export function recomputeInputs(r: CoordinatesRecompute | null | undefined): CoordinatesRecomputeInput[] {
+  if (!r) return [];
+  if (r.inputs?.length) return r.inputs;
+  return r.value == null ? [] : [{ id: "distance", label: r.label ?? "Distance", unit: r.unit,
+                                   value: r.value, min: r.min, step: r.step }];
+}
 
 /** The sets of the coordinates, or null when they are one set (or the
  * sets do not match the particles). */

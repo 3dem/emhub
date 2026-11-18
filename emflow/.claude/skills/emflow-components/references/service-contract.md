@@ -167,19 +167,33 @@ reusable for any STAR columns). New views subclass `JobView`, or
 `register_job_view`. `Coordinates Distances` (`emw-coordinates-compare`,
 `CoordinatesCompareView`, data from `data/processing/coordinates_compare.py`
 reading the job's `distances.npz`) is a row per tomogram with the counts at a
-distance (set compared to itself: Coordinates, Duplicates (emwrap's
+distance and an edge distance (chosen in the tomogram viewer, the table
+follows them: `variants.template` `coordinates-compare:{distance}:{edge}` and
+`variants.values`; the edge distance is the duplicates one unless given, 0
+none; the particles closer than the edge distance to the tomogram box edges
+are the Near edge set and column, left out of the others; their distances to
+the edges are those stored by the job, `<tomo>.edge1/2`, else computed from
+the input sets and their tomogram sizes) (set compared to itself: Coordinates, Duplicates (emwrap's
 `coordinates_compare.duplicates`: the highest score kept when the job stored
 `<tomo>.score`, else Relion's rule, a later coordinate within the distance),
 Kept, and the edit action `remove-duplicates` that the host
 (`executeTableViewerEditAction`) sends to `/api/create_remove_duplicates`
-`{root, entry_id, job, distance}`, launching an `emw-remove-duplicates`
-subset job; A vs B: A, B, A - B, B - A,
+`{root, entry_id, job, distance, edge}`, launching an `emw-subset-ts` job in
+its 'Remove duplicate / near-edge particles' mode (it computes the distances
+again); A vs B
+has a checkbox (`edit.checked`, drawn next to the count) in each A - B,
+B - A and A & B cell and the edit action `merge-sets`, sent to
+`/api/create_merged_set` `{root, entry_id, job, distance, edge, exclude:
+[{tomoName, column}]}` (the unchecked cells), launching `emw-merge-sets` with
+its `overlap_distance`, `edge_distance`, `exclude_parts` and `common_columns`; A vs B: A, B, A - B, B - A,
 A & B) and a `Distance (Å)` variant select (the job's distance and multiples;
 a job view value may end with `:<option>`, `loadTableViewerVariant` of a
 `JobView` replaces the part after `#`); its tomogram icon (default action
 `tomo-view`) shows the tomogram with the particles of A (and B) in sets
-(`set`, `sets`) and a `recompute` request (`/api/fetch_coordinates_compare_sets`
-`{root, job, tomoName, distance}` answering `{coordinates: {set, sets}}`).
+(`set`, `sets`) and a `recompute` request with the distance and edge inputs,
+each in the group of the set it decides (`recompute.inputs[].set`; the edge
+one is a `margin`, drawn over the tomogram; `/api/fetch_coordinates_compare_sets`
+`{root, job, tomoName, distance, edge}` answering `{coordinates: {set, sets}}`).
 The job registers no output node: this view is its only output. It returns `viewer: "volume"` for `Volume` and `VolumeMask` outputs
 (`.mrc`) with `source` = `/api/get_volume_viewer` `{root, path,
 pointerClass}` (`build_volume_output_pane_content`, `VOLUME_OUTPUT_VIEWER_CONFIG`:
@@ -201,7 +215,7 @@ context: TableViewerContext = { projectId, protocolId, outputName, pointerClass?
 table: TableViewerData = {
   title?, columns: [{id, label, align?, width?, sortable?, actions?}],   // action: {id, label, icon?, disabled?}
   rows: [{id, cells: {colId: value}, data?, actions?, defaultAction?,
-          cellContexts?: {colId: {edit?: {type: "boolean", field}, actions?, children?}},
+          cellContexts?: {colId: {edit?: {type: "boolean", field, checked?}, actions?, children?}},
           children?}],
   actions?, editActions?: [{id, label, requiresChanges?}], page?,
   initialAction?: {rowId, actionId?, columnId?},

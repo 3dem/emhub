@@ -19,6 +19,7 @@ import {
   particleRotation,
   sectionSize,
   type Axis,
+  type BoxMargin,
   type SliceImage,
   type Vec3,
   type VolumeCoordinates,
@@ -47,6 +48,9 @@ export type SceneState = {
   particleSet?: number[] | null;
   setColors?: string[] | null;
   setShown?: boolean[] | null;
+  /** Margin of the box (e.g. near the edges): translucent on the planes,
+   * with the outline of the box inside it (null: none). */
+  margin?: BoxMargin | null;
   volOn: boolean;
   inverted: boolean;
   /** Shown planes (at most two). */
@@ -164,6 +168,12 @@ export class VolumeScene3D {
   private readonly scene = new THREE.Scene();
   private readonly camera: THREE.PerspectiveCamera;
   private readonly planes = {} as Record<Axis, THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>>;
+  /** The box margin on each plane (a frame, or the whole plane), and the
+   * outline of the box inside it; built when first shown. */
+  private readonly marginFrames: Partial<Record<Axis, THREE.Mesh<THREE.ShapeGeometry, THREE.MeshBasicMaterial>>> = {};
+  private readonly marginShapes: Partial<Record<Axis, string>> = {};
+  private marginBox: THREE.LineSegments<THREE.EdgesGeometry, THREE.LineBasicMaterial> | null = null;
+  private marginBoxSize = "";
   private readonly tex = new Map<string, THREE.Texture>();
   private readonly pending = new Set<string>();
   private readonly ray = new THREE.Raycaster();
@@ -418,6 +428,7 @@ export class VolumeScene3D {
       m.visible = active.includes(a);
     }
     this.dropOtherTextures();
+    this.updateMargin();
     const P = this.o.particles;
     if (P && this.points) {
       this.updateShown(P);
@@ -439,6 +450,87 @@ export class VolumeScene3D {
     }
     this.updateVolume();
     this.render();
+  }
+
+  /** The box margin on the planes (as the Slices sections: the whole plane
+   * when its slice is in the margin, else a frame along its sides) and the
+   * outline of the box inside the margin. */
+  private updateMargin() {
+    const m = this.state.margin;
+    const dim = this.o.dim;
+    // The box axes along the width and the height of each plane's geometry
+    const wh: Record<Axis, [Axis, Axis]> = { z: ["x", "y"], y: ["x", "z"], x: ["z", "y"] };
+    for (const a of AXES) {
+      let frame = this.marginFrames[a];
+      if (!m) {
+        if (frame) frame.visible = false;
+        continue;
+      }
+      const key = this.o.keys[a][nearest(this.o.keys[a], this.state.pos[a])];
+      const c = key + 0.5;
+      const inside = c >= m.vox[a] && c <= dim[a] - m.vox[a];
+      const [wa, ha] = wh[a];
+      const W = dim[wa], H = dim[ha];
+      const mw = Math.min(m.vox[wa], W / 2), mh = Math.min(m.vox[ha], H / 2);
+      if (!frame) {
+        frame = new THREE.Mesh(
+          new THREE.ShapeGeometry(new THREE.Shape()),
+          // Over its plane (drawn after it, in front of it in depth)
+          new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide, depthWrite: false,
+                                        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }),
+        );
+        frame.renderOrder = 2;
+        this.planes[a].add(frame);
+        this.marginFrames[a] = frame;
+      }
+      const id = `${inside}:${mw}:${mh}`;
+      if (this.marginShapes[a] !== id) {
+        const shape = new THREE.Shape();
+        shape.moveTo(-W / 2, -H / 2);
+        shape.lineTo(W / 2, -H / 2);
+        shape.lineTo(W / 2, H / 2);
+        shape.lineTo(-W / 2, H / 2);
+        shape.closePath();
+        if (inside) {
+          const hole = new THREE.Path();
+          hole.moveTo(-W / 2 + mw, -H / 2 + mh);
+          hole.lineTo(-W / 2 + mw, H / 2 - mh);
+          hole.lineTo(W / 2 - mw, H / 2 - mh);
+          hole.lineTo(W / 2 - mw, -H / 2 + mh);
+          hole.closePath();
+          shape.holes.push(hole);
+        }
+        frame.geometry.dispose();
+        frame.geometry = new THREE.ShapeGeometry(shape);
+        this.marginShapes[a] = id;
+      }
+      frame.material.color.set(m.color);
+      frame.material.opacity = m.opacity;
+      frame.visible = true;
+    }
+
+    if (!m) {
+      if (this.marginBox) this.marginBox.visible = false;
+      return;
+    }
+    const size = AXES.map((a) => Math.max(dim[a] - 2 * m.vox[a], 0.01));
+    const sizeId = size.join(":");
+    if (!this.marginBox) {
+      this.marginBox = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
+        new THREE.LineBasicMaterial({ transparent: true, opacity: 0.85 }),
+      );
+      this.marginBox.position.set(dim.x / 2, -dim.y / 2, dim.z / 2);
+      this.scene.add(this.marginBox);
+    }
+    if (this.marginBoxSize !== sizeId) {
+      this.marginBox.geometry.dispose();
+      const [sx, sy, sz] = size;
+      this.marginBox.geometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(sx, sy, sz));
+      this.marginBoxSize = sizeId;
+    }
+    this.marginBox.material.color.set(m.color);
+    this.marginBox.visible = true;
   }
 
   /** Particles within `tolerance` of a shown plane (or all), as points and templates. */

@@ -31,6 +31,7 @@
 import {
   forwardRef,
   useCallback,
+  useContext,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -67,6 +68,7 @@ import VolumeSlices, {
 import { VolumeScene3D, type ParticleDraw, type SceneState } from "./volume/VolumeScene3D";
 import ParticlesPanel, { type ParticleOptions } from "./volume/ParticlesPanel";
 import CoordinateSetsBar from "./volume/CoordinateSetsBar";
+import { TableValuesContext } from "./TableValuesContext";
 import DenoisePanel from "./volume/DenoisePanel";
 import { DETAILS } from "./volume/DensityPanel";
 import IterationsBar from "./volume/IterationsBar";
@@ -86,6 +88,7 @@ import {
   AXES,
   clampVox,
   coordinateSets,
+  recomputeInputs,
   isDensitySource,
   mapValueRange,
   normVoxel,
@@ -95,6 +98,8 @@ import {
   sliceKeys,
   volumeDataFromPane,
   type Axis,
+  type BoxMargin,
+  BOX_MARGIN_OPACITY,
   type CoordinateSet,
   type DensitySource,
   type Ruler,
@@ -785,14 +790,34 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const [setShown, setSetShown] = useState<boolean[]>(() => (P?.sets ?? []).map((s) => !s.hidden));
     const [setColors, setSetColors] = useState<string[]>(() => (P?.sets ?? []).map((s) => s.color));
     const recompute = sets ? P?.recompute ?? null : null;
-    const [setsValue, setSetsValue] = useState<number | null>(recompute?.value ?? null);
+    const recomputeIn = useMemo(() => recomputeInputs(recompute), [recompute]);
+    // The values of the current sets, by input id
+    const [setsValues, setSetsValues] = useState<Record<string, number>>(
+      () => Object.fromEntries(recomputeIn.map((i) => [i.id, i.value])));
     const [setsStatus, setSetsStatus] = useState<{ text: string; loading: boolean } | null>(null);
     const setsRequest = useRef(0);
-    const recomputeSets = useCallback((value: number) => {
+    // Other coordinates (e.g. another tomogram of the table, in the same
+    // viewer): their sets and values, during this render, so the previous
+    // ones are never drawn over them; the user's colors and shown flags are
+    // kept for the same sets, and a recompute still running is dropped
+    const [setsOf, setSetsOf] = useState(P);
+    if (setsOf !== P) {
+      setSetsOf(P);
+      const next = coordinateSets(P);
+      setSets(next);
+      const same = (cur: unknown[]) => next != null && cur.length === next.sets.length;
+      setSetShown((cur) => (same(cur) ? cur : (P?.sets ?? []).map((s) => !s.hidden)));
+      setSetColors((cur) => (same(cur) ? cur : (P?.sets ?? []).map((s) => s.color)));
+      setSetsValues(Object.fromEntries(recomputeInputs(next ? P?.recompute : null).map((i) => [i.id, i.value])));
+      setSetsStatus(null);
+      setsRequest.current += 1;
+    }
+    const setTableValues = useContext(TableValuesContext);
+    const recomputeSets = useCallback((values: Record<string, number>) => {
       if (!recompute) return;
       const id = ++setsRequest.current;
       setSetsStatus({ text: "Recomputing…", loading: true });
-      loader.load<any>(recompute.source.path, { ...recompute.source.payload, distance: value })
+      loader.load<any>(recompute.source.path, { ...recompute.source.payload, ...values })
         .then((r) => {
           if (id !== setsRequest.current) return;
           const c = r && typeof r === "object" && "coordinates" in r ? r.coordinates : r;
@@ -800,7 +825,9 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
             ? { set: c.set as number[], sets: c.sets as CoordinateSet[] } : null;
           if (!next) throw new Error("the sets do not match the particles");
           setSets(next);
-          setSetsValue(value);
+          setSetsValues(values);
+          // The table of the pane (if any) follows the values
+          void setTableValues?.(values);
           // Keep the user's colors and visibility of the sets that remain
           setSetShown((cur) => next.sets.map((s, i) => !s.hidden && (cur[i] ?? true)));
           setSetColors((cur) => next.sets.map((s, i) => cur[i] ?? s.color));
@@ -809,7 +836,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         .catch((e) => {
           if (id === setsRequest.current) setSetsStatus({ text: `Could not recompute the sets: ${e?.message ?? e}`, loading: false });
         });
-    }, [loader, recompute, nPart]);
+    }, [loader, recompute, nPart, setTableValues]);
     const setCounts = useMemo(() => {
       if (!sets) return [];
       const n = sets.sets.map(() => 0);
@@ -820,6 +847,20 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const particleSet = sets ? sets.set : null;
     const shownSets = sets ? sets.sets.map((s, i) => !s.hidden && (setShown[i] ?? true)) : null;
     const colorSets = sets ? sets.sets.map((s, i) => setColors[i] ?? s.color) : null;
+    // The margin of the box of an input (e.g. the distance to the edges), in
+    // the color of its set, while the set is shown
+    const marginIn = recomputeIn.find((i) => i.margin);
+    const marginSet = marginIn?.set && sets ? sets.sets.findIndex((s) => s.id === marginIn.set) : -1;
+    const marginA = marginIn ? setsValues[marginIn.id] ?? 0 : 0;
+    const marginColor = marginSet >= 0 ? colorSets?.[marginSet] ?? null : "#ff3b30";
+    const marginOn = marginA > 0 && (marginSet < 0 || Boolean(shownSets?.[marginSet]));
+    const boxMargin = useMemo<BoxMargin | null>(() => {
+      // In voxels: none without a voxel size
+      const size = vs?.x ?? vs?.y ?? vs?.z;
+      if (!marginOn || !marginColor || !size) return null;
+      const v = (a: Axis) => marginA / (vs?.[a] ?? size);
+      return { vox: { x: v("x"), y: v("y"), z: v("z") }, color: marginColor, opacity: BOX_MARGIN_OPACITY };
+    }, [marginOn, marginA, marginColor, vs]);
     // A new cache with new slices (another iteration), not cleared after
     // the render: the sections redraw (an effect of VolumeSlices) before
     const images = useMemo(() => ({ current: new Map<string, SliceImage>() }), [volume.axes, sliceGrid]);
@@ -1257,7 +1298,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const sceneState: SceneState = {
       pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance,
       filterSigma: shownSigma, mode, nearOnly: near3d, tolerance, templateLevel, particleColor,
-      particleSet, setColors: colorSets, setShown: shownSets,
+      particleSet, setColors: colorSets, setShown: shownSets, margin: boxMargin,
     };
     const sceneStateRef = useRef(sceneState);
     sceneStateRef.current = sceneState;
@@ -1303,7 +1344,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       // the fields are the dependencies
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance, shownSigma,
-        mode, near3d, tolerance, templateLevel, particleColor, particleSet, colorSets?.join(), shownSets?.join()]);
+        mode, near3d, tolerance, templateLevel, particleColor, particleSet, colorSets?.join(), shownSets?.join(),
+        boxMargin]);
     useEffect(() => {
       sceneRef.current?.setDensity(volGrid.density);
     }, [volGrid.density, built3d, sceneError]);
@@ -1365,13 +1407,13 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
             counts={setCounts}
             shown={shownSets!}
             colors={colorSets!}
-            recompute={recompute}
-            value={setsValue}
+            inputs={recomputeIn}
+            values={setsValues}
             status={setsStatus?.text}
             loading={setsStatus?.loading}
             onShown={(i, v) => setSetShown((cur) => { const n = [...cur]; n[i] = v; return n; })}
             onColor={(i, c) => setSetColors((cur) => { const n = [...cur]; n[i] = c; return n; })}
-            onValue={recomputeSets}
+            onValues={recomputeSets}
           />
         )}
 
@@ -1399,6 +1441,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               inverted={inverted}
               rulers={rulers}
               mask={sliceMask}
+              margin={boxMargin}
               colorBy={sliceColorBy}
               corner={sliceKey}
               voxelSize={vs}

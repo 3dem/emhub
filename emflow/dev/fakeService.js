@@ -300,15 +300,19 @@ const fakeTomogramsTable = () => ({
 const compareMode = () => new URLSearchParams(location.search).get("compareTable");
 const FAKE_SETS_PATH = "/fake/coordinates_compare_sets";
 const FAKE_COMPARE_ANGPIX = 13.48;
+const FAKE_EDGE_SET = { id: "edge", label: "Near edge", color: "#ff3b30" };
 const FAKE_COMPARE_SELF = [
   { id: "kept", label: "Kept", color: "#ffa500" },
   { id: "duplicates", label: "Duplicates", color: "#ff2bd6" },
+  FAKE_EDGE_SET,
 ];
+const FAKE_COMPARE_DIMS = [256, 180, 64];
 const FAKE_COMPARE_CROSS = [
   { id: "a-b", label: "A - B", color: "#ffa500" },
   { id: "b-a", label: "B - A", color: "#29b6f6" },
   { id: "a&b", label: "A & B", color: "#4cd964" },
   { id: "b&a", label: "B & A", color: "#4cd964", hidden: true },
+  FAKE_EDGE_SET,
 ];
 
 // Voxel positions of A and B of a tomogram: B has half of A, moved a little
@@ -316,7 +320,8 @@ const FAKE_COMPARE_CROSS = [
 function fakeComparePoints(name) {
   const seed = name.charCodeAt(name.length - 1);
   const a = [], b = [];
-  for (let i = 0; i < 60; i++) {
+  // A different number of particles per tomogram (60, 70, 80)
+  for (let i = 0; i < 60 + (seed % 3) * 10; i++) {
     a.push([20 + ((i * 37 + seed) % 216), 15 + ((i * 71 + seed) % 150), 8 + ((i * 13) % 48)]);
   }
   a.forEach((p, i) => { if (i % 2 === 0) b.push([p[0] + (i % 6) + 1, p[1], p[2]]); });
@@ -327,42 +332,54 @@ function fakeComparePoints(name) {
   return { a, b, self };
 }
 
-function fakeCompareSets(name, distance, self) {
+// As EMhub's: the particles closer than edge (A) to the box edges are in
+// the Near edge set, and left out of the others
+function fakeCompareSets(name, distance, self, edge = 0) {
   const { a, b, self: s } = fakeComparePoints(name);
   const d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) * FAKE_COMPARE_ANGPIX;
+  const near = (p) => edge > 0 && Math.min(...p.map((v, i) => Math.min(v, FAKE_COMPARE_DIMS[i] - v)))
+    * FAKE_COMPARE_ANGPIX < edge;
   let set;
   if (self) {
     // Relion's rule: a duplicate has a later particle within the distance
-    set = s.map((p, i) => (s.some((q, j) => j > i && d(p, q) <= distance) ? 1 : 0));
+    set = s.map((p, i) => (near(p) ? 2
+      : s.some((q, j) => j > i && !near(q) && d(p, q) <= distance) ? 1 : 0));
   } else {
-    set = [...a.map((p) => (b.some((q) => d(p, q) <= distance) ? 2 : 0)),
-           ...b.map((q) => (a.some((p) => d(p, q) <= distance) ? 3 : 1))];
+    const a2 = a.filter((p) => !near(p)), b2 = b.filter((q) => !near(q));
+    set = [...a.map((p) => (near(p) ? 4 : b2.some((q) => d(p, q) <= distance) ? 2 : 0)),
+           ...b.map((q) => (near(q) ? 4 : a2.some((p) => d(p, q) <= distance) ? 3 : 1))];
   }
-  return { set, sets: self ? FAKE_COMPARE_SELF : FAKE_COMPARE_CROSS, distance };
+  return { set, sets: self ? FAKE_COMPARE_SELF : FAKE_COMPARE_CROSS, distance, edge };
 }
 
-function fakeCompareTable(distance = 30) {
+// As EMhub's: the edge distance is the duplicates (or A & B) one by default
+function fakeCompareTable(distance = 30, edge = distance) {
   const self = compareMode() === "self";
   const names = ["TS_0001", "TS_0002", "TS_0003"];
   const columns = self
-    ? [["coords", "Coordinates"], ["duplicates", "Duplicates"], ["kept", "Kept"]]
-    : [["a", "A"], ["b", "B"], ["aMinusB", "A - B"], ["bMinusA", "B - A"], ["aAndB", "A & B"]];
+    ? [["coords", "Coordinates"], ["edge", "Near edge"], ["duplicates", "Duplicates"], ["kept", "Kept"]]
+    : [["a", "A"], ["b", "B"], ["edge", "Near edge"], ["aMinusB", "A - B"], ["bMinusA", "B - A"], ["aAndB", "A & B"]];
+  const { a: pa, b: pb } = fakeComparePoints(names[0]);
   const rows = names.map((name) => {
-    const { set } = fakeCompareSets(name, distance, self);
+    const { set } = fakeCompareSets(name, distance, self, edge);
     const n = (k) => set.filter((v) => v === k).length;
     const cells = self
-      ? { coords: set.length, duplicates: n(1), kept: n(0) }
-      : { a: n(0) + n(2), b: n(1) + n(3), aMinusB: n(0), bMinusA: n(1), aAndB: n(2) };
+      ? { coords: set.length, edge: n(2), duplicates: n(1), kept: n(0) }
+      : { a: pa.length, b: pb.length, edge: n(4), aMinusB: n(0), bMinusA: n(1), aAndB: n(2) };
     return {
       id: name,
-      cells: { ...cells, tomoName: name, distance },
-      data: { tomoName: name, distance },
+      cells: { ...cells, tomoName: name, distance, edgeDistance: edge },
+      data: { tomoName: name, distance, edgeDistance: edge },
       actions: [],
       defaultAction: { id: "tomo-view", label: "Tomogram", icon: "tomogram" },
-      cellContexts: { tomo: { actions: [{ id: "tomo-view", label: "Tomogram", icon: "tomogram" }] } },
+      cellContexts: {
+        tomo: { actions: [{ id: "tomo-view", label: "Tomogram", icon: "tomogram" }] },
+        // As EMhub's: the sets to merge, checked, next to their count
+        ...(!self && Object.fromEntries(["aMinusB", "bMinusA", "aAndB"].map((col) => [
+          col, { edit: { type: "boolean", field: col, checked: true, disabled: !cells[col] } }]))),
+      },
     };
   });
-  const options = [7.5, 15, 22.5, 30, 45, 60, 90];
   return {
     title: `Coordinates Distances — External/job012 (${self ? "duplicates" : "A vs B"}, ${distance} Å; 3 tomograms)`,
     columns: [
@@ -371,20 +388,23 @@ function fakeCompareTable(distance = 30) {
       { id: "tomo", label: "Tomogram" },
     ],
     rows,
-    variants: { label: "Distance (Å)", value: `coordinates-compare:${distance}`,
-                options: options.map((v) => ({ id: `coordinates-compare:${v}`, label: v === 30 ? `${v} (job)` : String(v) })) },
+    // The distances are those of the tomogram viewer (TableValuesContext)
+    variants: { label: "Distance (Å)", value: `coordinates-compare:${distance}:${edge}`, options: [],
+                template: "coordinates-compare:{distance}:{edge}", values: { distance, edge } },
     initialAction: { rowId: names[0], actionId: "tomo-view" },
-    // As EMhub's (an emw-remove-duplicates job, the host launches it)
-    ...(self && { editActions: [{ id: "remove-duplicates", label: "Remove duplicates",
-                                 disabled: !rows.some((row) => row.cells.duplicates) }] }),
+    // As EMhub's (an emw-subset-ts job, Remove duplicate particles mode)
+    editActions: self
+      ? [{ id: "remove-duplicates", label: edge ? "Remove duplicates / edges" : "Remove duplicates",
+           disabled: !rows.some((row) => row.cells.duplicates || row.cells.edge) }]
+      : [{ id: "merge-sets", label: "Merge" }],
   };
 }
 
-function fakeComparePane(name, distance) {
+function fakeComparePane(name, distance, edge = distance) {
   const self = compareMode() === "self";
   const { a, b, self: s } = fakeComparePoints(name);
   const points = self ? s : [...a, ...b];
-  const { set, sets } = fakeCompareSets(name, distance, self);
+  const { set, sets } = fakeCompareSets(name, distance, self, edge);
   const axis = (count, label, w, h) => ({ sliderPrefix: `${label}: `, slices: fakeSlices(count, `${name} ${label}`, w, h) });
   return {
     kind: "imageSlider", title: `Tomogram — ${name}`, layout: "volume",
@@ -394,7 +414,11 @@ function fakeComparePane(name, distance) {
     coordinates: {
       x: points.map((p) => p[0]), y: points.map((p) => p[1]), z: points.map((p) => p[2]),
       set, sets,
-      recompute: { label: "Distance", unit: "Å", value: distance,
+      // As EMhub's: each input in the group of the set it decides
+      recompute: { inputs: [{ id: "distance", set: self ? "duplicates" : "a&b", label: "within", unit: "Å",
+                              value: distance, title: "Distance of the " + (self ? "duplicates" : "coordinates in A & B") },
+                            { id: "edge", set: "edge", label: "within", unit: "Å", value: edge, margin: true,
+                              title: "Distance to the tomogram box edges (0: none)" }],
                    source: { path: FAKE_SETS_PATH, payload: { tomoName: name } } },
     },
   };
@@ -406,7 +430,8 @@ export async function fakeDataRequest(path, payload, init) {
   if (path === FAKE_SETS_PATH) {
     await new Promise((resolve) => setTimeout(resolve, 300));
     if (!(payload.distance > 0)) throw new Error(`Invalid distance: ${payload.distance}`);
-    return { coordinates: fakeCompareSets(payload.tomoName, payload.distance, compareMode() === "self") };
+    return { coordinates: fakeCompareSets(payload.tomoName, payload.distance,
+                                          compareMode() === "self", payload.edge ?? 0) };
   }
   const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify(payload ?? {}), signal: init?.signal });
@@ -730,8 +755,9 @@ export function createFakeService() {
       log("loadTableViewerVariant", variantId);
       await new Promise((resolve) => setTimeout(resolve, 500));
       if (context.pointerClass === "JobView") {
-        const distance = Number(variantId.split(":")[1]);
-        return { context: { ...context, outputPath: `External/job012#${variantId}` }, table: fakeCompareTable(distance) };
+        const [, distance, edge] = variantId.split(":").map(Number);
+        return { context: { ...context, outputPath: `External/job012#${variantId}` },
+                 table: fakeCompareTable(distance, Number.isFinite(edge) ? edge : distance) };
       }
       const it = Number(/_it(\d+)_/.exec(variantId)?.[1] ?? 0);
       return { context: { ...context, outputPath: `Class3D/job055/${variantId}` }, table: fakeClasses3DTable(it) };
@@ -740,6 +766,11 @@ export function createFakeService() {
       log("executeTableViewerEditAction", request);
       if (request.actionId === "remove-duplicates")
         return { success: true, message: `Fake remove duplicates of ${context.outputPath}`, refreshProject: true };
+      if (request.actionId === "merge-sets") {
+        const excluded = request.edits.filter((edit) => !edit.value).map((edit) => `${edit.rowId}:${edit.columnId}`);
+        return { success: true, message: `Fake merge without: ${excluded.join(" ") || "none"}`,
+                 clearEdits: true, refreshProject: true };
+      }
       const deselected = request.edits.filter((edit) => !edit.value).map((edit) => edit.rowId);
       return {
         success: true,
@@ -782,7 +813,9 @@ export function createFakeService() {
         };
       }
       if (request.actionId === "tomo-view") {
-        if (compareMode() !== null) return fakeComparePane(name, request.rowData?.distance ?? 30);
+        if (compareMode() !== null) {
+          return fakeComparePane(name, request.rowData?.distance ?? 30, request.rowData?.edgeDistance);
+        }
         if (isCoordsTable()) {
           // X/Y/Z volume slices with the particles of this tomogram
           const n = FAKE_NCOORDS[["TS_0001", "TS_0002"].indexOf(name)] ?? 0;

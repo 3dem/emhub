@@ -223,6 +223,9 @@ export type TableViewerCellEdit = {
   type: "boolean";
   field: string;
   disabled?: boolean;
+  /** Initial state of a checkbox in a cell holding another value (e.g. a
+   * count), drawn next to it; without it, the cell value is the state. */
+  checked?: boolean;
 
   cascadeToChildren?: {
     childrenId: string;
@@ -301,6 +304,12 @@ export type TableViewerVariants = {
   /** Id of the shown version. */
   value: string;
   options: { id: string; label: string }[];
+  /** Versions for values chosen in a pane (e.g. the distances of the
+   * tomogram viewer, TableValuesContext): `template` with each
+   * `{<name>}` replaced by its value, from `values` (the current ones)
+   * and the pane's; loaded in place, the pane stays open. */
+  template?: string;
+  values?: Record<string, number>;
 };
 
 /** A version of a table and the context of its requests (e.g. its path). */
@@ -466,15 +475,18 @@ export type TableViewerImageSliderContent = {
      * of each particle (see CoordinateSet in components/viewers/volume/volumeMath.ts). */
     set?: number[];
     sets?: { id?: string; label: string; color: string; hidden?: boolean }[];
-    /** Recompute `set`/`sets` at another value (an input of the viewer):
-     * `source` is loaded with `{...payload, distance: value}` and answers
-     * `{set, sets}` or `{coordinates: {set, sets}}`. */
+    /** Recompute `set`/`sets` at other values (inputs of the viewer):
+     * `source` is loaded with `{...payload, distance: value}` (one input,
+     * `label`/`value`...) or `{...payload, <id>: value...}` (`inputs`) and
+     * answers `{set, sets}` or `{coordinates: {set, sets}}`. */
     recompute?: {
       label?: string;
       unit?: string;
-      value: number;
+      value?: number;
       min?: number;
       step?: number;
+      inputs?: { id: string; set?: string; label?: string; title?: string; unit?: string;
+                 value: number; min?: number; step?: number; margin?: boolean }[];
       source: { path: string; payload?: Record<string, unknown> };
     };
   };

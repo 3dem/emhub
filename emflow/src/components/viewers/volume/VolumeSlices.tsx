@@ -27,6 +27,7 @@ import {
   rulerLength,
   imageSize,
   type Axis,
+  type BoxMargin,
   type Ruler,
   type SliceImage,
   type Vec3,
@@ -87,6 +88,8 @@ type Props = {
   rulers: Record<Axis, Ruler | null>;
   /** Shown mask (null: none or hidden). */
   mask?: SliceMask | null;
+  /** Margin of the box (e.g. near the edges), translucent (null: none). */
+  margin?: BoxMargin | null;
   /** Map that colors the sections (null: none or off). */
   colorBy?: SliceColorBy | null;
   /** In the free cell right of the Y section (e.g. the color key). */
@@ -249,6 +252,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     ctx.clearRect(0, 0, v.cw, v.ch);
     drawColorBy(a, v);
     drawMask(a, v);
+    drawMargin(a, v);
     // Crosshair lines of the other two sections
     if (!hideLines) {
       const c = toPx(v, pos[ha] + 0.5, pos[va] + 0.5);
@@ -370,6 +374,30 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     ctx.restore();
   };
 
+  // The margin of the box in the section of axis a: the whole section when
+  // its slice is in the margin, else the bands along its four sides
+  const drawMargin = (a: Axis, v: View) => {
+    const m = p.current.margin;
+    if (!m) return;
+    const { dim } = p.current, [ha, va] = HV[a];
+    const ctx = v.ov, c = currentKey(a) + 0.5;
+    const inside = c >= m.vox[a] && c <= dim[a] - m.vox[a];
+    const A = toPx(v, 0, 0), B = toPx(v, dim[ha], dim[va]);
+    ctx.save();
+    ctx.globalAlpha = m.opacity;
+    ctx.fillStyle = m.color;
+    ctx.beginPath();
+    ctx.rect(A[0], A[1], B[0] - A[0], B[1] - A[1]);
+    if (inside) {
+      const iA = toPx(v, Math.min(m.vox[ha], dim[ha] / 2), Math.min(m.vox[va], dim[va] / 2));
+      const iB = toPx(v, Math.max(dim[ha] - m.vox[ha], dim[ha] / 2), Math.max(dim[va] - m.vox[va], dim[va] / 2));
+      // The inner rectangle: a hole (even-odd rule)
+      ctx.rect(iA[0], iA[1], iB[0] - iA[0], iB[1] - iA[1]);
+    }
+    ctx.fill("evenodd");
+    ctx.restore();
+  };
+
   const drawAll = useCallback(() => {
     for (const a of VIEW_ORDER) {
       drawImage(a);
@@ -404,7 +432,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     drawAll();
   }, [props.pos, props.sel, props.mode, props.partsOn, props.hideLines, props.rulers, props.tolerance,
       props.particleColor, props.particleSet, props.setColors?.join(), props.setShown?.join(),
-      props.mask, props.filterSigma, props.colorBy, drawAll]);
+      props.mask, props.margin, props.filterSigma, props.colorBy, drawAll]);
   // New slice images (e.g. another iteration of a map) or crop source:
   // forget the crops and filtered images and draw again
   useEffect(() => {
