@@ -30,6 +30,8 @@ export type TableColumnDef = {
   label: string;
   paramClass: string;
   default?: any;
+  /** Outputs of this class can be dropped on the column (e.g. "Volume"). */
+  pointerClass?: string;
 };
 
 export function resolveParamClass(defLike: any): string {
@@ -311,14 +313,27 @@ export function getTableColumns(def: any): TableColumnDef[] {
     .map((col: any) => {
       const name = String(col?.name ?? "").trim();
       if (!name) return null;
+      const pointerClass = String(col?.pointerClass ?? "").trim();
       return {
         name,
         label: String(col?.label ?? name),
         paramClass: normalizeScalarParamClass(getParamClass(col)),
         default: col?.default,
+        ...(pointerClass ? { pointerClass } : {}),
       };
     })
     .filter(Boolean) as TableColumnDef[];
+}
+
+/** True if a dragged output can be dropped on a table column of the given
+ * pointerClass (a class or a comma separated list, compared without spaces
+ * and case). An output without a class matches. */
+export function tableColumnAcceptsOutput(pointerClass: string | undefined, output: any): boolean {
+  if (!pointerClass) return false;
+  const norm = (s: any) => String(s ?? "").replace(/\s+/g, "").toLowerCase();
+  const dragged = norm(output?.pointerClass ?? output?._class);
+  if (!dragged) return true;
+  return pointerClass.split(",").some((c) => norm(c) === dragged);
 }
 
 export function buildEmptyTableRow(columns: TableColumnDef[]): Record<string, any> {

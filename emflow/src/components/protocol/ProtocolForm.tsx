@@ -1813,6 +1813,11 @@ export default function ProtocolForm({
                       updateTableCell(prev, stateKey, rowIndex, colName, nextValue)
                     );
                   }}
+                  onCellDrop={(rowIndex, colName, droppedValue) => {
+                    setProtocolDetails((prev: any) =>
+                      updateTableCell(prev, stateKey, rowIndex, colName, droppedValue)
+                    );
+                  }}
                   onAddRow={() => {
                     setProtocolDetails((prev: any) =>
                       addTableRow(prev, stateKey, emptyRow)
