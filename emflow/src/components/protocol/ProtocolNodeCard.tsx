@@ -210,6 +210,8 @@ type StatusNodeProps = {
     sourceProtocolLabel?: string,
   ) => void;
   onToggleOutputsCard?: (protocolId: string) => void;
+  // Clicking the cluster job id pill shows the cluster job information
+  onInspectClusterJob?: (protocolId: string) => void;
 
   inPathSelection?: boolean;
   pathSelectionActive?: boolean;
@@ -707,6 +709,7 @@ export default function ProtocolNodeCard({
   onManageTags,
   onOpenProtocolClass, // addThis
   onToggleOutputsCard,
+  onInspectClusterJob,
   inPathSelection = false,
   pathSelectionActive = false,
   showHandles = true,
@@ -2969,8 +2972,18 @@ export default function ProtocolNodeCard({
                       {data.status}
                     </span>
 
-                    {data.clusterJobId && (data.status === "launched" || data.status === "running") && (
-                      <span className={styles.clusterJobPill} title="Cluster job id">
+                    {data.clusterJobId && (
+                      <span
+                        className={[styles.clusterJobPill,
+                          onInspectClusterJob ? styles.clusterJobPillClickable : "",
+                          onInspectClusterJob ? "nodrag" : ""].filter(Boolean).join(" ")}
+                        title={onInspectClusterJob ? "Cluster job id, click to inspect" : "Cluster job id"}
+                        onPointerDown={onInspectClusterJob ? (e) => e.stopPropagation() : undefined}
+                        onClick={onInspectClusterJob ? (e) => {
+                          e.stopPropagation();
+                          onInspectClusterJob(data.id);
+                        } : undefined}
+                      >
                         {data.clusterJobId}
                       </span>
                     )}

@@ -87,6 +87,7 @@ export function normalizeServiceAPI(srv: any): ProjectService {
   mapFn("continueAll", "continueAll");
   mapFn("resetFrom", "resetFrom");
   mapFn("stopProtocol", "stopProtocol");
+  mapFn("inspectClusterJob", "inspectClusterJob");
 
   mapFn("fetchInstanceSettings", "fetchInstanceSettings", "getInstanceSettings");
   mapFn("updateInstanceSettings", "updateInstanceSettings", "patchInstanceSettings");

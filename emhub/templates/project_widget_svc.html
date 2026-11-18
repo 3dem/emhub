@@ -564,6 +564,15 @@ var svc = {
     return requestAction(Api.urls.stop_jobs, { run_ids: ids });
   },
 
+  // Cluster job information (shown when clicking the cluster job id): live
+  // from the queue 'inspect' command for launched/running jobs, otherwise
+  // recorded in the job files (no query to the queueing system)
+  async inspectClusterJob(projectId, protocolId) {
+    var data = await workflowsRequest(Api.urls.inspect_cluster_job,
+                                      { run_id: protocolId });
+    return data.inspect;
+  },
+
   async deleteProtocol(projectId, protocolIds) {
     // Job labels are removed on the server when deleting the jobs
     var result = await requestAction(Api.urls.delete_jobs, {run_ids: protocolIds});

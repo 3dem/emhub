@@ -280,15 +280,55 @@ class RelionSessionData(SessionData):
         return '/'.join(micrographs.split('/')[:-1])
 
     def _cluster_job_id(self, job):
-        """ Id of the cluster job of a launched or running job submitted to a
-        queue (written by emwrap when submitted), or '' (run locally). """
-        if job['status'] not in ('Launched', 'Running'):
-            return ''
-        try:
-            with open(self.join(job.id, self.project.JOB_CLUSTER_ID_FILE)) as f:
-                return f.readline().strip()
-        except OSError:
-            return ''
+        """ Id of the last cluster job of a job submitted to a queue, or ''
+        (run locally). It is the job.id written by emwrap when submitting
+        (only kept if the last launch was submitted to a queue) or, for
+        older jobs, the cluster job recorded in the last run (info.json).
+        It never queries the queueing system. """
+        if clusterJobId := self._read_first_line(job.id, self.project.JOB_CLUSTER_ID_FILE):
+            return clusterJobId
+        if job['status'] in ('Launched', 'Running'):
+            return ''  # launched locally, the last run may be an old one
+        runs = self.project.getJobRuns(job)
+        computing = (runs[-1].get('computing') or {}) if runs else {}
+        return str((computing.get('cluster') or {}).get('job_id') or '')
+
+    def inspect_cluster_job(self, job_id):
+        """ Information about the cluster job of a job, for the dialog shown
+        when clicking its cluster job id. Only launched or running jobs whose
+        queue defines an 'inspect' command query the queueing system
+        (live mode, see ProjectManager.inspectJob), for other jobs the info
+        is taken from the job files: info.json, the LSF report at the end of
+        run.out and job.script (recorded mode, see get_computing_summary).
+        """
+        job_id = Path.rmslash(job_id)
+        wf = self.project.get_workflow()
+        if not wf.hasJob(job_id):
+            raise Exception(f"Job {job_id} not found in the project.")
+        job = wf.getJob(job_id)
+        status = STATUS_MAP.get(job['status'], job['status'])
+        result = {'run_id': job_id, 'status': status,
+                  'cluster_job_id': self._cluster_job_id(job)}
+
+        if (job['status'] in ('Launched', 'Running')
+                and self.project.canInspectJob(job_id)):
+            result['mode'] = 'live'
+            result.update(self.project.inspectJob(job_id))
+            return result
+
+        rows = self.get_computing_summary([job_id])['jobs']
+        summary = rows[0] if rows else {}
+        report = lsf_job_report(self.join(job_id, 'run.out')) or {}
+        result.update({
+            'mode': 'recorded',
+            'format': 'summary',
+            'data': {'summary': summary, 'report': report,
+                     'runs': self._job_timing(job)['runs']}
+        })
+        if job['status'] in ('Launched', 'Running'):
+            result['note'] = ("No 'inspect' command configured for the queue "
+                              "of this job, showing recorded information.")
+        return result
 
     def _job_timing(self, job):
         """ Elapsed time of the job runs (cached in project.json from the job

@@ -6,6 +6,23 @@ export interface loadWorkflowPayload {
   category?: WorkflowCategory;
 }
 
+/** Cluster job information of a protocol, from the inspect_cluster_job endpoint.
+ * mode "live": output of the queue 'inspect' command (launched/running jobs),
+ *   format "json" (data, e.g. lsf_inspect_job.py --json) or "text" (text).
+ * mode "recorded": format "summary", from the job files (info.json, run.out). */
+export type ClusterJobInspection = {
+  run_id: string;
+  status?: string;
+  cluster_job_id?: string;
+  mode: "live" | "recorded";
+  format: "json" | "text" | "summary";
+  queue?: string;
+  command?: string;
+  data?: any;
+  text?: string;
+  note?: string;
+};
+
 export type AuthenticatedRequestOptions = {
   signal?: AbortSignal;
   cache?: RequestCache;
@@ -1313,6 +1330,8 @@ export interface ProjectService<
   continueAll(projectId: Id, protocolId: Id): Promise<TProject>;
   resetFrom(projectId: Id, protocolId: Id): Promise<TProject>;
   stopProtocol(projectId: Id, ids: string[]): Promise<TProject>;
+  /** Cluster job of a protocol (clicking its cluster job id), see ClusterJobInspection */
+  inspectClusterJob?(projectId: Id, protocolId: Id): Promise<ClusterJobInspection>;
   resolveBrowserPaths(projectId: Id, protocolId: Id): Promise<ResolveBrowserPathsResult>;
   listRemoteDirectory(projectId: Id, protocolId: Id, path: string): Promise<any[]>;
   previewRemoteEntry(projectId: Id, protocolId: Id, path: string): Promise<any | null>;

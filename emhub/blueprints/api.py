@@ -2073,6 +2073,23 @@ def stop_jobs():
     return handle_workflow(_stop_jobs, edit=True)
 
 
+@api_bp.route('/inspect_cluster_job', methods=['POST'])
+@flask_login.login_required
+def inspect_cluster_job():
+    """ Information about the cluster job of a job (run_id), shown when
+    clicking its cluster job id. Only launched/running jobs whose queue has
+    an 'inspect' command query the queueing system, see
+    RelionSessionData.inspect_cluster_job. """
+    def _inspect(**attrs):
+        pp = app.dm.get_processing_project(**attrs)['project']
+        if not hasattr(pp, 'inspect_cluster_job'):
+            raise Exception("Cluster job information is only available for "
+                            "Relion/emwrap projects.")
+        return pp.inspect_cluster_job(attrs['run_id'])
+
+    return _handle_item(_inspect, 'inspect')
+
+
 @api_bp.route("/get_classes2d", methods=['POST'])
 def get_classes2d():
     """ Load 2d classification data. """

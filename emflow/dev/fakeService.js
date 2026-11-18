@@ -590,13 +590,71 @@ const fakeProjectPath = () => {
 };
 let fakeNextJobId = 9000;
 
+// Cluster job ids of some fake jobs: 265 shows the recorded info (finished),
+// 870 the live output of an LSF queue 'inspect' command (lsf_inspect_job.py --json)
+const FAKE_CLUSTER_JOB_IDS = { "265": "330047105", "870": "330051234" };
+
+function withFakeClusterJobIds(wf) {
+  for (const [id, clusterJobId] of Object.entries(FAKE_CLUSTER_JOB_IDS)) {
+    if (wf.protocols?.[id]) wf.protocols[id].clusterJobId = clusterJobId;
+  }
+  return wf;
+}
+
+function fakeClusterJobInspection(protocolId) {
+  const clusterJobId = FAKE_CLUSTER_JOB_IDS[protocolId];
+  if (!clusterJobId) throw new Error(`Job ${protocolId} has no cluster job id.`);
+  if (protocolId !== "870") {
+    return {
+      run_id: protocolId, status: "finished", cluster_job_id: clusterJobId,
+      mode: "recorded", format: "summary",
+      data: {
+        summary: { cluster: "LSF", queue: "gpu_rtx", host: "nodegpu267", cpus: 24, gpus: 2,
+                   gpu_type: "RTX A6000", memory_max: "1253 MB", memory_avg: "73.00 MB",
+                   node_cpus: 64, node_memory: "1 TB", node_gpus: 4, elapsed: 5420, runs: 1, source: "run" },
+        report: { job_id: clusterJobId, hosts: "nodegpu267", cpus: 24, queue: "gpu_rtx" },
+        runs: [{ launched: "2026-11-17 09:12:03", start: "2026-11-17 09:14:40",
+                 end: "2026-11-17 10:45:00", elapsed: 5420, status: "finished" }],
+      },
+    };
+  }
+  return {
+    run_id: protocolId, status: "launched", cluster_job_id: clusterJobId,
+    mode: "live", format: "json", queue: "cryo",
+    command: `lsf_inspect_job.sh ${clusterJobId} --json`,
+    data: {
+      schema: 1,
+      job: { id: clusterJobId, user: "emhub", queue: "gpu_a100", name: "emw-relion-refine3d",
+             status: "PEND", pending_seconds: 7260, submit_time: "Nov 18 08:01" },
+      request: { slots: 64, layout: "1 host(s) x 64 slots", mem_per_slot_mb: 16000,
+                 select: "type == any", gpu: { num: 4, per: "host", mig: null, gmodel: "NVIDIAA100_SXM4_80GB", exclusive: true } },
+      reasons: [{ section: "job", reason: "Not enough processors to meet the job's spanning requirement", hosts: 12, category: "capacity" }],
+      queue: { status: "Open:Active", hosts: 3, host_list: ["gpu_a100_hosts/"], specified_hosts: [] },
+      hosts: [
+        { host: "nodegpu301", status: "ok", capacity: 0, max_slots: 48, maxmem_mb: 1031000, gpus: 4, eligible_gpus: 4, state: "never", fails: ["slots: 48 < 64 per host"] },
+        { host: "nodegpu302", status: "ok", capacity: 0, max_slots: 48, maxmem_mb: 1031000, gpus: 4, eligible_gpus: 4, state: "never", fails: ["slots: 48 < 64 per host"] },
+        { host: "nodegpu303", status: "closed_Adm", capacity: 0, max_slots: 48, maxmem_mb: 515000, gpus: 4, eligible_gpus: 4, state: "never", fails: ["slots: 48 < 64 per host", "memory: 503.0 GB < 1000.0 GB"] },
+      ],
+      verdict: { code: "NEVER", summary: "No host in queue gpu_a100 can run 64 slots on a single host.",
+                 details: ["slots: 3 host(s) have at most 48 slots, 64 needed on one host"],
+                 suggestions: ["Request at most 48 CPUs (MPI x threads) for this queue"] },
+      checks: [
+        { check: "job_state", label: "Job state", status: "pass", detail: "status PEND" },
+        { check: "queue", label: "Queue status", status: "pass", detail: "Open:Active" },
+        { check: "capacity", label: "Static capacity", status: "fail", detail: "0 of 3 hosts can fit the request" },
+      ],
+      notes: ["GPU memory request gmem=80G was not checked."],
+    },
+  };
+}
+
 export function createFakeService() {
   return {
     fetchList: async () => [],
 
     fetchProject: async () => {
       log("fetchProject");
-      return withFakeOutputPrefixes(structuredClone(workflow));
+      return withFakeClusterJobIds(withFakeOutputPrefixes(structuredClone(workflow)));
     },
 
     fetchProtocolDetails: async (projectId, protocolId) => {
@@ -652,6 +710,11 @@ export function createFakeService() {
     saveProtocol: async (projectId, protocolId, cls, params) =>
       notImplemented("saveProtocol", { protocolId, cls, params }),
     stopProtocol: async (projectId, ids) => notImplemented("stopProtocol", ids),
+    inspectClusterJob: async (projectId, protocolId) => {
+      log("inspectClusterJob", protocolId);
+      await new Promise((r) => setTimeout(r, 400));
+      return fakeClusterJobInspection(String(protocolId));
+    },
     deleteProtocol: async (projectId, ids) => notImplemented("deleteProtocol", ids),
     duplicateProtocol: async (projectId, items) => notImplemented("duplicateProtocol", items),
     exportProtocols: async (projectId, payload) => notImplemented("exportProtocols", payload),
