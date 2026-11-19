@@ -127,7 +127,6 @@ function LsfInspection({ data }: { data: any }) {
         <Field label="Status" value={job.status} />
         <Field label="Queue" value={job.queue} />
         <Field label="User" value={job.user} />
-        <Field label="Name" value={job.name} />
         <Field label="Pending" value={job.pending_seconds && ["PEND", "PSUSP"].includes(job.status) ? fmtSeconds(job.pending_seconds) : undefined} />
         <Field label="Submitted" value={job.submit_time} />
         <Field label="Started" value={job.start_time} />
