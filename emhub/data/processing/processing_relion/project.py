@@ -396,7 +396,7 @@ class RelionSessionData(SessionData):
           3. job.script of the last cluster submission (requested resources)
           4. job params (requested resources)
         'requested' is True when CPUs/GPUs come from 3 or 4 (not recorded). """
-        from emwrap.base import ProcessingPipeline
+        from emwrap.base.job_resources import count_job_cpus, get_job_gpu_list
 
         wf = self.project.get_workflow()
         ids = [Path.rmslash(j) for j in job_ids or [] if j]
@@ -442,9 +442,9 @@ class RelionSessionData(SessionData):
                                   computing.get('cpus') if computing else None)
             recordedGpus = computing.get('gpus') if computing else None
             cpus = _first(recordedCpus, script.get('cpus'),
-                          _params(ProcessingPipeline.count_job_cpus))
+                          _params(count_job_cpus))
             gpus = _first(recordedGpus, script.get('gpus'),
-                          _params(lambda p: len(ProcessingPipeline.get_job_gpu_list(p))))
+                          _params(lambda p: len(get_job_gpu_list(p))))
             queue = _first(cluster.get('queue'), report.get('queue'),
                            script.get('queue'), qname)
             gpuType = computing.get('gpu_type')
