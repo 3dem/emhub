@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Box,
     Chip,
@@ -13,6 +13,7 @@ import { CloseIcon } from "@/icons/index";
 import type {
     TableViewerContext,
     TableViewerData,
+    TableViewerVariantData,
 } from "@/services/ProjectService";
 import TableViewerPane from "./TableViewerPane";
 import { initialGalleryState } from "./TableViewerGallery";
@@ -37,6 +38,13 @@ export default function TableViewerDialog({
     // The shown version of the table (another iteration, see
     // TableViewerData.variants) replaces the given one with its context
     const [view, setView] = useState({ context: givenContext, table: givenTable });
+    // A new pane per version of the table, but those of a pane's values
+    // (in place: the pane stays open)
+    const [paneKey, setPaneKey] = useState(0);
+    const showVariant = useCallback((next: TableViewerVariantData, inPlace?: boolean) => {
+        setView(next);
+        if (!inPlace) setPaneKey((k) => k + 1);
+    }, []);
     useEffect(() => {
         setView({ context: givenContext, table: givenTable });
     }, [givenContext, givenTable]);
@@ -230,10 +238,10 @@ export default function TableViewerDialog({
                 }}
             >
                 <TableViewerPane
-                    key={table.variants?.value}
+                    key={paneKey}
                     context={context}
                     table={table}
-                    onVariant={setView}
+                    onVariant={showVariant}
                     galleryState={galleryState}
                     onGalleryStateChange={setGalleryState}
                 />

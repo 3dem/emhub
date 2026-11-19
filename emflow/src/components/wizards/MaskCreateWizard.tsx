@@ -5,12 +5,11 @@
 // mask over it on the right. The tentative mask is computed by the server
 // (preview, numpy on the map downscaled to about 100 px) when the user
 // presses Re-calculate; it is only a guide, the job runs relion_mask_create.
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert, Box, Button, Checkbox, CircularProgress, FormControlLabel, Slider, TextField, Typography,
-} from "@mui/material";
-import VolumeViewer, { type VolumeMask } from "@/components/viewers/VolumeViewer";
+import { useEffect, useMemo, useState } from "react";
+import { Box, Checkbox, FormControlLabel, Slider, TextField, Typography } from "@mui/material";
+import type { VolumeMask } from "@/components/viewers/VolumeViewer";
 import type { WizardComponentProps } from "./WizardDialog";
+import { PreviewViewer, RecalculateControls, useWizardPreview } from "./WizardPreview";
 
 type Values = {
   threshold: number | null;
@@ -20,11 +19,11 @@ type Values = {
   invert: boolean;
 };
 
-const num = (text: string): number | null => {
+export const num = (text: string): number | null => {
   const v = parseFloat(text);
   return Number.isFinite(v) ? v : null;
 };
-const fmt = (v: number | null | undefined, digits = 4) =>
+export const fmt = (v: number | null | undefined, digits = 4) =>
   v == null || !Number.isFinite(v) ? "" : String(Number(v.toPrecision(digits)));
 
 export default function MaskCreateWizard({ inputs, data, onChange, preview }: WizardComponentProps) {
@@ -40,39 +39,14 @@ export default function MaskCreateWizard({ inputs, data, onChange, preview }: Wi
     threshold: fmt(values.threshold), lowpass: fmt(values.lowpass),
     extend: String(values.extend), soft_edge: String(values.soft_edge),
   }));
-  const [mask, setMask] = useState<any>(data.mask ?? null);
-  const [fraction, setFraction] = useState<number | null>(data.mask_fraction ?? null);
-  const [status, setStatus] = useState<{ computing: boolean; warnings: string[]; errors: string[] }>(
-    { computing: false, warnings: [], errors: [] });
-
-  // The values of the shown mask (the first one came with the wizard)
-  const [computed, setComputed] = useState(values);
-  const outdated = JSON.stringify(computed) !== JSON.stringify(values);
+  const { data: shown, outdated, status, recalculate } = useWizardPreview(values, data, preview);
+  const mask = shown.mask ?? null;
+  const fraction: number | null = shown.mask_fraction ?? null;
   useEffect(() => {
     onChange(values);
     // onChange is a new function on each render of the dialog
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values]);
-
-  // A new tentative mask for the current values (Re-calculate); the answer
-  // of an older request is ignored
-  const counter = useRef(0);
-  const recalculate = async () => {
-    if (!preview || values.threshold == null) return;
-    const id = ++counter.current;
-    const asked = values;
-    setStatus((s) => ({ ...s, computing: true }));
-    const res = await preview(asked).catch((e) => ({ errors: [String(e?.message ?? e)] }) as any);
-    if (id !== counter.current) return;
-    if (res?.errors?.length) {
-      setStatus({ computing: false, warnings: [], errors: res.errors });
-      return;
-    }
-    if (res?.data?.mask) setMask(res.data.mask);
-    setFraction(res?.data?.mask_fraction ?? null);
-    setComputed(asked);
-    setStatus({ computing: false, warnings: res?.warnings ?? [], errors: [] });
-  };
 
   const setText = (name: keyof typeof texts, text: string, value: number | null, integer = false) => {
     setTexts((t) => ({ ...t, [name]: text }));
@@ -125,21 +99,9 @@ export default function MaskCreateWizard({ inputs, data, onChange, preview }: Wi
                           control={<Checkbox size="small" checked={values.invert}
                                              onChange={(e) => setValues((v) => ({ ...v, invert: e.target.checked }))} />} />
 
-        {/* Greyed out until a value changes; then vivid, to update the mask */}
-        <Button variant={outdated ? "contained" : "outlined"} color={outdated ? "warning" : "primary"}
-                size="small" onClick={recalculate}
-                disabled={!preview || !outdated || status.computing || values.threshold == null}
-                startIcon={status.computing ? <CircularProgress size={14} color="inherit" /> : undefined}
-                sx={{ textTransform: "none", alignSelf: "flex-start" }}>
-          {status.computing ? "Calculating…" : "Re-calculate"}
-        </Button>
-        <Typography variant="body2" color="text.secondary" aria-live="polite">
-          {status.computing ? "Computing the mask…"
-            : outdated ? "The values changed: Re-calculate to update the mask."
-            : fraction != null ? `Tentative mask: ${(fraction * 100).toFixed(1)}% of the box` : ""}
-        </Typography>
-        {status.errors.map((e, i) => <Alert key={`e${i}`} severity="error">{e}</Alert>)}
-        {status.warnings.map((w, i) => <Alert key={`w${i}`} severity="warning">{w}</Alert>)}
+        <RecalculateControls outdated={outdated} status={status} recalculate={recalculate}
+                             disabled={!preview || values.threshold == null}
+                             done={fraction != null ? `Tentative mask: ${(fraction * 100).toFixed(1)}% of the box` : ""} />
         <Typography variant="caption" color="text.secondary">
           A tentative mask, computed on the map downscaled
           {binning > 1 ? ` ${binning}× ` : " "}with approximate edges, to help choose the parameters.
@@ -147,33 +109,7 @@ export default function MaskCreateWizard({ inputs, data, onChange, preview }: Wi
         </Typography>
       </Box>
 
-      <Box sx={{ flex: "1 1 520px", minWidth: 0, position: "relative" }}>
-        {status.computing && (
-          <Box role="status"
-               sx={{ position: "absolute", inset: 0, zIndex: 2, display: "flex", alignItems: "center",
-                     justifyContent: "center", gap: 1.5,
-                     backgroundColor: (theme) => theme.palette.mode === "dark"
-                       ? "rgba(11,18,32,0.6)" : "rgba(255,255,255,0.55)",
-                     borderRadius: 1 }}>
-            <CircularProgress size={28} />
-            <Typography variant="body2">Loading the tentative mask…</Typography>
-          </Box>
-        )}
-        {viewerData.density ? (
-          <VolumeViewer
-            data={viewerData}
-            tabs={{ slices: true, view3d: false, volume3d: true }}
-            initialTab="volume3d"
-            tools={{ particles: false, select: false, crosshair: false }}
-            defaults={defaults}
-            mask={viewerMask}
-            viewSize={420}
-            debug={false}
-          />
-        ) : (
-          <Alert severity="info">The host sent no density of the map to show.</Alert>
-        )}
-      </Box>
+      <PreviewViewer computing={status.computing} data={viewerData} defaults={defaults} mask={viewerMask} />
     </Box>
   );
 }

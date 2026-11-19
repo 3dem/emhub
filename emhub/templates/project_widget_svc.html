@@ -333,6 +333,12 @@ var TABLE_SUBSET_CLASSES = ['TiltSeriesMovies', 'TiltSeries', 'TiltSeriesAligned
 var TABLE_CLASSES_SUBSET_CLASSES = ['Classes3D'];
 var TABLE_INCLUDE_COL = 'include';
 var TABLE_SUBSET_ACTION = 'create-subset';
+// Edit action of the 'Coordinates Distances' job view of a set compared to
+// itself (job_views.CoordinatesCompareView): an emw-subset-ts job (Remove
+// duplicate particles mode)
+var TABLE_REMOVE_DUPLICATES_ACTION = 'remove-duplicates';
+// and of two sets: an emw-merge-sets job without their overlaps
+var TABLE_MERGE_SETS_ACTION = 'merge-sets';
 
 // emflow handles the 'metadata' action id itself (Scipion metadata viewer),
 // the server one (STAR file metadata) is renamed for the viewer
@@ -403,6 +409,44 @@ async function buildTableViewerAnalyzeDecision(ctx, pointerClass) {
     },
     table: adaptTableViewData(tableViewData, outputPath, pointerClass),
   };
+}
+
+// Launch a job from a 'Coordinates Distances' table (outputPath
+// '<job>#coordinates-compare[:<distance>[:<edge>]]'): without the duplicates of its
+// set (emw-subset-ts, request.actionId remove-duplicates), or merging its two
+// sets without their overlaps (emw-merge-sets, merge-sets), without the sets
+// unchecked in the table (request.edits: rowId the tomogram, columnId the set)
+async function createFromCoordinatesCompare(context, request) {
+  var parts = (context.outputPath || '').split('#');
+  var option = (parts[1] || '').split(':');
+  var merge = request.actionId === TABLE_MERGE_SETS_ACTION;
+  var attrs = {
+    root: project_details.path,
+    entry_id: project_details.id,   // whose project the user must be able to edit
+    job: parts[0],
+    distance: option[1] || '',
+    edge: option[2] || '',
+  };
+  if (merge)
+    attrs.exclude = request.edits
+      .filter(function (edit) { return !edit.value; })
+      .map(function (edit) { return { tomoName: String(edit.rowId), column: edit.columnId }; });
+  var subsetResult = null;
+  await handleRequestData(
+    merge ? Api.urls.create_merged_set : Api.urls.create_remove_duplicates,
+    attrs,
+    function (data) {
+      subsetResult = data.subsetResult;
+    },
+  );
+  if (!subsetResult)
+    return { success: false,
+             message: merge ? 'Could not merge the sets.' : 'Could not remove the duplicates.' };
+  if (subsetResult.success)
+    cache.invalidate();
+  return { ...subsetResult,
+           clearEdits: Boolean(subsetResult.success),
+           refreshProject: Boolean(subsetResult.success) };
 }
 
 // Launch an emw-subset-classes job with the particles of the selected classes
@@ -518,6 +562,15 @@ var svc = {
 
   stopProtocol(projectId, ids) {
     return requestAction(Api.urls.stop_jobs, { run_ids: ids });
+  },
+
+  // Cluster job information (shown when clicking the cluster job id): live
+  // from the queue 'inspect' command for launched/running jobs, otherwise
+  // recorded in the job files (no query to the queueing system)
+  async inspectClusterJob(projectId, protocolId) {
+    var data = await workflowsRequest(Api.urls.inspect_cluster_job,
+                                      { run_id: protocolId });
+    return data.inspect;
   },
 
   async deleteProtocol(projectId, protocolIds) {
@@ -728,9 +781,14 @@ var svc = {
              + '&session_id=' + encodeURIComponent(project_details.session_id)
           : "{{ url_for_content('tomo_otf_dashboard') }}"
              + '&entry_id=' + encodeURIComponent(project_details.id);
+      // The dashboard opens in the theme of the project page (emflow
+      // marks its root element with "dark")
+      var emflowRoot = document.querySelector('#project-page-host .emflow-root')
+                       || document.querySelector('.emflow-root');
+      var theme = emflowRoot && emflowRoot.classList.contains('dark') ? 'dark' : 'light';
       return {
         handled: true,
-        url: url + '&job_id=' + encodeURIComponent(jobId),
+        url: url + '&job_id=' + encodeURIComponent(jobId) + '&theme=' + theme,
         target: "_blank"
       };
     }
@@ -857,6 +915,16 @@ var svc = {
     return { tagIds: newTagIds };
   },
 
+  // Workflow > Computing Summary: resources used by the selected jobs
+  async getComputingSummaryUrl(projectId, protocolIds) {
+    // The OTF project of a session is loaded from the session
+    var args = project_details.session_id
+        ? '&session_id=' + encodeURIComponent(project_details.session_id)
+        : '&entry_id=' + encodeURIComponent(project_details.id);
+    return "{{ url_for_content('computing_summary') }}" + args
+        + '&job_ids=' + encodeURIComponent((protocolIds || []).join(','));
+  },
+
   async getContextMenuVisibilityPolicy(projectId) {
     return {
       open: true,
@@ -876,6 +944,7 @@ var svc = {
       manageTags: true,
       openProtocolClass: true,
       export: true,
+      computingSummary: true,
       upload: false,
       nextSteps: false,
     };
@@ -1002,8 +1071,15 @@ var svc = {
   // use its path
   async loadTableViewerVariant(context, variantId) {
     var current = context.outputPath || '';
-    var folder = current.split('/').slice(0, -1).join('/');
-    var outputPath = (folder ? folder + '/' : '') + variantId;
+    var outputPath;
+    if (context.pointerClass === 'JobView') {
+      // A job view: '<job id>#<view id>[:<option>]', the variant id is
+      // '<view id>:<option>' (e.g. the distance of Coordinates Distances)
+      outputPath = current.split('#')[0] + '#' + variantId;
+    } else {
+      var folder = current.split('/').slice(0, -1).join('/');
+      outputPath = (folder ? folder + '/' : '') + variantId;
+    }
     var tableViewData = await loadTableViewData(outputPath, context.pointerClass);
     if (!tableViewData.rows || !tableViewData.rows.length)
       throw new Error('Could not load ' + variantId);
@@ -1014,10 +1090,15 @@ var svc = {
   },
 
   /**
-   * Create a subset with the rows left checked in the 'Selected' column.
+   * Create a subset with the rows left checked in the 'Selected' column
+   * (or, from a 'Coordinates Distances' table, without its duplicates or
+   * merging its sets checked).
    * request: { actionId, edits: [{ rowId, columnId, value }] } (changed cells)
    */
   async executeTableViewerEditAction(context, request) {
+    if (request.actionId === TABLE_REMOVE_DUPLICATES_ACTION
+        || request.actionId === TABLE_MERGE_SETS_ACTION)
+      return await createFromCoordinatesCompare(context, request);
     if (request.actionId !== TABLE_SUBSET_ACTION)
       return { success: false, message: 'Unknown action: ' + request.actionId };
 

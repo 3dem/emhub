@@ -16,7 +16,7 @@ with `?tomoTable` in the url to get a fake Tomograms table viewer with the
 Selected column, Create subset and the TS / Tomogram icon column; its tilt-series icon opens a fake `2x2`
 grid, with `&gridLayout=<layout>` for the other layouts; `?tomoTable=coords`
 gives a TomoCoordinates table whose tomogram icon shows particles on the
-slices; `?classesTable` a fake 3D classes table with its iterations in the Iteration select (`loadTableViewerVariant`), the Selected column, Create subset and the gallery (`table.gallery`); `?outputPrefix` gives the outputs a label prefix, `Out01`... for
+slices; `?classesTable` a fake 3D classes table with its iterations in the Iteration select (`loadTableViewerVariant`), the Selected column, Create subset and the gallery (`table.gallery`); `?compareTable` (`=self` for duplicates) a fake Coordinates Distances job view (Distance select, tomogram panes with particle sets recomputed at another distance by `fakeDataRequest`, the dev page's DataLoader transport); `?outputPrefix` gives the outputs a label prefix, `Out01`... for
 all but the first output of each protocol). Actions take 0.7 s there, to show the pane's loading state. Update
 it when the contract changes.
 
@@ -29,7 +29,7 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | --- | --- | --- | --- |
 | Project | `fetchProject(projectId)` -> `{id, name, path, protocols}` | demo project | ProjectPage (load + auto refresh) |
 | | Protocol timing fields (optional): `elapsedTime` (total seconds of all runs), `elapsedSessionId` (changes with each new run, e.g. its start), `elapsedRuns` (`[{launched, queued, start, end, elapsed, status}]`, queued = launched to start and elapsed in seconds, null if unknown), `launched` (pending launch, not started yet) and `queued` (its waiting seconds, only while Launched) | - | ProtocolNodeCard (time row + hover), ProjectPage (local timer) |
-| | `clusterJobId` (optional): the id of the cluster job of a launched or running protocol submitted to a queue (EMhub reads the job `job.id` written by emwrap), shown in a pill next to the status. | - | ProtocolNodeCard |
+| | `clusterJobId` (optional): the id of the last cluster job of a protocol submitted to a queue, any status (EMhub reads the `job.id` written by emwrap, or the cluster job recorded in the last run of info.json; never queries the queueing system), shown in a pill next to the status. Clicking it opens `ClusterJobDialog` (when the host has `inspectClusterJob`). | - | ProtocolNodeCard |
 | | `fetchProjectEffectiveSettings(projectId)` | not used | ProjectPage |
 | | `getContextMenuVisibilityPolicy(projectId)` -> `NodeMenuVisibility` | `{}` | ProjectPage |
 | Protocol | `fetchProtocolDetails(projectId, protocolId)` -> `{info, form, values}` | demo | ProjectPage |
@@ -40,12 +40,14 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | | `saveProtocol(projectId, protocolId, className, params)` | throws | ProtocolForm |
 | | `stopProtocol`, `deleteProtocol(projectId, ids)`, `duplicateProtocol(projectId, items)` -> `{status, errors, workflow, duplicated}`, `renameProtocol(projectId, protocolId, {runName, comment})` | - | ProjectPage |
 | | `restartAll`, `continueAll`, `resetFrom` | - | ProjectPage (menu shortcuts) |
+| | `inspectClusterJob(projectId, protocolId)` (optional) -> `ClusterJobInspection` `{run_id, status, cluster_job_id, mode, format, queue?, command?, data?, text?, note?}`. `mode: "live"`: output of the queue `inspect` command of the emwrap config (only launched/running jobs), `format: "json"` (`data`, e.g. `lsf_inspect_job.py --json`: `job`, `request`, `verdict`, `checks`, `hosts`, `reasons`, `notes`, or `{error}`) or `"text"` (`text`). `mode: "recorded"`, `format: "summary"`: `data: {summary, report, runs}` from the job files (computing summary row, LSF report of run.out, runs timing). EMhub: `/api/inspect_cluster_job` -> `RelionSessionData.inspect_cluster_job` -> `ProjectManager.inspectJob`. | cluster job id pill not clickable | ProjectPage (ClusterJobDialog) |
 | Catalog | `loadProtocols(projectId)` (protocol tree for the drawer) | `[]` | ProtocolsDrawer |
 | | `fetchWorkflows(category?)` (`builtin` default / `site` / `project`) -> `{workflows: WorkflowDescriptor[], folder}` (`WorkflowsListing`; `folder` = absolute folder of the category, shown in the panel and export dialog headers) or a plain `WorkflowDescriptor[]` (`id` = file name without `.json`, `name`, `description`, `category`, `file`, `protocolsCount`, `parseError`); hosts without categories may ignore it (items without `category` are shown in every category) | `[]` | ProjectPage (workflows panel), WorkflowExportDialog |
 | | `loadWorkflow(projectId, {workflowId, category?})` -> `{status, errors, workflow}` | success | workflows panel |
 | | `saveWorkflow(projectId, {protocolIds, category: 'site'\|'project', workflowId, name, description, overwrite})` -> `{id, file, category, protocolsCount}`; rejects (Error message shown in the dialog) when it exists without `overwrite` | throws "missing method" | WorkflowExportDialog (protocol Export) |
 | | `exportWorkflowProtocols(projectId, {protocolIds})` -> `{sourceProjectId, sourceProjectName, protocolIds, workflow}` (`workflow` is opaque: stored as is in the clipboard and given back to `importWorkflowProtocols`) | throws "missing method" | ProjectPage (Mod+C) |
 | | `importWorkflowProtocols(projectId, {workflow, mode: 'append', sourceProjectId, sourceProjectName})` -> `{status, errors, workflow, created: [{sourceId, newId}], clearedInputs: [{sourceId, param, value}]}` | throws "missing method" | ProjectPage (Mod+V, Paste) |
+| | `getComputingSummaryUrl(projectId, protocolIds)` -> url of a host page with the computing resources (node, queue, CPUs, GPUs, memory) used by the protocols, opened in a new tab (EMhub: `computing_summary` content) | item hidden | ProtocolNodeCard (Workflow > Computing Summary) |
 | | `exportProtocols(projectId, {protocolIds, directoryPath, filename})` (legacy file export, no longer called by emflow) | - | - |
 | | `getNextProtocolSuggestions(projectId, protocolId)` | `[]` | ProtocolNodeCard |
 | Files | `resolveBrowserPaths(projectId, protocolId)` -> `{rootAbs, startPath, protocolRoot}`; `listRemoteDirectory(projectId, protocolId, path)` -> `[{name, path, isDir, size, mime}]`; `previewRemoteEntry(projectId, protocolId, path)` -> `{kind: text\|table\|image\|none, ...}` | - | RemoteFileDialog, ProtocolForm, ProjectPage |
@@ -163,7 +165,37 @@ with `initialAction`) shows a `cols` grid: the values of all tilt images,
 one trace per tilt series, and the histogram (`data/processing/star_columns.py`,
 reusable for any STAR columns). New views subclass `JobView`, or
 `StarColumnsPlotsView` with only their METRICS, and are registered with
-`register_job_view`. It returns `viewer: "volume"` for `Volume` and `VolumeMask` outputs
+`register_job_view`. `Coordinates Distances` (`emw-coordinates-compare`,
+`CoordinatesCompareView`, data from `data/processing/coordinates_compare.py`
+reading the job's `distances.npz`) is a row per tomogram with the counts at a
+distance and an edge distance (chosen in the tomogram viewer, the table
+follows them: `variants.template` `coordinates-compare:{distance}:{edge}` and
+`variants.values`; the edge distance is the duplicates one unless given, 0
+none; the particles closer than the edge distance to the tomogram box edges
+are the Near edge set and column, left out of the others; their distances to
+the edges are those stored by the job, `<tomo>.edge1/2`, else computed from
+the input sets and their tomogram sizes) (set compared to itself: Coordinates, Duplicates (emwrap's
+`coordinates_compare.duplicates`: the highest score kept when the job stored
+`<tomo>.score`, else Relion's rule, a later coordinate within the distance),
+Kept, and the edit action `remove-duplicates` that the host
+(`executeTableViewerEditAction`) sends to `/api/create_remove_duplicates`
+`{root, entry_id, job, distance, edge}`, launching an `emw-subset-ts` job in
+its 'Remove duplicate / near-edge particles' mode (it computes the distances
+again); A vs B
+has a checkbox (`edit.checked`, drawn next to the count) in each A - B,
+B - A and A & B cell and the edit action `merge-sets`, sent to
+`/api/create_merged_set` `{root, entry_id, job, distance, edge, exclude:
+[{tomoName, column}]}` (the unchecked cells), launching `emw-merge-sets` with
+its `overlap_distance`, `edge_distance`, `exclude_parts` and `common_columns`; A vs B: A, B, A - B, B - A,
+A & B) and a `Distance (Å)` variant select (the job's distance and multiples;
+a job view value may end with `:<option>`, `loadTableViewerVariant` of a
+`JobView` replaces the part after `#`); its tomogram icon (default action
+`tomo-view`) shows the tomogram with the particles of A (and B) in sets
+(`set`, `sets`) and a `recompute` request with the distance and edge inputs,
+each in the group of the set it decides (`recompute.inputs[].set`; the edge
+one is a `margin`, drawn over the tomogram; `/api/fetch_coordinates_compare_sets`
+`{root, job, tomoName, distance, edge}` answering `{coordinates: {set, sets}}`).
+The job registers no output node: this view is its only output. It returns `viewer: "volume"` for `Volume` and `VolumeMask` outputs
 (`.mrc`) with `source` = `/api/get_volume_viewer` `{root, path,
 pointerClass}` (`build_volume_output_pane_content`, `VOLUME_OUTPUT_VIEWER_CONFIG`:
 3D volume first, Slices without the select tool or crosshair, densities of
@@ -184,7 +216,7 @@ context: TableViewerContext = { projectId, protocolId, outputName, pointerClass?
 table: TableViewerData = {
   title?, columns: [{id, label, align?, width?, sortable?, actions?}],   // action: {id, label, icon?, disabled?}
   rows: [{id, cells: {colId: value}, data?, actions?, defaultAction?,
-          cellContexts?: {colId: {edit?: {type: "boolean", field}, actions?, children?}},
+          cellContexts?: {colId: {edit?: {type: "boolean", field, checked?}, actions?, children?}},
           children?}],
   actions?, editActions?: [{id, label, requiresChanges?}], page?,
   initialAction?: {rowId, actionId?, columnId?},

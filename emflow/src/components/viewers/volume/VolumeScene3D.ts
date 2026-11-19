@@ -19,6 +19,7 @@ import {
   particleRotation,
   sectionSize,
   type Axis,
+  type BoxMargin,
   type SliceImage,
   type Vec3,
   type VolumeCoordinates,
@@ -42,6 +43,14 @@ export type SceneState = {
   templateLevel: number | null;
   /** Color of the points and the template (CSS hex). */
   particleColor: string;
+  /** Particles in sets (the coordinates have `sets`): the set of each one,
+   * the color of each set and whether it is shown; null/missing: one set. */
+  particleSet?: number[] | null;
+  setColors?: string[] | null;
+  setShown?: boolean[] | null;
+  /** Margin of the box (e.g. near the edges): translucent on the planes,
+   * with the outline of the box inside it (null: none). */
+  margin?: BoxMargin | null;
   volOn: boolean;
   inverted: boolean;
   /** Shown planes (at most two). */
@@ -159,6 +168,12 @@ export class VolumeScene3D {
   private readonly scene = new THREE.Scene();
   private readonly camera: THREE.PerspectiveCamera;
   private readonly planes = {} as Record<Axis, THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>>;
+  /** The box margin on each plane (a frame, or the whole plane), and the
+   * outline of the box inside it; built when first shown. */
+  private readonly marginFrames: Partial<Record<Axis, THREE.Mesh<THREE.ShapeGeometry, THREE.MeshBasicMaterial>>> = {};
+  private readonly marginShapes: Partial<Record<Axis, string>> = {};
+  private marginBox: THREE.LineSegments<THREE.EdgesGeometry, THREE.LineBasicMaterial> | null = null;
+  private marginBoxSize = "";
   private readonly tex = new Map<string, THREE.Texture>();
   private readonly pending = new Set<string>();
   private readonly ray = new THREE.Raycaster();
@@ -175,6 +190,8 @@ export class VolumeScene3D {
   private tmplLevel: number | null = null;
   /** Indices of the particles shown (all, or near the shown planes). */
   private shown: number[] = [];
+  /** The particles are in sets: colored per particle (vertex and instance colors). */
+  private multi = false;
   private vol: THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial> | null = null;
   private volLoading = false;
   private grid: VolumeDensity | null = null;
@@ -245,9 +262,12 @@ export class VolumeScene3D {
       }
       const pg = new THREE.BufferGeometry();
       pg.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+      this.multi = Boolean(P.sets?.length);
+      if (this.multi) pg.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
       this.points = new THREE.Points(
         pg,
-        new THREE.PointsMaterial({ color: state.particleColor, size: 3.5, sizeAttenuation: false }),
+        new THREE.PointsMaterial({ color: this.multi ? 0xffffff : state.particleColor, size: 3.5,
+                                   sizeAttenuation: false, vertexColors: this.multi }),
       );
       this.scene.add(this.points);
       this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -408,10 +428,13 @@ export class VolumeScene3D {
       m.visible = active.includes(a);
     }
     this.dropOtherTextures();
+    this.updateMargin();
     const P = this.o.particles;
     if (P && this.points) {
       this.updateShown(P);
-      const color = this.state.particleColor;
+      // With sets, each particle has the color of its set (white materials)
+      const color = this.multi ? "#ffffff" : this.state.particleColor;
+      if (this.multi) this.updateColors();
       this.points.visible = partsOn && !tmplOn && !sphereOn;
       (this.points.material as THREE.PointsMaterial).color.set(color);
       if (this.tmpl) {
@@ -429,12 +452,96 @@ export class VolumeScene3D {
     this.render();
   }
 
+  /** The box margin on the planes (as the Slices sections: the whole plane
+   * when its slice is in the margin, else a frame along its sides) and the
+   * outline of the box inside the margin. */
+  private updateMargin() {
+    const m = this.state.margin;
+    const dim = this.o.dim;
+    // The box axes along the width and the height of each plane's geometry
+    const wh: Record<Axis, [Axis, Axis]> = { z: ["x", "y"], y: ["x", "z"], x: ["z", "y"] };
+    for (const a of AXES) {
+      let frame = this.marginFrames[a];
+      if (!m) {
+        if (frame) frame.visible = false;
+        continue;
+      }
+      const key = this.o.keys[a][nearest(this.o.keys[a], this.state.pos[a])];
+      const c = key + 0.5;
+      const inside = c >= m.vox[a] && c <= dim[a] - m.vox[a];
+      const [wa, ha] = wh[a];
+      const W = dim[wa], H = dim[ha];
+      const mw = Math.min(m.vox[wa], W / 2), mh = Math.min(m.vox[ha], H / 2);
+      if (!frame) {
+        frame = new THREE.Mesh(
+          new THREE.ShapeGeometry(new THREE.Shape()),
+          // Over its plane (drawn after it, in front of it in depth)
+          new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide, depthWrite: false,
+                                        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }),
+        );
+        frame.renderOrder = 2;
+        this.planes[a].add(frame);
+        this.marginFrames[a] = frame;
+      }
+      const id = `${inside}:${mw}:${mh}`;
+      if (this.marginShapes[a] !== id) {
+        const shape = new THREE.Shape();
+        shape.moveTo(-W / 2, -H / 2);
+        shape.lineTo(W / 2, -H / 2);
+        shape.lineTo(W / 2, H / 2);
+        shape.lineTo(-W / 2, H / 2);
+        shape.closePath();
+        if (inside) {
+          const hole = new THREE.Path();
+          hole.moveTo(-W / 2 + mw, -H / 2 + mh);
+          hole.lineTo(-W / 2 + mw, H / 2 - mh);
+          hole.lineTo(W / 2 - mw, H / 2 - mh);
+          hole.lineTo(W / 2 - mw, -H / 2 + mh);
+          hole.closePath();
+          shape.holes.push(hole);
+        }
+        frame.geometry.dispose();
+        frame.geometry = new THREE.ShapeGeometry(shape);
+        this.marginShapes[a] = id;
+      }
+      frame.material.color.set(m.color);
+      frame.material.opacity = m.opacity;
+      frame.visible = true;
+    }
+
+    if (!m) {
+      if (this.marginBox) this.marginBox.visible = false;
+      return;
+    }
+    const size = AXES.map((a) => Math.max(dim[a] - 2 * m.vox[a], 0.01));
+    const sizeId = size.join(":");
+    if (!this.marginBox) {
+      this.marginBox = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
+        new THREE.LineBasicMaterial({ transparent: true, opacity: 0.85 }),
+      );
+      this.marginBox.position.set(dim.x / 2, -dim.y / 2, dim.z / 2);
+      this.scene.add(this.marginBox);
+    }
+    if (this.marginBoxSize !== sizeId) {
+      this.marginBox.geometry.dispose();
+      const [sx, sy, sz] = size;
+      this.marginBox.geometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(sx, sy, sz));
+      this.marginBoxSize = sizeId;
+    }
+    this.marginBox.material.color.set(m.color);
+    this.marginBox.visible = true;
+  }
+
   /** Particles within `tolerance` of a shown plane (or all), as points and templates. */
   private updateShown(P: VolumeCoordinates) {
     const { nearOnly, tolerance, active, pos } = this.state;
     const n = Math.min(P.x.length, P.y.length, P.z.length);
     const shown: number[] = [];
+    const S = this.multi ? this.state.particleSet : null;
+    const setShown = this.state.setShown;
     for (let i = 0; i < n; i++) {
+      if (S && setShown && !setShown[S[i]]) continue;
       if (!nearOnly || active.some((a) => Math.abs(P[a][i] - pos[a]) <= tolerance)) shown.push(i);
     }
     this.shown = shown;
@@ -474,6 +581,38 @@ export class VolumeScene3D {
     }
   }
 
+  /** The color of the set of each shown particle: points, spheres, arrows and templates. */
+  private updateColors() {
+    const S = this.state.particleSet, colors = this.state.setColors;
+    if (!S || !colors) return;
+    const byColor = new Map<string, THREE.Color>();
+    const colorOf = (i: number) => {
+      const hex = colors[S[i]] ?? this.state.particleColor;
+      let c = byColor.get(hex);
+      if (!c) byColor.set(hex, (c = new THREE.Color(hex)));
+      return c;
+    };
+    const attr = this.points!.geometry.getAttribute("color") as THREE.BufferAttribute | undefined;
+    if (attr) {
+      const arr = attr.array as Float32Array;
+      this.shown.forEach((i, k) => colorOf(i).toArray(arr, 3 * k));
+      attr.needsUpdate = true;
+    }
+    for (const mesh of [this.tmpl, this.spheres, this.arrows]) {
+      if (!mesh) continue;
+      this.shown.forEach((i, k) => mesh.setColorAt(k, colorOf(i)));
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }
+  }
+
+  /** With sets, the instance colors exist from the start (so the materials
+   * are compiled with them). */
+  private initInstanceColors(mesh: THREE.InstancedMesh, n: number) {
+    if (!this.multi) return;
+    const white = new THREE.Color(0xffffff);
+    for (let i = 0; i < n; i++) mesh.setColorAt(i, white);
+  }
+
   /* Spheres at the particles (translucent, so the arrow shows inside) and,
      when they have angles, an arrow from the centre along each one's Z axis
      (the RELION rotation, as the template), out of the sphere. Both are
@@ -502,6 +641,7 @@ export class VolumeScene3D {
     }
     for (const mesh of [this.spheres, this.arrows]) {
       if (!mesh) continue;
+      this.initInstanceColors(mesh, n);
       mesh.visible = false;
       mesh.frustumCulled = false;
       mesh.count = 0;
@@ -525,6 +665,7 @@ export class VolumeScene3D {
       this.tmplMatrices.push(new THREE.Matrix4().set(
         e[0], e[1], e[2], w.x, e[3], e[4], e[5], w.y, e[6], e[7], e[8], w.z, 0, 0, 0, 1));
     }
+    this.initInstanceColors(mesh, n);
     mesh.visible = false;
     mesh.frustumCulled = false;
     this.scene.add(mesh);

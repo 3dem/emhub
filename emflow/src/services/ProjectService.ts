@@ -6,6 +6,23 @@ export interface loadWorkflowPayload {
   category?: WorkflowCategory;
 }
 
+/** Cluster job information of a protocol, from the inspect_cluster_job endpoint.
+ * mode "live": output of the queue 'inspect' command (launched/running jobs),
+ *   format "json" (data, e.g. lsf_inspect_job.py --json) or "text" (text).
+ * mode "recorded": format "summary", from the job files (info.json, run.out). */
+export type ClusterJobInspection = {
+  run_id: string;
+  status?: string;
+  cluster_job_id?: string;
+  mode: "live" | "recorded";
+  format: "json" | "text" | "summary";
+  queue?: string;
+  command?: string;
+  data?: any;
+  text?: string;
+  note?: string;
+};
+
 export type AuthenticatedRequestOptions = {
   signal?: AbortSignal;
   cache?: RequestCache;
@@ -223,6 +240,9 @@ export type TableViewerCellEdit = {
   type: "boolean";
   field: string;
   disabled?: boolean;
+  /** Initial state of a checkbox in a cell holding another value (e.g. a
+   * count), drawn next to it; without it, the cell value is the state. */
+  checked?: boolean;
 
   cascadeToChildren?: {
     childrenId: string;
@@ -301,6 +321,12 @@ export type TableViewerVariants = {
   /** Id of the shown version. */
   value: string;
   options: { id: string; label: string }[];
+  /** Versions for values chosen in a pane (e.g. the distances of the
+   * tomogram viewer, TableValuesContext): `template` with each
+   * `{<name>}` replaced by its value, from `values` (the current ones)
+   * and the pane's; loaded in place, the pane stays open. */
+  template?: string;
+  values?: Record<string, number>;
 };
 
 /** A version of a table and the context of its requests (e.g. its path). */
@@ -480,6 +506,24 @@ export type TableViewerImageSliderContent = {
       vertices: number[];
       faces: number[];
       density?: { shape: [number, number, number]; data: string; voxelSize: number; level: number };
+    };
+    /** Several sets of particles, each with its color: the index in `sets`
+     * of each particle (see CoordinateSet in components/viewers/volume/volumeMath.ts). */
+    set?: number[];
+    sets?: { id?: string; label: string; color: string; hidden?: boolean }[];
+    /** Recompute `set`/`sets` at other values (inputs of the viewer):
+     * `source` is loaded with `{...payload, distance: value}` (one input,
+     * `label`/`value`...) or `{...payload, <id>: value...}` (`inputs`) and
+     * answers `{set, sets}` or `{coordinates: {set, sets}}`. */
+    recompute?: {
+      label?: string;
+      unit?: string;
+      value?: number;
+      min?: number;
+      step?: number;
+      inputs?: { id: string; set?: string; label?: string; title?: string; unit?: string;
+                 value: number; min?: number; step?: number; margin?: boolean }[];
+      source: { path: string; payload?: Record<string, unknown> };
     };
   };
 };
@@ -1305,6 +1349,8 @@ export interface ProjectService<
   continueAll(projectId: Id, protocolId: Id): Promise<TProject>;
   resetFrom(projectId: Id, protocolId: Id): Promise<TProject>;
   stopProtocol(projectId: Id, ids: string[]): Promise<TProject>;
+  /** Cluster job of a protocol (clicking its cluster job id), see ClusterJobInspection */
+  inspectClusterJob?(projectId: Id, protocolId: Id): Promise<ClusterJobInspection>;
   resolveBrowserPaths(projectId: Id, protocolId: Id): Promise<ResolveBrowserPathsResult>;
   listRemoteDirectory(projectId: Id, protocolId: Id, path: string): Promise<any[]>;
   previewRemoteEntry(projectId: Id, protocolId: Id, path: string): Promise<any | null>;
@@ -1561,6 +1607,11 @@ export interface ProjectService<
     projectId: Id,
     payload: WorkflowImportRequestPayload,
   ): Promise<WorkflowImportResult>;
+
+  // Optional (without it the menu item is hidden): URL of a host page with the
+  // computing resources (node, queue, CPUs, GPUs, memory) used by the given
+  // protocols, opened from the node menu "Workflow > Computing Summary".
+  getComputingSummaryUrl?(projectId: Id, protocolIds: Id[]): Promise<string>;
 
   writeRemoteFile(
     projectId: Id,

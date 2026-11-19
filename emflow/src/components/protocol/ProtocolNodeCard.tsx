@@ -70,6 +70,7 @@ import {
   FileIcon,
   ClipboardPaste,
   ClipboardCopy,
+  Cpu,
 } from "lucide-react";
 
 import TableViewerDialog from "@/components/viewers/TableViewerDialog";
@@ -209,6 +210,8 @@ type StatusNodeProps = {
     sourceProtocolLabel?: string,
   ) => void;
   onToggleOutputsCard?: (protocolId: string) => void;
+  // Clicking the cluster job id pill shows the cluster job information
+  onInspectClusterJob?: (protocolId: string) => void;
 
   inPathSelection?: boolean;
   pathSelectionActive?: boolean;
@@ -706,6 +709,7 @@ export default function ProtocolNodeCard({
   onManageTags,
   onOpenProtocolClass, // addThis
   onToggleOutputsCard,
+  onInspectClusterJob,
   inPathSelection = false,
   pathSelectionActive = false,
   showHandles = true,
@@ -1459,7 +1463,9 @@ export default function ProtocolNodeCard({
   const showCopyItem = isMenuItemVisible("copyWorkflow") && !!onCopyWorkflow && !isProjectNode;
   const showPasteItem = isMenuItemVisible("pasteWorkflow") && !!onPasteWorkflow && canPasteWorkflow;
   const showExportItem = isMenuItemVisible("export");
-  const hasWorkflowMenu = showCopyItem || showPasteItem || showExportItem;
+  const showComputingItem = isMenuItemVisible("computingSummary") && !isProjectNode
+    && typeof svc.getComputingSummaryUrl === "function";
+  const hasWorkflowMenu = showCopyItem || showPasteItem || showExportItem || showComputingItem;
 
   const FromIcon = graphDirection === "TB" ? ArrowDown : ArrowRight;
   const ToIcon = graphDirection === "TB" ? ArrowUp : ArrowLeft;
@@ -1657,6 +1663,27 @@ export default function ProtocolNodeCard({
     isProjectNode,
     normalizedProjectId,
   ]);
+
+  // Computing Summary: host page (new tab) with the resources used by the selected protocols
+  const handleComputingSummary = useCallback(async () => {
+    if (isProjectNode || normalizedProjectId == null) return;
+    const protocolIds = getSelectedProtocolIdsForExport();
+    if (protocolIds.length === 0) {
+      toast.error("No protocols selected.");
+      return;
+    }
+    // Opened before awaiting the url: popups are blocked after the click is handled
+    const win = window.open("", "_blank");
+    try {
+      const url = await svcRef.current.getComputingSummaryUrl?.(normalizedProjectId, protocolIds);
+      if (!url) throw new Error("No computing summary url.");
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
+    } catch (err) {
+      win?.close();
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  }, [getSelectedProtocolIdsForExport, isProjectNode, normalizedProjectId]);
 
   const handleCloseExportDialog = useCallback(() => {
     setExportBrowserOpen(false);
@@ -2843,6 +2870,16 @@ export default function ProtocolNodeCard({
                             </div>
                           </DropdownMenuItem>
                           )}
+                          {showComputingItem && (
+                          <DropdownMenuItem onSelect={() => void handleComputingSummary()}>
+                            <div className={styles.menuRow}>
+                              <span className={styles.menuLeft}>
+                                <Cpu className={styles.menuItemIcon} />
+                                <span>Computing Summary</span>
+                              </span>
+                            </div>
+                          </DropdownMenuItem>
+                          )}
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
                     )}
@@ -2935,8 +2972,18 @@ export default function ProtocolNodeCard({
                       {data.status}
                     </span>
 
-                    {data.clusterJobId && (data.status === "launched" || data.status === "running") && (
-                      <span className={styles.clusterJobPill} title="Cluster job id">
+                    {data.clusterJobId && (
+                      <span
+                        className={[styles.clusterJobPill,
+                          onInspectClusterJob ? styles.clusterJobPillClickable : "",
+                          onInspectClusterJob ? "nodrag" : ""].filter(Boolean).join(" ")}
+                        title={onInspectClusterJob ? "Cluster job id, click to inspect" : "Cluster job id"}
+                        onPointerDown={onInspectClusterJob ? (e) => e.stopPropagation() : undefined}
+                        onClick={onInspectClusterJob ? (e) => {
+                          e.stopPropagation();
+                          onInspectClusterJob(data.id);
+                        } : undefined}
+                      >
                         {data.clusterJobId}
                       </span>
                     )}
@@ -3313,6 +3360,16 @@ export default function ProtocolNodeCard({
                   <span className={styles.menuLeft}>
                     <FileUp className={styles.menuItemIcon} />
                     <span>Export</span>
+                  </span>
+                </div>
+              </ContextMenuItem>
+              )}
+              {showComputingItem && (
+              <ContextMenuItem onClick={() => void handleComputingSummary()}>
+                <div className={styles.menuRow}>
+                  <span className={styles.menuLeft}>
+                    <Cpu className={styles.menuItemIcon} />
+                    <span>Computing Summary</span>
                   </span>
                 </div>
               </ContextMenuItem>

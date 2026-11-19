@@ -1,0 +1,106 @@
+<!-- Computing resources used by the jobs of a processing project,
+     opened from the project widget: Workflow > Computing Summary -->
+{% set title = "Computing Summary" %}
+{% set about = processing_path %}
+{% set navigation = [('Processing Dashboard', url_for_content('processing_dashboard')),
+                     ('Computing Summary', '')] %}
+
+<div class="container-fluid dashboard-content">
+
+    {% include 'include_header.html' %}
+
+    <!-- Totals -->
+    <div class="row">
+        {% set cards = [
+            ('Jobs', totals['jobs'] ~ (' selected' if selected else '')),
+            ('Elapsed', totals['elapsed_str']),
+            ('CPU hours', '%0.1f'|format(totals['cpu_hours'])),
+            ('GPU hours', '%0.1f'|format(totals['gpu_hours'])),
+            ('Nodes', totals['hosts']|join(', ') or '-'),
+            ('GPU types', totals['gpu_types']|join(', ') or '-'),
+            ('Queues', totals['queues']|join(', ') or '-'),
+        ] %}
+        {% for label, value in cards %}
+        <div class="col-xl col-lg-3 col-md-4 col-sm-6 col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="text-muted">{{ label }}</h5>
+                    <h3 class="mb-0">{{ value }}</h3>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Jobs -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-light">
+                    <tr class="border-0">
+                        <th class="border-0">Job</th>
+                        <th class="border-0">Status</th>
+                        <th class="border-0">Runs</th>
+                        <th class="border-0">Elapsed</th>
+                        <th class="border-0">Node</th>
+                        <th class="border-0">Queue</th>
+                        <th class="border-0">CPUs</th>
+                        <th class="border-0">GPUs</th>
+                        <th class="border-0">GPU type</th>
+                        <th class="border-0">Memory (max / avg)</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for job in jobs %}
+                    <tr>
+                        <td>
+                            <strong>{{ job['id'] }}</strong>
+                            {% if job['label'] and job['label'] != job['type'] %}<br>{{ job['label'] }}{% endif %}
+                            <br><small class="text-muted">{{ job['type'] }}</small>
+                        </td>
+                        <td>{{ job['status'] }}</td>
+                        <td>{{ job['runs'] }}</td>
+                        <td>{{ job['elapsed_str'] if job['runs'] else '-' }}</td>
+                        <td>
+                            {{ job['host'] or '-' }}
+                            {% if job['node_cpus'] %}
+                            <br><small class="text-muted">{{ job['node_cpus'] }} CPUs, {{ job['node_memory'] }} GiB{% if job['node_gpus'] %}, {{ job['node_gpus'] }} GPUs{% endif %}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ job['queue'] or '-' }}
+                            {% if job['cluster_job_id'] %}
+                            <br><small class="text-muted">{{ job['cluster'] }} job {{ job['cluster_job_id'] }}</small>
+                            {% endif %}
+                        </td>
+                        {% set fp = 'text-muted font-italic' if job['requested'] else '' %}
+                        <td class="{{ fp }}">{{ job['cpus'] if job['cpus'] is not none else '-' }}</td>
+                        <td class="{{ fp }}">{{ job['gpus'] if job['gpus'] is not none else '-' }}</td>
+                        <td>{{ job['gpu_type'] or '-' }}</td>
+                        <td>
+                            {% if job['memory_max'] or job['memory_avg'] %}
+                                {{ job['memory_max'] or '-' }} / {{ job['memory_avg'] or '-' }}
+                            {% else %}-{% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="10" class="text-center text-muted">No jobs</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer">
+            <small class="text-muted">
+                Node, GPU type, cluster job and memory are recorded when the job runs (memory as
+                reported by the cluster at the end of the run). For jobs run before that, they
+                are taken from the LSF report at the end of run.out, if any (cluster jobs).
+                CPUs and GPUs in <span class="font-italic">italic</span> are the requested ones
+                (job.script or job parameters), not recorded at run time; '-' is not available.
+                CPU and GPU hours are the CPUs and GPUs of each job times its elapsed time.
+            </small>
+        </div>
+    </div>
+
+</div>

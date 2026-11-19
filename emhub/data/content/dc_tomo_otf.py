@@ -832,8 +832,10 @@ def register_content(dc):
     def _config_state(session, few_kept):
         """ What the Thresholds window and the drag of the guides need:
         the file, the thresholds as saved and the defaults (the page keeps
-        its unsaved changes itself), the fields to show, the other files of
-        the project, and the tilt series keeping too few tilts. """
+        its unsaved changes itself), the fields to show and the tilt series
+        keeping too few tilts.  The other configuration files of the project
+        are listed when the window opens (api tomo_otf_config_files): that
+        looks through every job folder. """
         cfg = session.config()
         groups = []
         for label, help_text, rows in THRESHOLD_ROWS:
@@ -857,7 +859,7 @@ def register_content(dc):
             'updated': cfg['updated'], 'updatedBy': cfg['updatedBy'],
             'source': cfg['source'], 'loadedFrom': cfg['loadedFrom'],
             'saved': cfg['saved'], 'defaults': TiltQualityCuration.Config.DEFAULT_THRESHOLDS,
-            'groups': groups, 'files': session.config_files(),
+            'groups': groups,
             # The plots shown, as fields of 'display' (listed with the changes)
             'displayFields': _display_fields(),
             'keptLimit': TiltQualityCuration.Config.tilts_kept_min(session.thresholds),

@@ -418,22 +418,35 @@ def build_global_tilt_series_table(full_path, type_key, root=None):
             return {'columns': [], 'rows': [], 'title': spec['title']}
 
         table_name = 'global' if 'global' in table_names else table_names[0]
-        columns = _table_view_column_actions(spec)
+        star_rows = [row._asdict() for row in sf.iterTable(table_name, guessType=False)]
+    return build_tilt_series_table(star_rows, type_key, root=root)
 
-        rows = []
-        for idx, row in enumerate(sf.iterTable(table_name, guessType=False)):
-            star_cells = row._asdict()
-            row_cells = _table_view_row_cells(spec, star_cells)
-            tomo_name = row_cells.get('tomoName', '')
 
-            rows.append(_table_view_row(spec, type_key, tomo_name or idx,
-                                        row_cells, root))
+def build_tilt_series_table(star_rows, type_key, root=None, title=None,
+                            extra_columns=(), extra_cells=None):
+    """Build TableViewerPane rows from the rows (dicts) of a global
+    tilt-series STAR, as build_global_tilt_series_table. extra_columns are
+    added after the tomo name column, extra_cells(star_cells) returns the
+    values of their cells. """
+    spec = TABLE_VIEW_SPECS[type_key]
+    columns = _table_view_column_actions(spec)
+    columns[1:1] = extra_columns
 
-        return {
-            'title': f"{spec['title']} ({len(rows)} items)",
-            'columns': columns,
-            'rows': rows,
-        }
+    rows = []
+    for idx, star_cells in enumerate(star_rows):
+        row_cells = _table_view_row_cells(spec, star_cells)
+        if extra_cells:
+            row_cells.update(extra_cells(star_cells))
+        tomo_name = row_cells.get('tomoName', '')
+
+        rows.append(_table_view_row(spec, type_key, tomo_name or idx,
+                                    row_cells, root))
+
+    return {
+        'title': title or f"{spec['title']} ({len(rows)} items)",
+        'columns': columns,
+        'rows': rows,
+    }
 
 
 def build_tomocoordinates_table(optimisation_set_path, root=None):
@@ -787,6 +800,20 @@ def _volume_axis_slices(
         return slices, prefix, [xdim, ydim, zdim]
 
 
+def _file_version(root, rel_path):
+    """ Version of a project file, '<mtime_ns>-<size>' (None if missing),
+    revalidated with the file server (a plain stat() may return cached
+    attributes on NFS). It goes in the payload of the data requests of a
+    file, so emflow's DataLoader (cached by payload) loads it again when the
+    file changes, e.g. when a job is run again. """
+    from emwrap.base.project_lock import file_signature
+    try:
+        sig = file_signature(project_file_path(root, rel_path))
+    except Exception:
+        return None
+    return f'{sig[2]}-{sig[1]}' if sig else None
+
+
 def volume_density_source(root, rel_path, max_size=None):
     """ Request of the density of a volume (scaled grid and histogram, see
     emhub.data.volume_density) for emflow's VolumeViewer, which loads it
@@ -796,7 +823,8 @@ def volume_density_source(root, rel_path, max_size=None):
         url = flask.url_for('api.fetch_volume_density')
     except RuntimeError:  # outside a request
         url = '/api/fetch_volume_density'
-    payload = {'root': root, 'path': rel_path}
+    payload = {'root': root, 'path': rel_path,
+               'version': _file_version(root, rel_path)}
     if max_size:
         payload['maxSize'] = int(max_size)
     return {'path': url, 'payload': payload}
@@ -810,7 +838,8 @@ def volume_crop_source(root, rel_path):
         url = flask.url_for('api.fetch_volume_crop')
     except RuntimeError:  # outside a request
         url = '/api/fetch_volume_crop'
-    return {'path': url, 'payload': {'root': root, 'path': rel_path}}
+    return {'path': url, 'payload': {'root': root, 'path': rel_path,
+                                     'version': _file_version(root, rel_path)}}
 
 
 def map_iterations_source(root, rel_path):
@@ -1128,7 +1157,7 @@ def _stack_section_tilts(stack_path, tilts, angle_key):
 
 
 def build_tilt_series_viewer_pane_content(root, star_rel=None, stack_rel=None,
-                                          title=None, pixel_size=None):
+                                          title=None, pixel_size=None, star_full=None):
     """Pane content of emflow's TiltSeriesViewer ({kind: 'tiltSeries'}): the
     tilt images sorted by tilt angle, each with its movie index, tilt angle,
     alignment (rlnTomoXTilt / YTilt / ZRot, X / Y shift in Å) and dose, defocus
@@ -1146,13 +1175,16 @@ def build_tilt_series_viewer_pane_content(root, star_rel=None, stack_rel=None,
     The local alignment, when the STAR has rlnTomoDeformationCoefficients,
     is sent as 'deformation' (see _series_deformation) and the coefficients
     of each tilt as its 'deformation'.
+
+    star_full: full path of the STAR to read instead of star_rel (e.g. a
+    temporary one, not inside the project).
     """
     import mrcfile
     from emtools.image import Thumbnail
 
     rows, table_name, full_path = [], None, None
-    if star_rel:
-        full_path = project_file_path(root, star_rel)
+    if star_rel or star_full:
+        full_path = star_full or project_file_path(root, star_rel)
         if not os.path.exists(full_path):
             raise Exception(f'STAR file not found: {star_rel}')
         with StarFile(full_path) as sf:
@@ -1253,14 +1285,16 @@ def _grid_cell(title, build, *args, **kwargs):
         return {'kind': 'empty', 'title': title, 'message': str(e)}
 
 
-def build_tilt_series_grid_pane_content(root, row_cells, star_rel, row_label):
+def build_tilt_series_grid_pane_content(root, row_cells, star_rel, row_label,
+                                        star_full=None):
     """2 x 2 grid for a tilt series: the tilt series viewer (the stack, else
     the tilt images, with the alignment of the STAR) | tilt angles (dose vs
-    tilt angle); motion | defocus plots."""
+    tilt angle); motion | defocus plots. star_full: full path of the STAR
+    to read instead of star_rel (see build_tilt_series_viewer_pane_content). """
     stack_rel = resolve_row_aligned_stack_path(row_cells)
-    if stack_rel or star_rel:
+    if stack_rel or star_rel or star_full:
         slices = _grid_cell('Slices', build_tilt_series_viewer_pane_content,
-                            root, star_rel, stack_rel,
+                            root, star_rel, stack_rel, star_full=star_full,
                             pixel_size=_finite_float(row_cells.get('tsPixelSize')
                                                      or row_cells.get('rlnTomoTiltSeriesPixelSize')))
     else:
@@ -1268,9 +1302,9 @@ def build_tilt_series_grid_pane_content(root, row_cells, star_rel, row_label):
                   'message': 'Missing tilt series stack or STAR file'}
 
     def _plot(title, build):
-        if not star_rel:
+        if not (star_rel or star_full):
             return {'kind': 'empty', 'title': title, 'message': 'Missing star file path'}
-        full_path = project_file_path(root, star_rel)
+        full_path = star_full or project_file_path(root, star_rel)
         if not os.path.exists(full_path):
             return {'kind': 'empty', 'title': title,
                     'message': f'STAR file not found: {star_rel}'}
@@ -1405,6 +1439,8 @@ def _mask_source_map(root, mask_rel):
             values = {}
         if not values.get('relion_mask_create.denovo'):
             candidates.append(values.get('relion_mask_create.volume.i'))
+        # The optional input volume of emw-geometry-mask
+        candidates.append(values.get('input_volume'))
     if mask_rel.endswith('_mask.mrc'):
         candidates.append(mask_rel[:-len('_mask.mrc')] + '.mrc')
 
@@ -1523,9 +1559,11 @@ def resolve_row_tomogram_path(row_cells, column_id=None):
     return row_cells.get('rlnTomoReconstructedTomogramDenoised')
 
 
-def build_series_star_pane_content(action_id, root, star_rel, row_label, type_key):
-    """Build pane content for actions that read a per-series tilt-series STAR file."""
-    full_path = project_file_path(root, star_rel)
+def build_series_star_pane_content(action_id, root, star_rel, row_label, type_key,
+                                   star_full=None):
+    """Build pane content for actions that read a per-series tilt-series STAR
+    file (star_full: its full path, to read one not inside the project)."""
+    full_path = star_full or project_file_path(root, star_rel)
     if not os.path.exists(full_path):
         raise Exception(f'STAR file not found: {star_rel}')
 

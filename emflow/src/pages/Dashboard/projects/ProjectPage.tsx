@@ -97,6 +97,7 @@ import TagPicker from "@/components/tags/TagPicker";
 import TagManager from "@/components/tags/TagManager";
 import type { ProtocolTag } from "@/components/tags/tagTypes";
 import TagsDialog from "@/components/tags/TagsDialog";
+import ClusterJobDialog from "@/components/protocol/ClusterJobDialog";
 import { NodeMenuVisibility } from "@/types/protocol-node-menu-items";
 import { ProjectRefreshProvider } from "@/context/ProjectRefreshContext";
 
@@ -452,6 +453,7 @@ type NodeActions = {
   onManageTags?: () => void;
   onOpenProtocolClass?: (protocolClass: string) => void;
   onToggleOutputsCard?: (id: string) => void;
+  onInspectClusterJob?: (id: string) => void;
 };
 
 // "All outputs" cards are extra React Flow nodes placed right of their protocol node
@@ -1143,6 +1145,14 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   // Tags states
   const [allTags, setAllTags] = useState<ProtocolTag[]>([]);
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
+  // Protocol whose cluster job is shown (clicking its cluster job id)
+  const [clusterJobDialogId, setClusterJobDialogId] = useState<string | null>(null);
+  const inspectClusterJob = useMemo(
+    () => (svc.inspectClusterJob
+      ? (protocolId: string) => svc.inspectClusterJob!(projectName, protocolId)
+      : undefined),
+    [svc, projectName],
+  );
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [tagAssignments, setTagAssignments] = useState<ProtocolTagAssignments>({});
 
@@ -1346,6 +1356,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     copyWorkflow: true,
     pasteWorkflow: true,
     export: true,
+    computingSummary: true,
     manageTags: true,
     nextSteps: true,
     rename: true,
@@ -3259,6 +3270,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       onToggleOutputsCard: (id) => {
         setOutputsCardIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
       },
+      onInspectClusterJob: (id) => setClusterJobDialogId(String(id)),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleSelectFrom, handleSelectTo, handleNodeDoubleClick, openFormForProtocolClass, workflowClipboard?.workflow,]);
@@ -10158,6 +10170,14 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Cluster job information (clicking the cluster job id of a node) */}
+        <ClusterJobDialog
+          open={clusterJobDialogId != null}
+          protocolId={clusterJobDialogId}
+          onClose={() => setClusterJobDialogId(null)}
+          inspect={inspectClusterJob}
+        />
 
         {/* tagsManagerDialog */}
         <TagsDialog

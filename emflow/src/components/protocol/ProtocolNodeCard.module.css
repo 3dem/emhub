@@ -1530,6 +1530,14 @@
   border-color: rgba(134, 239, 172, 0.6);
 }
 
+.clusterJobPillClickable {
+  cursor: pointer;
+}
+
+.clusterJobPillClickable:hover {
+  background-color: #374151;
+}
+
 :global(.dark) .clusterJobPill {
   background-color: #020617;
   border: 1px solid rgba(148, 163, 184, 0.35);

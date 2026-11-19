@@ -83,8 +83,96 @@ const MASK_CREATE_FORM = {
     ],
   }],
 };
+// The template wizard of emw-pytom-create_template (PyTomTemplateWizard):
+// the blobs map as template (fake operations) and a soft sphere as mask
+const PYTOM_PROTOCOL = "emw-pytom-create_template";
+const PT = "pytom_create_template.", PM = "pytom_create_mask.";
+const PYTOM_FORM = {
+  name: PYTOM_PROTOCOL,
+  label: "PyTom Create Template",
+  wizards: [{ id: "template", label: "Template and mask wizard",
+              params: [PT + "input-voxel-size-angstrom", PT + "output-voxel-size-angstrom", PM + "radius", PM + "sigma"] }],
+  sections: [{
+    label: "Create",
+    params: [
+      { name: PT + "input-map", label: "Input map (MAP)", paramClass: "PathParam", default: "Refine3D/job020/run_class001.mrc" },
+      { label: "Voxel Size (A)", paramClass: "Line", params: [
+        { name: PT + "input-voxel-size-angstrom", label: "Input", paramClass: "FloatParam", default: 2, wizard: "template" },
+        { name: PT + "output-voxel-size-angstrom", label: "Output", paramClass: "FloatParam", default: 4, wizard: "template" }] },
+      { name: PT + "box-size", label: "Output box size (px)", paramClass: "IntParam", default: 32 },
+      { name: PM + "radius", label: "Radius (px)", paramClass: "FloatParam", default: 12, wizard: "template" },
+      { name: PM + "sigma", label: "Sigma (px)", paramClass: "FloatParam", default: 1, wizard: "template" },
+    ],
+  }],
+};
+const fakePyTomData = ({ box = 32, radius = 12, sigma = 1, invert = false, out_angpix = 4 }) => {
+  const r = (2 * radius) / box, s = (2 * Math.max(sigma, 0.01)) / box;
+  return {
+    template: fakeGrid(box, (x, y, z) => (invert ? 1 - blobs(x, y, z) : blobs(x, y, z))),
+    mask: fakeGrid(box, (x, y, z) => { const d = Math.hypot(x, y, z) - r; return d <= 0 ? 1 : Math.exp(-0.5 * (d / s) ** 2); }),
+    binning: 1, box, angpix: out_angpix,
+  };
+};
+// The geometry mask wizard of emw-geometry-mask (GeometryMaskWizard): the
+// union of the shapes (as emwrap.base.geometry_mask) over the blobs map;
+// an empty input volume uses the box size (the mask alone)
+const GEOMETRY_PROTOCOL = "emw-geometry-mask";
+const GEOMETRY_COLUMNS = ["shape", "center_x", "center_y", "center_z", "rot", "tilt", "psi",
+                          "radius", "height", "size_x", "size_y", "size_z"];
+const GEOMETRY_FORM = {
+  name: GEOMETRY_PROTOCOL,
+  label: "EMwrap Geometry Mask",
+  wizards: [{ id: "geometry_mask", label: "Geometry mask wizard", params: ["soft_edge", "shapes"] }],
+  sections: [{
+    label: "Input",
+    params: [
+      { name: "input_volume", label: "Input volume (optional):", paramClass: "PathParam", default: "Refine3D/job020/run_class001.mrc" },
+      { label: "Box size (px)", paramClass: "Line", params: ["x", "y", "z"].map((a) =>
+        ({ name: `box_${a}`, label: `${a.toUpperCase()}:`, paramClass: "IntParam", default: 64 })) },
+      { name: "soft_edge", label: "Soft edge (px):", paramClass: "FloatParam", default: 0, wizard: "geometry_mask" },
+      { label: "Shapes", paramClass: "Group", params: [
+        { name: "shapes", label: "Shapes", paramClass: "TableParam", wizard: "geometry_mask",
+          params: GEOMETRY_COLUMNS.map((n) => ({ name: n, label: n, paramClass: n === "shape" ? "StringParam" : "FloatParam" })) }] },
+    ],
+  }],
+};
+const SIZES = { sphere: ["radius"], cylinder: ["radius", "height"], box: ["size_x", "size_y", "size_z"] };
+const geometryShape = (kind, n) => ({ shape: kind, center_x: n / 2, center_y: n / 2, center_z: n / 2, rot: 0, tilt: 0, psi: 0,
+  ...(kind === "sphere" ? { radius: n / 4 } : kind === "cylinder" ? { radius: n / 6, height: n / 2 }
+      : { size_x: n / 3, size_y: n / 3, size_z: n / 3 }) });
+function eulerMatrix(rot, tilt, psi) {
+  const [a, b, g] = [rot, tilt, psi].map((v) => (v * Math.PI) / 180);
+  const [ca, sa, cb, sb, cg, sg] = [Math.cos(a), Math.sin(a), Math.cos(b), Math.sin(b), Math.cos(g), Math.sin(g)];
+  return [[cg * cb * ca - sg * sa, cg * cb * sa + sg * ca, -cg * sb],
+          [-sg * cb * ca - cg * sa, -sg * cb * sa + cg * ca, sg * sb], [sb * ca, sb * sa, cb]];
+}
+// Signed distance (px) of local coordinates to the shape surface (negative inside)
+function shapeDistance(s, u, v, w) {
+  if (s.shape === "sphere") return Math.hypot(u, v, w) - s.radius;
+  const q = s.shape === "cylinder" ? [Math.hypot(u, v) - s.radius, Math.abs(w) - s.height / 2]
+    : [Math.abs(u) - s.size_x / 2, Math.abs(v) - s.size_y / 2, Math.abs(w) - s.size_z / 2];
+  return Math.hypot(...q.map((c) => Math.max(c, 0))) + Math.min(Math.max(...q), 0);
+}
+function fakeGeometryMask(n, shapes, softEdge = 0) {
+  const ms = shapes.map((s) => ({ s, A: eulerMatrix(+s.rot || 0, +s.tilt || 0, +s.psi || 0) }));
+  return fakeGrid(n, (x, y, z) => {
+    const p = [x, y, z].map((v) => ((v + 1) * (n - 1)) / 2);
+    const d = Math.min(...ms.map(({ s, A }) => {
+      const r = [p[0] - s.center_x, p[1] - s.center_y, p[2] - s.center_z];
+      const [u, v, w] = A.map((a) => a[0] * r[0] + a[1] * r[1] + a[2] * r[2]);
+      return shapeDistance(s, u, v, w);
+    }));
+    if (softEdge > 0) return 0.5 + 0.5 * Math.cos(Math.PI * Math.min(Math.max(d / softEdge, 0), 1));
+    return d <= 0 ? 1 : 0;
+  });
+}
+const geometryErrors = (shapes) => shapes.length ? shapes.flatMap((s, i) =>
+  !SIZES[s.shape] ? [`Shape ${i + 1}: unknown shape '${s.shape}'.`]
+    : SIZES[s.shape].filter((k) => !(s[k] > 0)).map((k) => `Shape ${i + 1} (${s.shape}): '${k}' should be a positive number.`))
+  : ["Add at least one shape to the mask."];
 const DEV_FORMS = { [WIZARD_PROTOCOL]: WIZARD_FORM, [MASK_PROTOCOL]: MASK_FORM,
-                    [MASK_CREATE_PROTOCOL]: MASK_CREATE_FORM };
+                    [MASK_CREATE_PROTOCOL]: MASK_CREATE_FORM, [PYTOM_PROTOCOL]: PYTOM_FORM,
+                    [GEOMETRY_PROTOCOL]: GEOMETRY_FORM };
 const wizardMenu = {
   Wizards: { text: "Wizards (dev)", value: null, icon: null, tag: null, openItem: true, visible: true,
     childs: [{ text: "Warp - Export Particles", value: WIZARD_PROTOCOL, icon: null, tag: "protocol",
@@ -92,6 +180,10 @@ const wizardMenu = {
              { text: "Relion Tomo 3D Classification", value: MASK_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] },
              { text: "Relion Mask Create", value: MASK_CREATE_PROTOCOL, icon: null, tag: "protocol",
+               openItem: true, visible: true, childs: [] },
+             { text: "PyTom Create Template", value: PYTOM_PROTOCOL, icon: null, tag: "protocol",
+               openItem: true, visible: true, childs: [] },
+             { text: "Geometry Mask", value: GEOMETRY_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] }] },
 };
 const FAKE_MAP_ANGPIX = 2;
@@ -206,6 +298,153 @@ const fakeTomogramsTable = () => ({
   // (default TS_0001:ts-view, an action of the TS / Tomogram column)
   ...fakeInitialAction(),
 });
+
+// Fake 'Coordinates Distances' job view of emw-coordinates-compare (as
+// EMhub's CoordinatesCompareView builds it): ?compareTable for A vs B,
+// ?compareTable=self for a set compared to itself (duplicates). Its
+// tomogram pane has the particles in sets, recomputed at another distance
+// by the fake DataLoader transport (fakeDataRequest, FAKE_SETS_PATH).
+const compareMode = () => new URLSearchParams(location.search).get("compareTable");
+const FAKE_SETS_PATH = "/fake/coordinates_compare_sets";
+const FAKE_COMPARE_ANGPIX = 13.48;
+const FAKE_EDGE_SET = { id: "edge", label: "Near edge", color: "#ff3b30" };
+const FAKE_COMPARE_SELF = [
+  { id: "kept", label: "Kept", color: "#ffa500" },
+  { id: "duplicates", label: "Duplicates", color: "#ff2bd6" },
+  FAKE_EDGE_SET,
+];
+const FAKE_COMPARE_DIMS = [256, 180, 64];
+const FAKE_COMPARE_CROSS = [
+  { id: "a-b", label: "A - B", color: "#ffa500" },
+  { id: "b-a", label: "B - A", color: "#29b6f6" },
+  { id: "a&b", label: "A & B", color: "#4cd964" },
+  { id: "b&a", label: "B & A", color: "#4cd964", hidden: true },
+  FAKE_EDGE_SET,
+];
+
+// Voxel positions of A and B of a tomogram: B has half of A, moved a little
+// (1-6 voxels), and its own particles
+function fakeComparePoints(name) {
+  const seed = name.charCodeAt(name.length - 1);
+  const a = [], b = [];
+  // A different number of particles per tomogram (60, 70, 80)
+  for (let i = 0; i < 60 + (seed % 3) * 10; i++) {
+    a.push([20 + ((i * 37 + seed) % 216), 15 + ((i * 71 + seed) % 150), 8 + ((i * 13) % 48)]);
+  }
+  a.forEach((p, i) => { if (i % 2 === 0) b.push([p[0] + (i % 6) + 1, p[1], p[2]]); });
+  for (let i = 0; i < 25; i++) b.push([30 + ((i * 53) % 200), 25 + ((i * 29) % 130), 10 + ((i * 7) % 44)]);
+  // Self: A with a few duplicates (a later particle 1-3 voxels away)
+  const self = [...a];
+  for (let i = 0; i < 8; i++) self.splice(i * 7 + 1, 0, [a[i * 7][0] + 1 + (i % 3), a[i * 7][1], a[i * 7][2]]);
+  return { a, b, self };
+}
+
+// As EMhub's: the particles closer than edge (A) to the box edges are in
+// the Near edge set, and left out of the others
+function fakeCompareSets(name, distance, self, edge = 0) {
+  const { a, b, self: s } = fakeComparePoints(name);
+  const d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) * FAKE_COMPARE_ANGPIX;
+  const near = (p) => edge > 0 && Math.min(...p.map((v, i) => Math.min(v, FAKE_COMPARE_DIMS[i] - v)))
+    * FAKE_COMPARE_ANGPIX < edge;
+  let set;
+  if (self) {
+    // Relion's rule: a duplicate has a later particle within the distance
+    set = s.map((p, i) => (near(p) ? 2
+      : s.some((q, j) => j > i && !near(q) && d(p, q) <= distance) ? 1 : 0));
+  } else {
+    const a2 = a.filter((p) => !near(p)), b2 = b.filter((q) => !near(q));
+    set = [...a.map((p) => (near(p) ? 4 : b2.some((q) => d(p, q) <= distance) ? 2 : 0)),
+           ...b.map((q) => (near(q) ? 4 : a2.some((p) => d(p, q) <= distance) ? 3 : 1))];
+  }
+  return { set, sets: self ? FAKE_COMPARE_SELF : FAKE_COMPARE_CROSS, distance, edge };
+}
+
+// As EMhub's: the edge distance is the duplicates (or A & B) one by default
+function fakeCompareTable(distance = 30, edge = distance) {
+  const self = compareMode() === "self";
+  const names = ["TS_0001", "TS_0002", "TS_0003"];
+  const columns = self
+    ? [["coords", "Coordinates"], ["edge", "Near edge"], ["duplicates", "Duplicates"], ["kept", "Kept"]]
+    : [["a", "A"], ["b", "B"], ["edge", "Near edge"], ["aMinusB", "A - B"], ["bMinusA", "B - A"], ["aAndB", "A & B"]];
+  const { a: pa, b: pb } = fakeComparePoints(names[0]);
+  const rows = names.map((name) => {
+    const { set } = fakeCompareSets(name, distance, self, edge);
+    const n = (k) => set.filter((v) => v === k).length;
+    const cells = self
+      ? { coords: set.length, edge: n(2), duplicates: n(1), kept: n(0) }
+      : { a: pa.length, b: pb.length, edge: n(4), aMinusB: n(0), bMinusA: n(1), aAndB: n(2) };
+    return {
+      id: name,
+      cells: { ...cells, tomoName: name, distance, edgeDistance: edge },
+      data: { tomoName: name, distance, edgeDistance: edge },
+      actions: [],
+      defaultAction: { id: "tomo-view", label: "Tomogram", icon: "tomogram" },
+      cellContexts: {
+        tomo: { actions: [{ id: "tomo-view", label: "Tomogram", icon: "tomogram" }] },
+        // As EMhub's: the sets to merge, checked, next to their count
+        ...(!self && Object.fromEntries(["aMinusB", "bMinusA", "aAndB"].map((col) => [
+          col, { edit: { type: "boolean", field: col, checked: true, disabled: !cells[col] } }]))),
+      },
+    };
+  });
+  return {
+    title: `Coordinates Distances — External/job012 (${self ? "duplicates" : "A vs B"}, ${distance} Å; 3 tomograms)`,
+    columns: [
+      { id: "tomoName", label: "Tomo name", align: "left", sortable: true },
+      ...columns.map(([id, label]) => ({ id, label, align: "right", sortable: true })),
+      { id: "tomo", label: "Tomogram" },
+    ],
+    rows,
+    // The distances are those of the tomogram viewer (TableValuesContext)
+    variants: { label: "Distance (Å)", value: `coordinates-compare:${distance}:${edge}`, options: [],
+                template: "coordinates-compare:{distance}:{edge}", values: { distance, edge } },
+    initialAction: { rowId: names[0], actionId: "tomo-view" },
+    // As EMhub's (an emw-subset-ts job, Remove duplicate particles mode)
+    editActions: self
+      ? [{ id: "remove-duplicates", label: edge ? "Remove duplicates / edges" : "Remove duplicates",
+           disabled: !rows.some((row) => row.cells.duplicates || row.cells.edge) }]
+      : [{ id: "merge-sets", label: "Merge" }],
+  };
+}
+
+function fakeComparePane(name, distance, edge = distance) {
+  const self = compareMode() === "self";
+  const { a, b, self: s } = fakeComparePoints(name);
+  const points = self ? s : [...a, ...b];
+  const { set, sets } = fakeCompareSets(name, distance, self, edge);
+  const axis = (count, label, w, h) => ({ sliderPrefix: `${label}: `, slices: fakeSlices(count, `${name} ${label}`, w, h) });
+  return {
+    kind: "imageSlider", title: `Tomogram — ${name}`, layout: "volume",
+    dimensions: [256, 180, 64], initialSlice: 32, voxelSize: FAKE_COMPARE_ANGPIX,
+    axes: { x: axis(256, "X", 180, 64), y: axis(180, "Y", 256, 64), z: axis(64, "Z", 256, 180) },
+    viewerConfig: { tabs: { volume3d: false }, defaults: { particles: { nearSlices: false } } },
+    coordinates: {
+      x: points.map((p) => p[0]), y: points.map((p) => p[1]), z: points.map((p) => p[2]),
+      set, sets,
+      // As EMhub's: each input in the group of the set it decides
+      recompute: { inputs: [{ id: "distance", set: self ? "duplicates" : "a&b", label: "within", unit: "Å",
+                              value: distance, title: "Distance of the " + (self ? "duplicates" : "coordinates in A & B") },
+                            { id: "edge", set: "edge", label: "within", unit: "Å", value: edge, margin: true,
+                              title: "Distance to the tomogram box edges (0: none)" }],
+                   source: { path: FAKE_SETS_PATH, payload: { tomoName: name } } },
+    },
+  };
+}
+
+/** DataLoader transport of the dev page: the fake requests, else a POST of
+ * the payload (as the default transport). */
+export async function fakeDataRequest(path, payload, init) {
+  if (path === FAKE_SETS_PATH) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    if (!(payload.distance > 0)) throw new Error(`Invalid distance: ${payload.distance}`);
+    return { coordinates: fakeCompareSets(payload.tomoName, payload.distance,
+                                          compareMode() === "self", payload.edge ?? 0) };
+  }
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload ?? {}), signal: init?.signal });
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
 
 function fakeInitialAction() {
   const value = new URLSearchParams(location.search).get("initialAction");
@@ -358,13 +597,71 @@ const fakeProjectPath = () => {
 };
 let fakeNextJobId = 9000;
 
+// Cluster job ids of some fake jobs: 265 shows the recorded info (finished),
+// 870 the live output of an LSF queue 'inspect' command (lsf_inspect_job.py --json)
+const FAKE_CLUSTER_JOB_IDS = { "265": "330047105", "870": "330051234" };
+
+function withFakeClusterJobIds(wf) {
+  for (const [id, clusterJobId] of Object.entries(FAKE_CLUSTER_JOB_IDS)) {
+    if (wf.protocols?.[id]) wf.protocols[id].clusterJobId = clusterJobId;
+  }
+  return wf;
+}
+
+function fakeClusterJobInspection(protocolId) {
+  const clusterJobId = FAKE_CLUSTER_JOB_IDS[protocolId];
+  if (!clusterJobId) throw new Error(`Job ${protocolId} has no cluster job id.`);
+  if (protocolId !== "870") {
+    return {
+      run_id: protocolId, status: "finished", cluster_job_id: clusterJobId,
+      mode: "recorded", format: "summary",
+      data: {
+        summary: { cluster: "LSF", queue: "gpu_rtx", host: "nodegpu267", cpus: 24, gpus: 2,
+                   gpu_type: "RTX A6000", memory_max: "1253 MB", memory_avg: "73.00 MB",
+                   node_cpus: 64, node_memory: "1 TB", node_gpus: 4, elapsed: 5420, runs: 1, source: "run" },
+        report: { job_id: clusterJobId, hosts: "nodegpu267", cpus: 24, queue: "gpu_rtx" },
+        runs: [{ launched: "2026-11-17 09:12:03", start: "2026-11-17 09:14:40",
+                 end: "2026-11-17 10:45:00", elapsed: 5420, status: "finished" }],
+      },
+    };
+  }
+  return {
+    run_id: protocolId, status: "launched", cluster_job_id: clusterJobId,
+    mode: "live", format: "json", queue: "cryo",
+    command: `lsf_inspect_job.sh ${clusterJobId} --json`,
+    data: {
+      schema: 1,
+      job: { id: clusterJobId, user: "emhub", queue: "gpu_a100", name: "emw-relion-refine3d",
+             status: "PEND", pending_seconds: 7260, submit_time: "Nov 18 08:01" },
+      request: { slots: 64, layout: "1 host(s) x 64 slots", mem_per_slot_mb: 16000,
+                 select: "type == any", gpu: { num: 4, per: "host", mig: null, gmodel: "NVIDIAA100_SXM4_80GB", exclusive: true } },
+      reasons: [{ section: "job", reason: "Not enough processors to meet the job's spanning requirement", hosts: 12, category: "capacity" }],
+      queue: { status: "Open:Active", hosts: 3, host_list: ["gpu_a100_hosts/"], specified_hosts: [] },
+      hosts: [
+        { host: "nodegpu301", status: "ok", capacity: 0, max_slots: 48, maxmem_mb: 1031000, gpus: 4, eligible_gpus: 4, state: "never", fails: ["slots: 48 < 64 per host"] },
+        { host: "nodegpu302", status: "ok", capacity: 0, max_slots: 48, maxmem_mb: 1031000, gpus: 4, eligible_gpus: 4, state: "never", fails: ["slots: 48 < 64 per host"] },
+        { host: "nodegpu303", status: "closed_Adm", capacity: 0, max_slots: 48, maxmem_mb: 515000, gpus: 4, eligible_gpus: 4, state: "never", fails: ["slots: 48 < 64 per host", "memory: 503.0 GB < 1000.0 GB"] },
+      ],
+      verdict: { code: "NEVER", summary: "No host in queue gpu_a100 can run 64 slots on a single host.",
+                 details: ["slots: 3 host(s) have at most 48 slots, 64 needed on one host"],
+                 suggestions: ["Request at most 48 CPUs (MPI x threads) for this queue"] },
+      checks: [
+        { check: "job_state", label: "Job state", status: "pass", detail: "status PEND" },
+        { check: "queue", label: "Queue status", status: "pass", detail: "Open:Active" },
+        { check: "capacity", label: "Static capacity", status: "fail", detail: "0 of 3 hosts can fit the request" },
+      ],
+      notes: ["GPU memory request gmem=80G was not checked."],
+    },
+  };
+}
+
 export function createFakeService() {
   return {
     fetchList: async () => [],
 
     fetchProject: async () => {
       log("fetchProject");
-      return withFakeOutputPrefixes(structuredClone(workflow));
+      return withFakeClusterJobIds(withFakeOutputPrefixes(structuredClone(workflow)));
     },
 
     fetchProtocolDetails: async (projectId, protocolId) => {
@@ -420,6 +717,11 @@ export function createFakeService() {
     saveProtocol: async (projectId, protocolId, cls, params) =>
       notImplemented("saveProtocol", { protocolId, cls, params }),
     stopProtocol: async (projectId, ids) => notImplemented("stopProtocol", ids),
+    inspectClusterJob: async (projectId, protocolId) => {
+      log("inspectClusterJob", protocolId);
+      await new Promise((r) => setTimeout(r, 400));
+      return fakeClusterJobInspection(String(protocolId));
+    },
     deleteProtocol: async (projectId, ids) => notImplemented("deleteProtocol", ids),
     duplicateProtocol: async (projectId, items) => notImplemented("duplicateProtocol", items),
     exportProtocols: async (projectId, payload) => notImplemented("exportProtocols", payload),
@@ -496,6 +798,16 @@ export function createFakeService() {
           table: fakeClasses3DTable(25),
         };
       }
+      if (compareMode() !== null) {
+        return {
+          handled: true,
+          viewer: "table",
+          title: ctx.outputName,
+          context: { projectId: ctx.projectId, protocolId: ctx.protocolId, outputName: "Coordinates Distances",
+                     pointerClass: "JobView", outputPath: "External/job012#coordinates-compare" },
+          table: fakeCompareTable(),
+        };
+      }
       if (ctx.pointerClass === "Tomograms" || new URLSearchParams(location.search).has("tomoTable")) {
         return {
           handled: true,
@@ -512,11 +824,23 @@ export function createFakeService() {
     loadTableViewerVariant: async (context, variantId) => {
       log("loadTableViewerVariant", variantId);
       await new Promise((resolve) => setTimeout(resolve, 500));
+      if (context.pointerClass === "JobView") {
+        const [, distance, edge] = variantId.split(":").map(Number);
+        return { context: { ...context, outputPath: `External/job012#${variantId}` },
+                 table: fakeCompareTable(distance, Number.isFinite(edge) ? edge : distance) };
+      }
       const it = Number(/_it(\d+)_/.exec(variantId)?.[1] ?? 0);
       return { context: { ...context, outputPath: `Class3D/job055/${variantId}` }, table: fakeClasses3DTable(it) };
     },
     executeTableViewerEditAction: async (context, request) => {
       log("executeTableViewerEditAction", request);
+      if (request.actionId === "remove-duplicates")
+        return { success: true, message: `Fake remove duplicates of ${context.outputPath}`, refreshProject: true };
+      if (request.actionId === "merge-sets") {
+        const excluded = request.edits.filter((edit) => !edit.value).map((edit) => `${edit.rowId}:${edit.columnId}`);
+        return { success: true, message: `Fake merge without: ${excluded.join(" ") || "none"}`,
+                 clearEdits: true, refreshProject: true };
+      }
       const deselected = request.edits.filter((edit) => !edit.value).map((edit) => edit.rowId);
       return {
         success: true,
@@ -565,6 +889,9 @@ export function createFakeService() {
         };
       }
       if (request.actionId === "tomo-view") {
+        if (compareMode() !== null) {
+          return fakeComparePane(name, request.rowData?.distance ?? 30, request.rowData?.edgeDistance);
+        }
         if (isCoordsTable()) {
           // X/Y/Z volume slices with the particles of this tomogram
           const n = FAKE_NCOORDS[["TS_0001", "TS_0002"].indexOf(name)] ?? 0;
@@ -652,6 +979,32 @@ export function createFakeService() {
     // VolumeMaskWizard with the Relion Class3D one
     openWizard: async (projectId, protocolId, cls, wizardId, params) => {
       log("openWizard", { protocolId, cls, wizardId, params });
+      if (wizardId === "geometry_mask") {
+        const n = 64, dims = [n, n, n];
+        let shapes = [];
+        try { shapes = JSON.parse(params.shapes || "[]"); } catch { shapes = []; }
+        shapes = shapes.length ? shapes : [geometryShape("sphere", n)];
+        const volume = params.input_volume ? { kind: "volume", path: params.input_volume, dimensions: dims,
+                                               voxelSize: FAKE_MAP_ANGPIX, density: fakeMap(n) } : null;
+        const softEdge = parseFloat(params.soft_edge) || 0;
+        return { id: wizardId, label: "Geometry mask wizard", ui: "GeometryMaskWizard", inputs: { shapes, soft_edge: softEdge },
+                 data: { volume, dimensions: dims, angpix: FAKE_MAP_ANGPIX, binning: 1,
+                         defaults: Object.fromEntries(Object.keys(SIZES).map((k) => [k, geometryShape(k, n)])),
+                         mask: fakeGeometryMask(n, shapes, softEdge), mask_fraction: 0.1 },
+                 warnings: [] };
+      }
+      if (wizardId === "template") {
+        if (!params[PT + "input-map"]) return { errors: ["Select the input map before opening the wizard."] };
+        const inputs = { in_angpix: parseFloat(params[PT + "input-voxel-size-angstrom"]) || 2,
+                         out_angpix: parseFloat(params[PT + "output-voxel-size-angstrom"]) || 4,
+                         box: parseInt(params[PT + "box-size"]) || 32,
+                         radius: parseFloat(params[PM + "radius"]) || 12, sigma: parseFloat(params[PM + "sigma"]) || 1,
+                         center: false, invert: false, mirror: false };
+        return { id: wizardId, label: "Template and mask wizard", ui: "PyTomTemplateWizard", inputs,
+                 data: { input: { path: params[PT + "input-map"], dimensions: [64, 64, 64], voxelSize: 2 },
+                         ...fakePyTomData(inputs) },
+                 warnings: [] };
+      }
       if (wizardId === "mask_create") {
         if (params["relion_mask_create.denovo"] === true || params["relion_mask_create.denovo"] === "Yes")
           return { errors: ["The wizard creates masks from a volume: turn off 'De novo creation'."] };
@@ -704,6 +1057,15 @@ export function createFakeService() {
     previewWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
       log("previewWizard", { wizardId, outputs });
       await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (wizardId === "geometry_mask") {
+        const errors = geometryErrors(outputs.shapes ?? []);
+        if (errors.length) return { errors };
+        return { data: { mask: fakeGeometryMask(64, outputs.shapes, outputs.soft_edge), mask_fraction: 0.1 }, warnings: [] };
+      }
+      if (wizardId === "template") {
+        if (!(outputs.box > 0) || !(outputs.radius > 0)) return { errors: ["The box size and mask radius should be positive numbers."] };
+        return { data: fakePyTomData(outputs), warnings: [] };
+      }
       if (!Number.isFinite(outputs.threshold)) return { errors: ["The initial threshold should be a number."] };
       const mask = fakeCreatedMask(64, outputs);
       const u8 = Uint8Array.from(atob(mask.data), (c) => c.charCodeAt(0));
@@ -713,6 +1075,17 @@ export function createFakeService() {
     },
     applyWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
       log("applyWizard", { wizardId, params, outputs });
+      if (wizardId === "geometry_mask") {
+        const errors = geometryErrors(outputs.shapes ?? []);
+        if (errors.length) return { errors };
+        return { params: { shapes: outputs.shapes, soft_edge: outputs.soft_edge }, warnings: [] };
+      }
+      if (wizardId === "template") {
+        return { params: { [PT + "input-voxel-size-angstrom"]: outputs.in_angpix, [PT + "output-voxel-size-angstrom"]: outputs.out_angpix,
+                           [PT + "box-size"]: outputs.box, [PT + "center"]: outputs.center, [PT + "invert"]: outputs.invert,
+                           [PT + "mirror"]: outputs.mirror, [PM + "radius"]: outputs.radius, [PM + "sigma"]: outputs.sigma },
+                 warnings: [] };
+      }
       if (wizardId === "mask_create") {
         return { params: { [MC + "ini_threshold"]: outputs.threshold, [MC + "lowpass"]: outputs.lowpass ?? -1,
                            [MC + "extend_inimask"]: outputs.extend, [MC + "width_soft_edge"]: outputs.soft_edge,

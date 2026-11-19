@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import { ChevronDown, ChevronRight, LayoutGrid, MoreHorizontal, Search, Table2 } from "lucide-react";
 import { useProjectRefresh } from "@/context/ProjectRefreshContext";
+import { TableValuesContext } from "./TableValuesContext";
 import {
     TableViewerSelectionMenu,
     type TableViewerSelectionCommand,
@@ -58,8 +59,10 @@ import toast from "react-hot-toast";
 type TableViewerPaneProps = {
     context: TableViewerContext;
     table: TableViewerData;
-    /** Shows another version of the table (TableViewerData.variants). */
-    onVariant?: (view: TableViewerVariantData) => void;
+    /** Shows another version of the table (TableViewerData.variants);
+     * inPlace: for values of a pane (TableValuesContext), the pane and the
+     * selection stay. */
+    onVariant?: (view: TableViewerVariantData, inPlace?: boolean) => void;
     /** Gallery view settings (TableViewerData.gallery), kept by the host
      * across versions of the table; the pane keeps its own if omitted. */
     galleryState?: GalleryViewState;
@@ -200,6 +203,26 @@ export default function TableViewerPane({
             setVariantLoading(null);
         }
     };
+    // Values chosen in the pane (TableValuesContext): the version of the
+    // table for them (variants.template), loaded in place; the last request wins
+    const valuesRequest = useRef(0);
+    const applyPaneValues = useCallback(async (values: Record<string, number>) => {
+        if (!variants?.template) return;
+        const all = { ...variants.values, ...values };
+        const id = variants.template.replace(/\{(\w+)\}/g, (m, k) => (k in all ? String(all[k]) : m));
+        if (id === variants.value) return;
+        const request = ++valuesRequest.current;
+        try {
+            const view = await svc.loadTableViewerVariant(context, id);
+            if (!view || request !== valuesRequest.current) return;
+            // Not its initial action: the pane shows it already
+            onVariant!({ ...view, table: { ...view.table, initialAction: undefined } }, true);
+        } catch (error) {
+            if (request === valuesRequest.current) {
+                toast.error(error instanceof Error ? error.message : String(error));
+            }
+        }
+    }, [variants, svc, context, onVariant]);
     const refreshProject = useProjectRefresh();
     const [searchValue, setSearchValue] = useState("");
     const [selectedRowId, setSelectedRowId] = useState<string | number | null>(
@@ -822,9 +845,14 @@ export default function TableViewerPane({
         row: TableViewerRow,
         columnId: string,
     ): boolean => {
-        return Boolean(
-            row.cells[columnId],
-        );
+        const checked =
+            row.cellContexts?.[columnId]?.edit?.checked;
+
+        return checked !== undefined
+            ? checked
+            : Boolean(
+                row.cells[columnId],
+            );
     };
 
     const getActiveParentCascadeValue = (
@@ -1306,7 +1334,7 @@ export default function TableViewerPane({
                     childrenId,
                 );
 
-            return (
+            const checkbox = (
                 <Checkbox
                     size="small"
                     checked={checked}
@@ -1345,6 +1373,23 @@ export default function TableViewerPane({
                         },
                     }}
                 />
+            );
+
+            // A checkbox next to the cell value (edit.checked)
+            return cellEdit.checked !== undefined ? (
+                <Box
+                    component="span"
+                    sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                    }}
+                >
+                    {checkbox}
+                    {text}
+                </Box>
+            ) : (
+                checkbox
             );
         }
 
@@ -1527,6 +1572,7 @@ export default function TableViewerPane({
     };
 
     return (
+        <TableValuesContext.Provider value={variants?.template ? applyPaneValues : null}>
         <Box
             sx={{
                 display: "grid",
@@ -2716,5 +2762,6 @@ export default function TableViewerPane({
                 onCommand={handleSelectionCommand}
             />
         </Box >
+        </TableValuesContext.Provider>
     );
 }

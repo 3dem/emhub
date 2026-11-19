@@ -1014,6 +1014,23 @@ def tomo_otf_save_config():
     return _handle_item(_handle, 'config')
 
 
+@api_bp.route('/tomo_otf_config_files', methods=['POST'])
+@flask_login.login_required
+def tomo_otf_config_files():
+    """ The other tilt QC configuration files of the project
+    (OtfSession.config_files()), for the dashboard's Thresholds window to
+    offer loading from. """
+    def _handle(**attrs):
+        from emhub.data.processing.tomo_otf import OtfSession
+        from emhub.data.content.dc_tomo_otf import resolve_tomo_otf_source
+        source = resolve_tomo_otf_source(app.dm, app.user, **attrs)
+        session = OtfSession(source['path'], analysis_job=attrs.get('job_id') or None,
+                             thresholds=source['thresholds'])
+        return {'files': session.config_files()}
+
+    return _handle_item(_handle, 'config')
+
+
 @api_bp.route('/tomo_otf_read_config', methods=['POST'])
 @flask_login.login_required
 def tomo_otf_read_config():
@@ -1245,6 +1262,77 @@ def fetch_volume_density():
         return load_volume_density(path, attrs.get('maxVoxels'), attrs.get('maxSize'))
 
     return _handle_item(_handle, 'density')
+
+
+@api_bp.route('/fetch_coordinates_compare_sets', methods=['POST'])
+@flask_login.login_required
+def fetch_coordinates_compare_sets():
+    """ Sets of the coordinates of a tomogram of an emw-coordinates-compare
+    job at a distance, for emflow's VolumeViewer (see
+    emhub.data.processing.coordinates_compare).
+    attrs: root, job (job id), tomoName, distance and edge (Å). """
+    def _handle(**attrs):
+        from emhub.data.processing.coordinates_compare import CoordinatesCompare
+
+        root = resolve_project_root(attrs['root'])
+        job_dir = project_file_path(root, attrs['job'])
+        if not os.path.isdir(job_dir):
+            raise Exception(f"Job folder not found: {attrs['job']}")
+        distance = float(attrs['distance'])
+        if not distance > 0:
+            raise Exception(f'Invalid distance: {distance}')
+        cc = CoordinatesCompare(root, job_dir)
+        return cc.tomo_sets(attrs['tomoName'], distance,
+                            cc.resolve_edge(attrs.get('edge'), distance))
+
+    return _handle_item(_handle, 'coordinates')
+
+
+@api_bp.route('/create_remove_duplicates', methods=['POST'])
+@flask_login.login_required
+def create_remove_duplicates():
+    """ Launch an emw-subset-ts job without the duplicates (its 'Remove
+    duplicate particles' mode) of the set of an emw-coordinates-compare job (a set compared to itself) at a distance, if
+    the current user may change the project (see _check_can_edit_processing).
+    attrs: root, job (job id), distance (Å; the job's maximum if empty) and
+    edge (Å, the particles near the tomogram edges are also removed). """
+    def _handle(**attrs):
+        from emhub.data.processing.coordinates_compare import remove_duplicates
+
+        root = resolve_project_root(attrs['root'])
+        _check_can_edit_processing(root, attrs.get('entry_id'), attrs.get('session_id'))
+        if not os.path.isdir(project_file_path(root, attrs['job'])):
+            raise Exception(f"Job folder not found: {attrs['job']}")
+        return remove_duplicates(root, attrs['job'], attrs.get('distance'),
+                                 attrs.get('edge'))
+
+    return _handle_item(_handle, 'subsetResult')
+
+
+@api_bp.route('/create_merged_set', methods=['POST'])
+@flask_login.login_required
+def create_merged_set():
+    """ Launch an emw-merge-sets job with the two sets of an
+    emw-coordinates-compare job without their overlapping coordinates at a
+    distance, if the current user may change the project (see
+    _check_can_edit_processing). attrs: root, job (job id), distance (Å; the
+    job's maximum if empty), edge (Å, the particles near the tomogram edges
+    are left out) and exclude, the sets left out [{tomoName, column}]
+    (column: aMinusB, bMinusA or aAndB). """
+    def _handle(**attrs):
+        from emhub.data.processing.coordinates_compare import merge_sets
+
+        root = resolve_project_root(attrs['root'])
+        _check_can_edit_processing(root, attrs.get('entry_id'), attrs.get('session_id'))
+        if not os.path.isdir(project_file_path(root, attrs['job'])):
+            raise Exception(f"Job folder not found: {attrs['job']}")
+        exclude = attrs.get('exclude') or []
+        if not isinstance(exclude, list):
+            raise Exception('exclude must be a list')
+        return merge_sets(root, attrs['job'], attrs.get('distance'), exclude,
+                          attrs.get('edge'))
+
+    return _handle_item(_handle, 'subsetResult')
 
 
 @api_bp.route('/fetch_volume_crop', methods=['POST'])
@@ -1983,6 +2071,23 @@ def stop_jobs():
             pm.stopJob(run_id)
 
     return handle_workflow(_stop_jobs, edit=True)
+
+
+@api_bp.route('/inspect_cluster_job', methods=['POST'])
+@flask_login.login_required
+def inspect_cluster_job():
+    """ Information about the cluster job of a job (run_id), shown when
+    clicking its cluster job id. Only launched/running jobs whose queue has
+    an 'inspect' command query the queueing system, see
+    RelionSessionData.inspect_cluster_job. """
+    def _inspect(**attrs):
+        pp = app.dm.get_processing_project(**attrs)['project']
+        if not hasattr(pp, 'inspect_cluster_job'):
+            raise Exception("Cluster job information is only available for "
+                            "Relion/emwrap projects.")
+        return pp.inspect_cluster_job(attrs['run_id'])
+
+    return _handle_item(_inspect, 'inspect')
 
 
 @api_bp.route("/get_classes2d", methods=['POST'])

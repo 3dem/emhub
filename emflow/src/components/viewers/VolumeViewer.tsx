@@ -31,6 +31,7 @@
 import {
   forwardRef,
   useCallback,
+  useContext,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -66,6 +67,8 @@ import VolumeSlices, {
 } from "./volume/VolumeSlices";
 import { VolumeScene3D, type ParticleDraw, type SceneState } from "./volume/VolumeScene3D";
 import ParticlesPanel, { type ParticleOptions } from "./volume/ParticlesPanel";
+import CoordinateSetsBar from "./volume/CoordinateSetsBar";
+import { TableValuesContext } from "./TableValuesContext";
 import DenoisePanel from "./volume/DenoisePanel";
 import { DETAILS } from "./volume/DensityPanel";
 import IterationsBar from "./volume/IterationsBar";
@@ -84,6 +87,8 @@ import { densitySlice, densitySliceKeys, densityValues, prepareDensity } from ".
 import {
   AXES,
   clampVox,
+  coordinateSets,
+  recomputeInputs,
   isDensitySource,
   mapValueRange,
   normVoxel,
@@ -93,6 +98,9 @@ import {
   sliceKeys,
   volumeDataFromPane,
   type Axis,
+  type BoxMargin,
+  BOX_MARGIN_OPACITY,
+  type CoordinateSet,
   type DensitySource,
   type Ruler,
   type SliceImage,
@@ -773,6 +781,86 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
 
     /* ---------- images (decoded once, shared by both tabs) ---------- */
     const loader = useDataLoader();
+
+    /* ---------- particle sets ---------- */
+    // Several sets in the coordinates (e.g. kept / duplicates): the set of
+    // each particle, its colors and which are shown. The host can recompute
+    // the sets at another value (distance): the particles stay the same.
+    const [sets, setSets] = useState(() => coordinateSets(P));
+    const [setShown, setSetShown] = useState<boolean[]>(() => (P?.sets ?? []).map((s) => !s.hidden));
+    const [setColors, setSetColors] = useState<string[]>(() => (P?.sets ?? []).map((s) => s.color));
+    const recompute = sets ? P?.recompute ?? null : null;
+    const recomputeIn = useMemo(() => recomputeInputs(recompute), [recompute]);
+    // The values of the current sets, by input id
+    const [setsValues, setSetsValues] = useState<Record<string, number>>(
+      () => Object.fromEntries(recomputeIn.map((i) => [i.id, i.value])));
+    const [setsStatus, setSetsStatus] = useState<{ text: string; loading: boolean } | null>(null);
+    const setsRequest = useRef(0);
+    // Other coordinates (e.g. another tomogram of the table, in the same
+    // viewer): their sets and values, during this render, so the previous
+    // ones are never drawn over them; the user's colors and shown flags are
+    // kept for the same sets, and a recompute still running is dropped
+    const [setsOf, setSetsOf] = useState(P);
+    if (setsOf !== P) {
+      setSetsOf(P);
+      const next = coordinateSets(P);
+      setSets(next);
+      const same = (cur: unknown[]) => next != null && cur.length === next.sets.length;
+      setSetShown((cur) => (same(cur) ? cur : (P?.sets ?? []).map((s) => !s.hidden)));
+      setSetColors((cur) => (same(cur) ? cur : (P?.sets ?? []).map((s) => s.color)));
+      setSetsValues(Object.fromEntries(recomputeInputs(next ? P?.recompute : null).map((i) => [i.id, i.value])));
+      setSetsStatus(null);
+      setsRequest.current += 1;
+    }
+    const setTableValues = useContext(TableValuesContext);
+    const recomputeSets = useCallback((values: Record<string, number>) => {
+      if (!recompute) return;
+      const id = ++setsRequest.current;
+      setSetsStatus({ text: "Recomputing…", loading: true });
+      loader.load<any>(recompute.source.path, { ...recompute.source.payload, ...values })
+        .then((r) => {
+          if (id !== setsRequest.current) return;
+          const c = r && typeof r === "object" && "coordinates" in r ? r.coordinates : r;
+          const next = c && Array.isArray(c.set) && Array.isArray(c.sets) && c.set.length === nPart
+            ? { set: c.set as number[], sets: c.sets as CoordinateSet[] } : null;
+          if (!next) throw new Error("the sets do not match the particles");
+          setSets(next);
+          setSetsValues(values);
+          // The table of the pane (if any) follows the values
+          void setTableValues?.(values);
+          // Keep the user's colors and visibility of the sets that remain
+          setSetShown((cur) => next.sets.map((s, i) => !s.hidden && (cur[i] ?? true)));
+          setSetColors((cur) => next.sets.map((s, i) => cur[i] ?? s.color));
+          setSetsStatus(null);
+        })
+        .catch((e) => {
+          if (id === setsRequest.current) setSetsStatus({ text: `Could not recompute the sets: ${e?.message ?? e}`, loading: false });
+        });
+    }, [loader, recompute, nPart, setTableValues]);
+    const setCounts = useMemo(() => {
+      if (!sets) return [];
+      const n = sets.sets.map(() => 0);
+      for (const k of sets.set) if (k >= 0 && k < n.length) n[k] += 1;
+      return n;
+    }, [sets]);
+    // What VolumeSlices and the 3D scene draw: null for a single set
+    const particleSet = sets ? sets.set : null;
+    const shownSets = sets ? sets.sets.map((s, i) => !s.hidden && (setShown[i] ?? true)) : null;
+    const colorSets = sets ? sets.sets.map((s, i) => setColors[i] ?? s.color) : null;
+    // The margin of the box of an input (e.g. the distance to the edges), in
+    // the color of its set, while the set is shown
+    const marginIn = recomputeIn.find((i) => i.margin);
+    const marginSet = marginIn?.set && sets ? sets.sets.findIndex((s) => s.id === marginIn.set) : -1;
+    const marginA = marginIn ? setsValues[marginIn.id] ?? 0 : 0;
+    const marginColor = marginSet >= 0 ? colorSets?.[marginSet] ?? null : "#ff3b30";
+    const marginOn = marginA > 0 && (marginSet < 0 || Boolean(shownSets?.[marginSet]));
+    const boxMargin = useMemo<BoxMargin | null>(() => {
+      // In voxels: none without a voxel size
+      const size = vs?.x ?? vs?.y ?? vs?.z;
+      if (!marginOn || !marginColor || !size) return null;
+      const v = (a: Axis) => marginA / (vs?.[a] ?? size);
+      return { vox: { x: v("x"), y: v("y"), z: v("z") }, color: marginColor, opacity: BOX_MARGIN_OPACITY };
+    }, [marginOn, marginA, marginColor, vs]);
     // A new cache with new slices (another iteration), not cleared after
     // the render: the sections redraw (an effect of VolumeSlices) before
     const images = useMemo(() => ({ current: new Map<string, SliceImage>() }), [volume.axes, sliceGrid]);
@@ -1057,7 +1145,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       const meas = AXES.filter((a) => rulers[a]).map((a) => rulerLength(vs, a, rulers[a]!));
       readout = meas.length ? <><b>Length</b> {meas[meas.length - 1]}</> : "Ruler: click two points to measure";
     } else if (sel >= 0 && P) {
-      readout = <><b>Particle {sel + 1}/{nPart}</b> ({P.x[sel]}, {P.y[sel]}, {P.z[sel]})</>;
+      const setLabel = sets ? sets.sets[sets.set[sel]]?.label : null;
+      readout = <><b>Particle {sel + 1}/{nPart}</b> ({P.x[sel]}, {P.y[sel]}, {P.z[sel]}){setLabel ? <> · {setLabel}</> : null}</>;
     } else if (mode === "select") {
       readout = <><b>X</b> {pos.x} <b>Y</b> {pos.y} <b>Z</b> {pos.z} &nbsp;·&nbsp; {scaleText(vs)}</>;
     } else {
@@ -1087,6 +1176,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               angpix={vs?.x ?? null}
               templateLevel={templateLevel}
               color={particleColor}
+              hasSets={Boolean(sets)}
               hasTemplate={hasTemplate}
               hasDensity={Boolean(P?.template?.density)}
               is3d={is3d}
@@ -1208,6 +1298,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const sceneState: SceneState = {
       pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance,
       filterSigma: shownSigma, mode, nearOnly: near3d, tolerance, templateLevel, particleColor,
+      particleSet, setColors: colorSets, setShown: shownSets, margin: boxMargin,
     };
     const sceneStateRef = useRef(sceneState);
     sceneStateRef.current = sceneState;
@@ -1253,7 +1344,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       // the fields are the dependencies
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance, shownSigma,
-        mode, near3d, tolerance, templateLevel, particleColor]);
+        mode, near3d, tolerance, templateLevel, particleColor, particleSet, colorSets?.join(), shownSets?.join(),
+        boxMargin]);
     useEffect(() => {
       sceneRef.current?.setDensity(volGrid.density);
     }, [volGrid.density, built3d, sceneError]);
@@ -1309,6 +1401,21 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
             {full ? <Minimize size={16} /> : <Maximize size={16} />}
           </button>
         </div>
+        {sets && hasParticles && (
+          <CoordinateSetsBar
+            sets={sets.sets}
+            counts={setCounts}
+            shown={shownSets!}
+            colors={colorSets!}
+            inputs={recomputeIn}
+            values={setsValues}
+            status={setsStatus?.text}
+            loading={setsStatus?.loading}
+            onShown={(i, v) => setSetShown((cur) => { const n = [...cur]; n[i] = v; return n; })}
+            onColor={(i, c) => setSetColors((cur) => { const n = [...cur]; n[i] = c; return n; })}
+            onValues={recomputeSets}
+          />
+        )}
 
         {tabsCfg.slices && (
           <div style={{ display: tab === "slices" ? undefined : "none" }}>
@@ -1328,9 +1435,13 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               tolerance={nearSlices ? tolerance : Infinity}
               hideLines={hideLines || !toolsCfg.crosshair}
               particleColor={particleColor}
+              particleSet={particleSet}
+              setColors={colorSets}
+              setShown={shownSets}
               inverted={inverted}
               rulers={rulers}
               mask={sliceMask}
+              margin={boxMargin}
               colorBy={sliceColorBy}
               corner={sliceKey}
               voxelSize={vs}

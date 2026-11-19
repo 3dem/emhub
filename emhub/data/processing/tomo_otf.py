@@ -19,6 +19,7 @@ a script or the test suite.  Run it standalone for a quick check:
 """
 
 import os
+import re
 import sys
 import json
 import math
@@ -259,6 +260,15 @@ _STAR_SETTLE_SECONDS = 5
 
 # CTF profile correlations per tilt series, see _read_ctf_correlations
 _CORR_CACHE = {}
+# The json of a tilt series where adding them failed, (path, mtime), so it
+# is not tried again on every refresh
+_CORR_STORE_FAILED = set()
+
+# Absolute paths written by the pipeline, as this host reads them, see
+# OtfSession.project_path
+_PATH_MAP = {}
+# The part of a path from its job folder on: <JobType>/job012/...
+_JOB_PART = re.compile(r'(?:^|/)([^/]+/job\d+/.*)$')
 
 
 def _read_json(path):
@@ -821,6 +831,43 @@ class OtfSession:
     def join(self, *p):
         return os.path.join(self.path, *p)
 
+    def project_path(self, path):
+        """ A path the pipeline wrote, as this host reads it: project
+        relative when it is in the project.  Some jobs write absolute paths,
+        as the host that ran them mounts the project (/research_jude/... on
+        the cluster, the project is ~/coescb/... on a workstation): one that
+        does not exist here is looked for in the project, from the project
+        folder's name or else from its job folder on.  Other paths are
+        returned as they are. """
+        if not path or not os.path.isabs(path):
+            return path
+        key = (self.path, path)
+        if (mapped := _PATH_MAP.get(key)) is not None:
+            return mapped
+        mapped, found = path, True
+        if path.startswith(self.path + os.sep):
+            mapped = os.path.relpath(path, self.path)
+        elif not os.path.exists(path):
+            found = False
+            parts = path.split('/')
+            name = os.path.basename(self.path)
+            candidates = []
+            if name in parts:
+                i = len(parts) - 1 - parts[::-1].index(name)
+                candidates.append('/'.join(parts[i + 1:]))
+            if m := _JOB_PART.search(path):
+                candidates.append(m.group(1))
+            for rel in candidates:
+                if rel and os.path.exists(self.join(rel)):
+                    mapped, found = rel, True
+                    break
+        # A path not found is looked for again next time: it may be written
+        if found:
+            if len(_PATH_MAP) >= _STAR_CACHE_MAX:
+                _PATH_MAP.clear()
+            _PATH_MAP[key] = mapped
+        return mapped
+
     # kind -> (column of the source MRC, file emwrap writes for it)
     THUMBNAIL_KINDS = {
         'image': (COL_MICROGRAPH, '{name}.jpg'),
@@ -1075,8 +1122,10 @@ class OtfSession:
         job = job or self.analysis_job
         rows = _read_cached(self.join(job.id, ANALYSIS_STAR), _read_analysis_row) or {}
         return {'job': job.id,
-                'thumbnails': rows.get('emwThumbnailsFolder') or os.path.join(job.id, ANALYSIS_THUMBNAILS),
-                'input': rows.get('emwInputTiltSeries') or (job.inputs[0] if job.inputs else None)}
+                'thumbnails': (self.project_path(rows.get('emwThumbnailsFolder'))
+                               or os.path.join(job.id, ANALYSIS_THUMBNAILS)),
+                'input': (self.project_path(rows.get('emwInputTiltSeries'))
+                          or (job.inputs[0] if job.inputs else None))}
 
     @property
     def selection_file(self):
@@ -1332,16 +1381,16 @@ class OtfSession:
 
                 ts.stage = key
                 ts.stagesSeen.add(key)
-                ts.tiltSeriesStar = cells.get(COL_TS_STAR) or ts.tiltSeriesStar
+                ts.tiltSeriesStar = self.project_path(cells.get(COL_TS_STAR)) or ts.tiltSeriesStar
                 ts.pixelSize = _float(cells, COL_PIXEL_SIZE) or ts.pixelSize
                 ts.tsPixelSize = _float(cells, COL_TS_PIXEL_SIZE) or ts.tsPixelSize
                 ts.tomoBinning = _float(cells, COL_TOMO_BINNING) or ts.tomoBinning
                 if stack := cells.get(COL_ALIGNED_STACK):
-                    ts.alignedStack = stack
+                    ts.alignedStack = self.project_path(stack)
                 tomo = (cells.get(COL_TOMOGRAM)
                         or cells.get(COL_TOMOGRAM_DENOISED))
                 if tomo:
-                    ts.tomogram = tomo
+                    ts.tomogram = self.project_path(tomo)
                 tilt_stars.setdefault(name, []).append((key, ts.tiltSeriesStar))
 
             # Tilt series this stage could not process.  emwrap lists them
@@ -1443,38 +1492,84 @@ class OtfSession:
     def _image_qc_json(self, ts):
         return TiltQualityCuration.json_path(self.analysis()['thumbnails'], ts.tomoName)
 
+    @staticmethod
+    def _tilt_name(tilt):
+        """ The micrograph base name of a tilt: how the json of a tilt
+        series (TiltQualityCuration) names it. """
+        return os.path.splitext(os.path.basename(tilt.get(COL_MICROGRAPH) or ''))[0]
+
     def _read_ctf_correlations(self, ts, stars):
-        """ The CTF profile correlation of each tilt, from the json the tilt
-        analysis writes beside its CTF fit view.  It writes those before the
-        image measures of the tilt series, so they are kept until the
-        series' star files or its image measures change, rather than
-        checking every json on each refresh. """
-        files = list(dict.fromkeys(stars))
-        if os.path.exists(self.join(self._image_qc_json(ts))):
-            files.append(self._image_qc_json(ts))
-        try:
-            stamps = tuple((p, os.stat(self.join(p)).st_mtime_ns) for p in files)
-        except OSError:
-            stamps = None
-        key = (self.path, self.analysis_job.id, ts.tomoName, stamps)
-        values = _CORR_CACHE.get(key) if stamps else None
-        if values is None:
-            values = {}
+        """ The CTF profile correlation of each tilt.
+
+        The json of the tilt series (TiltQualityCuration.CTF_CORRELATIONS)
+        has them all.  One written before it kept them lacks them: they are
+        then read from the _ctf.json of each tilt, which the tilt analysis
+        writes beside its CTF fit view, and stored in the series json, so
+        that is done once.  Read so, they are kept until the series' star
+        files or its json change, rather than checking every file on each
+        refresh. """
+        qc_rel = self._image_qc_json(ts)
+        qc_path = self.join(qc_rel)
+        qc = _read_cached(qc_path, _read_json)
+        stored = qc.get(TiltQualityCuration.CTF_CORRELATIONS) if isinstance(qc, dict) else None
+        if isinstance(stored, dict):
             for t in ts.tilts:
+                if (c := stored.get(self._tilt_name(t))) is not None:
+                    t[COL_CTF_CORRELATION] = float(c)
+            return
+
+        # The files the values depend on, None for one missing: it may be
+        # written later, which changes the key
+        stamps = []
+        for p in dict.fromkeys([s for s in stars if s] + [qc_rel]):
+            try:
+                stamps.append((p, os.stat(self.join(p)).st_mtime_ns))
+            except OSError:
+                stamps.append((p, None))
+        stamps = tuple(stamps)
+        key = (self.path, self.analysis_job.id, ts.tomoName, stamps)
+        values = _CORR_CACHE.get(key)
+        if values is None:
+            values, by_name = {}, {}
+            for t in ts.tilts:
+                if not t.get(COL_POWER_SPECTRUM):
+                    continue
                 prof = self.tilt_thumbnail(t, 'ctf')
-                if prof:
-                    data = _read_cached(self.join(prof['path']), _read_json) or {}
-                    if data.get('correlation') is not None:
-                        values[self._tilt_key(t)] = float(data['correlation'])
-            settled = stamps and all(time.time() - m / 1e9 > _STAR_SETTLE_SECONDS
-                                     for _, m in stamps)
+                data = (_read_cached(self.join(prof['path']), _read_json) if prof else None) or {}
+                c = data.get('correlation')
+                values[self._tilt_key(t)] = None if c is None else float(c)
+                if name := self._tilt_name(t):
+                    by_name[name] = values[self._tilt_key(t)]
+            settled = all(m is None or time.time() - m / 1e9 > _STAR_SETTLE_SECONDS
+                          for _, m in stamps)
             if settled:
                 if len(_CORR_CACHE) >= _STAR_CACHE_MAX:
                     _CORR_CACHE.clear()
                 _CORR_CACHE[key] = values
+                # The series json is written after the tilts' _ctf.json:
+                # once it is there, so are they
+                if isinstance(qc, dict):
+                    self._store_ctf_correlations(qc_path, by_name)
         for t in ts.tilts:
             if (c := values.get(self._tilt_key(t))) is not None:
                 t[COL_CTF_CORRELATION] = c
+
+    @staticmethod
+    def _store_ctf_correlations(qc_path, by_name):
+        """ Add the correlations to the json of a tilt series that lacks
+        them (written before it kept them), once: a failure, as a project
+        the server cannot write to, is not tried again for that file. """
+        try:
+            stamp = (qc_path, os.stat(qc_path).st_mtime_ns)
+        except OSError:
+            return
+        if stamp in _CORR_STORE_FAILED:
+            return
+        try:
+            TiltQualityCuration.add_ctf_correlations(qc_path, by_name)
+        except Exception as e:
+            logger.warning('Could not store the CTF correlations in %s: %s', qc_path, e)
+            _CORR_STORE_FAILED.add(stamp)
 
     def queued(self):
         """ How many tilt series were sent to processing: the input of the

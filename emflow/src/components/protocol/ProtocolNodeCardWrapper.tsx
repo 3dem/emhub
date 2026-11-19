@@ -38,6 +38,7 @@ type NodeActions = {
   ) => void;
 
   onToggleOutputsCard?: (protocolId: string) => void;
+  onInspectClusterJob?: (protocolId: string) => void;
 };
 
 export const createStatusNodeWrapper = (
@@ -147,6 +148,7 @@ export const createStatusNodeWrapper = (
           onManageTags={actions.onManageTags}
           onOpenProtocolClass={actions.onOpenProtocolClass}
           onToggleOutputsCard={actions.onToggleOutputsCard}
+          onInspectClusterJob={actions.onInspectClusterJob}
           inPathSelection={inPathSelection}
           pathSelectionActive={pathSelectionActive}
           onBrowse={onBrowse}

@@ -238,15 +238,19 @@ def load_volume_density(path, max_voxels=None, max_size=None, bins=HISTOGRAM_BIN
     """ Density of the volume at path for the iso-surface view (see module
     doc). max_voxels bounds the size of the grid (block means); max_size its
     longest side (Fourier scaling for maps). Recent results are kept in
-    memory (keyed by path, modification time and size). """
+    memory (keyed by path, modification time and size, revalidated with
+    the file server: a re-run job may rewrite the volume). """
+    from emwrap.base.project_lock import file_signature
     max_voxels = int(max_voxels or DEFAULT_MAX_VOXELS)
     max_voxels = max(64 ** 3, min(MAX_VOXELS, max_voxels))
     if max_size:
         max_size = max(32, min(int(round(MAX_SIZE_VOXELS ** (1 / 3))), int(max_size)))
         # A whole side of max_size (e.g. 256^3) may pass the voxel budget
         max_voxels = max(max_voxels, min(MAX_SIZE_VOXELS, max_size ** 3))
-    st = os.stat(path)
-    key = (os.path.abspath(path), st.st_mtime, st.st_size, max_voxels, max_size, bins)
+    sig = file_signature(path)
+    if sig is None:
+        raise FileNotFoundError(path)
+    key = (os.path.abspath(path), sig, max_voxels, max_size, bins)
     with _cache_lock:
         if key in _cache:
             _cache.move_to_end(key)
