@@ -1,5 +1,5 @@
-"""Analysis of the iterations of Relion 3D classification and 3D auto-refine
-jobs (SPA and tomography) for emflow's table viewer, as the Relion tutorials
+"""Analysis of the iterations of Relion 3D classification, 3D auto-refine and
+initial model jobs (SPA and tomography) for emflow's table viewer, as the Relion tutorials
 check them: the values Relion writes per iteration in the optimiser and model
 STAR files, and the maps.
 

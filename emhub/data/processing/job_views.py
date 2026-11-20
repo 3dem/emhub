@@ -186,14 +186,15 @@ class MotionPlotsView(StarColumnsPlotsView):
 
 
 class RelionIterationsView(JobView):
-    """ Results of the iterations of a Relion 3D classification or 3D
-    auto-refine (SPA and tomography): a row per iteration with its plots and
+    """ Results of the iterations of a Relion 3D classification, 3D
+    auto-refine or initial model (SPA and tomography): a row per iteration with its plots and
     maps, see relion_iterations. Also while running (or after a failure),
     to follow the intermediate results. """
     id = 'relion-iterations'
     label = 'Analyze Results'
     jobtypes = ('relion.class3d', 'relion.class3d.tomo',
-                'relion.refine3d', 'relion.refine3d.tomo')
+                'relion.refine3d', 'relion.refine3d.tomo',
+                'relion.initialmodel', 'relion.initialmodel.tomo')
     statuses = ('Succeeded', 'Running', 'Failed', 'Aborted')
 
     def available(self, job_dir):

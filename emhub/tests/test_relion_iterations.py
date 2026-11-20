@@ -228,6 +228,15 @@ class TestRelionIterations(unittest.TestCase):
         self.assertIsNone(relion_job_mask(self.root, vol))
         self.assertNotIn('mask', build_volume_output_pane_content(self.root, vol)['viewerConfig'])
 
+    def test_initialmodel_outputs(self):
+        """ InitialModel jobs have the Analyze Results of the iterations. """
+        job = self._class3d('InitialModel/job066')
+        for jobtype in ('relion.initialmodel', 'relion.initialmodel.tomo'):
+            outputs = job_view_outputs(job, jobtype, os.path.join(self.root, job), 'Succeeded')
+            self.assertEqual([o['value'] for o in outputs], [f'{job}#relion-iterations'])
+        table = build_job_view_table(self.root, job_view_value(job, 'relion-iterations'))
+        self.assertEqual(len(table['rows']), 3)  # Overall and 2 iterations (not 0)
+
     def test_refine_initial_values(self):
         """ Iteration 0 is skipped; Relion writes an 'inf' resolution and 999
         accuracies, not valid in the JSON (Infinity) or the plots. """

@@ -4,13 +4,17 @@
 // mask map or, without one, a sphere of the given diameter. The mask options
 // are in the viewer's mask panel; the sphere diameter chosen there (Å) is
 // the output. The volumes (data.volume, data.mask) come with the request of
-// their density, added by the host.
+// their density, added by the host. Without a map (data.volume.kind "box",
+// e.g. the particles of an initial model) the sphere is shown in an empty
+// box of that size.
 import { useMemo, useState } from "react";
 import { Box, Typography } from "@mui/material";
 import VolumeViewer, { type VolumeMask, type VolumeMaskState } from "@/components/viewers/VolumeViewer";
 import type { WizardComponentProps } from "./WizardDialog";
 
 type WizardVolume = {
+  /** "box": no map, an empty box of `dimensions`. */
+  kind?: "volume" | "box";
   path: string;
   dimensions: [number, number, number];
   voxelSize: number | null;
@@ -21,17 +25,26 @@ const fmt = (v: number) => String(Math.round(v * 10) / 10);
 const basename = (path: string) => path.split("/").pop() || path;
 const dims = (v: WizardVolume) => v.dimensions.join(" × ");
 
+/** An empty density of a box (the longest side at most 64 grid voxels). */
+function emptyDensity([x, y, z]: [number, number, number]) {
+  const f = Math.max(1, Math.max(x, y, z) / 64);
+  const shape: [number, number, number] = [Math.ceil(z / f), Math.ceil(y / f), Math.ceil(x / f)];
+  const n = shape[0] * shape[1] * shape[2];
+  return { shape, binning: f, data: btoa("\0".repeat(n)), valueRange: [0, 1] as [number, number] };
+}
+
 export default function VolumeMaskWizard({ inputs, data, onChange }: WizardComponentProps) {
   const volume = data.volume as WizardVolume;
   const maskMap = (data.mask ?? null) as WizardVolume | null;
   const angpix = volume.voxelSize;
   const [state, setState] = useState<VolumeMaskState | null>(null);
 
+  const isBox = volume.kind === "box";
   const viewerData = useMemo(() => ({
     dimensions: volume.dimensions,
     voxelSize: volume.voxelSize,
-    density: volume.density ?? null,
-  }), [volume]);
+    density: volume.density ?? (isBox ? emptyDensity(volume.dimensions) : null),
+  }), [volume, isBox]);
   const mask = useMemo<VolumeMask>(() => (maskMap?.density
     ? { type: "map", density: maskMap.density, label: basename(maskMap.path) }
     : { type: "sphere", diameter: inputs.diameter, ...(angpix ? {} : { diameterPx: inputs.diameter }) }),
@@ -50,7 +63,9 @@ export default function VolumeMaskWizard({ inputs, data, onChange }: WizardCompo
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
       <Typography variant="body2">
-        <b>Map:</b> {volume.path} ({dims(volume)}{angpix ? `, ${fmt(angpix)} Å/px` : ""})
+        {isBox
+          ? <><b>Box:</b> {dims(volume)}{angpix ? `, ${fmt(angpix)} Å/px` : ""} (no map yet)</>
+          : <><b>Map:</b> {volume.path} ({dims(volume)}{angpix ? `, ${fmt(angpix)} Å/px` : ""})</>}
       </Typography>
       <Typography variant="body2">
         <b>Mask:</b>{" "}
