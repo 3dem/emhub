@@ -40,7 +40,7 @@ from emtools.image import Thumbnail
 from emtools.metadata import StarFile, RelionStar, WarpXml
 
 from emwrap.base import ProcessingConfig
-from emhub.data.processing import resolve_processing_path
+from emhub.data.processing import resolve_processing_path, absolute_project_path
 from emhub.utils.python_env import python_env_rows
 
 
@@ -503,8 +503,11 @@ def register_content(dc):
     def entry_tomo_processing_validate(entry):
         e = entry.json()
         data = e['extra']['data']
-        dpath = resolve_processing_path(data.get('data_path', '').strip())
-        ppath = resolve_processing_path(data.get('processing_path', '').strip())
+        # Absolute or ~ (expanded) paths only: relative ones would be taken
+        # from the folder where the server runs
+        ppath = absolute_project_path(data.get('processing_path'),
+                                      'Processing path')
+        dpath = absolute_project_path(data.get('data_path'), 'Data path')
 
         if not ppath:
             raise Exception(f"Processing path can not be empty.")

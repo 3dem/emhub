@@ -59,7 +59,7 @@ from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
 from emhub.data.data_manager import SqlFilterError
 from emhub.data import workflow_store
 from emhub.data.processing import (resolve_project_root, resolve_processing_path,
-                                   project_file_path)
+                                   project_file_path, absolute_project_path)
 from .api_viewers import *
 from .api_viewers_spa import (resolve_spa_table_view_type, build_spa_table,
                               build_spa_pane_content, create_classes_subset)
@@ -1682,7 +1682,9 @@ def create_tomo_project():
         if not processing_path:
             raise Exception("Missing 'processing_path'")
 
-        root = resolve_project_root(processing_path)
+        # Absolute or ~ only (also checked by the entry validation), before
+        # comparing it with the other projects
+        root = absolute_project_path(processing_path, 'Processing path')
         for e in app.dm.get_entries(condition="type='tomo_processing'"):
             path = e.extra.get('data', {}).get('processing_path', '')
             if path and resolve_project_root(path) == root:
