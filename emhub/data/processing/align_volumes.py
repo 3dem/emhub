@@ -14,7 +14,7 @@
 # *
 # **************************************************************************
 
-"""Results of an emw-aligned-volumes job (the references of a multi-reference
+"""Results of an emw-align-volumes job (the references of a multi-reference
 3D classification, aligned to a map in the frame of the particle poses) for
 emflow's table viewer, from the job's alignment.star:
 
@@ -32,9 +32,9 @@ emflow's table viewer, from the job's alignment.star:
     before and after, rotation and shift; its 'volumes' shows the map of the
     poses, the reference and the input volume as it was.
 
-    data = load_aligned_volumes(root, job_dir)
-    table = build_aligned_volumes_table(data, title)
-    pane = build_aligned_volumes_pane(root, data, action_id, row_cells)
+    data = load_align_volumes(root, job_dir)
+    table = build_align_volumes_table(data, title)
+    pane = build_align_volumes_pane(root, data, action_id, row_cells)
 """
 
 import os
@@ -70,7 +70,7 @@ def _float(value):
     return v
 
 
-class AlignedVolumes:
+class AlignVolumes:
     def __init__(self, general, references, similarity=None):
         self.general = general  # dict of the 'general' table
         self.references = references  # [dict] of the 'references' table, class order
@@ -100,7 +100,7 @@ def can_compute_similarity():
 
 
 def compute_similarity(root, data):
-    """ {(class a, class b): CC} of the references, as emw-aligned-volumes
+    """ {(class a, class b): CC} of the references, as emw-align-volumes
     computes it (low-passed and masked as the alignment, with the job's
     emwLowpass and emwMaskDiameter; else 25 Å and 90% of the box), for the
     jobs before the 'similarity' table. Kept in data.similarity. """
@@ -108,7 +108,7 @@ def compute_similarity(root, data):
         return data.similarity
     # Imported here: emwrap is only needed by the jobs before the table
     from emwrap.base import volume_align as va
-    from emwrap.base.aligned_volumes import read_volume
+    from emwrap.base.align_volumes import read_volume
 
     classes = [int(r.get('rlnClassNumber')) for r in data.references]
     volumes = [read_volume(project_file_path(root, r.get('rlnReferenceImage')))
@@ -122,7 +122,7 @@ def compute_similarity(root, data):
     return data.similarity
 
 
-def load_aligned_volumes(root, job_dir):
+def load_align_volumes(root, job_dir):
     path = os.path.join(job_dir, ALIGNMENT_STAR)
     with StarFile(path) as sf:
         tables = sf.getTableNames()
@@ -133,7 +133,7 @@ def load_aligned_volumes(root, job_dir):
             for row in sf.iterTable('similarity'):
                 similarity[(int(row.emwClassA), int(row.emwClassB))] = float(row.emwCc)
     general = general[0]._asdict() if general and len(general) else {}
-    return AlignedVolumes(general, [row._asdict() for row in references], similarity)
+    return AlignVolumes(general, [row._asdict() for row in references], similarity)
 
 
 def _round(value, digits=3):
@@ -163,7 +163,7 @@ def _status(r, aligned):
     return 'aligned'
 
 
-def build_aligned_volumes_table(data, title):
+def build_align_volumes_table(data, title):
     """ TableViewerData with the Overall row (its plot shown when the table is
     opened) and a row per reference. """
     # Widths in px (the table shares the pane width in these proportions):
@@ -377,7 +377,7 @@ def build_all_references_pane(root, data):
     return build_overlays_pane_content(root, main, refs, title=title, main_label=main_label)
 
 
-def build_aligned_volumes_pane(root, data, action_id, row_cells):
+def build_align_volumes_pane(root, data, action_id, row_cells):
     if action_id == ACTION_OVERALL['id']:
         return build_overall_pane(data)
     if action_id == ACTION_SIMILARITY['id']:

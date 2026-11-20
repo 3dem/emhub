@@ -15,8 +15,8 @@
 # **************************************************************************
 
 """
-'Analyze Results' job view of emw-aligned-volumes jobs (see
-emhub.data.processing.aligned_volumes), from the outputs of the job run on
+'Analyze Results' job view of emw-align-volumes jobs (see
+emhub.data.processing.align_volumes), from the outputs of the job run on
 synthetic volumes (needs emwrap).
 """
 
@@ -32,18 +32,18 @@ JOB = 'EMwrap/job050'
 COPY_JOB = 'EMwrap/job051'
 
 
-class TestAlignedVolumesView(unittest.TestCase):
+class TestAlignVolumesView(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         try:
             from emwrap.base import volume_align as va
-            from emwrap.base.aligned_volumes import AlignedVolumesPipeline
-            from emwrap.tests.test_aligned_volumes import blobs, table, write, ANGPIX
+            from emwrap.base.align_volumes import AlignVolumesPipeline
+            from emwrap.tests.test_align_volumes import blobs, table, write, ANGPIX
         except ImportError as e:
             raise unittest.SkipTest(f'emwrap is needed: {e}')
 
-        cls.root = tempfile.mkdtemp(prefix='emhub_aligned_volumes_')
+        cls.root = tempfile.mkdtemp(prefix='emhub_align_volumes_')
         target = blobs()
         write(os.path.join(cls.root, 'Refine3D/job010/run_class001.mrc'), target, ANGPIX)
         R = va.rotvec_to_matrices([[0.0, 1.2, -0.5]])[0]
@@ -54,17 +54,17 @@ class TestAlignedVolumesView(unittest.TestCase):
         os.makedirs(output)
         cls.volumes = ['Reconstruct/job030/merged.mrc',
                        'InitialModel/job020/run_it100_class001.mrc']
-        AlignedVolumesPipeline({
+        AlignVolumesPipeline({
             'working_dir': cls.root,
             'input_volumes': table(cls.volumes, ['nucleosome', 'membrane']), 'do_align': 'Yes',
             'align_reference': 'Refine3D/job010/run_class001.mrc', 'align_skip': '1',
             'align_angular_step': 45, 'align_lowpass': 20, 'threads': 2,
         }, output).prerun()
-        cls.value = job_view_value(JOB, 'aligned-volumes')
+        cls.value = job_view_value(JOB, 'align-volumes')
         # The same volumes copied (no alignment map)
         output = os.path.join(cls.root, COPY_JOB)
         os.makedirs(output)
-        AlignedVolumesPipeline({
+        AlignVolumesPipeline({
             'working_dir': cls.root, 'input_volumes': table(cls.volumes), 'do_align': 'No',
         }, output).prerun()
 
@@ -73,10 +73,10 @@ class TestAlignedVolumesView(unittest.TestCase):
         shutil.rmtree(cls.root, ignore_errors=True)
 
     def test_outputs(self):
-        outputs = job_view_outputs(JOB, 'emw-aligned-volumes', os.path.join(self.root, JOB))
+        outputs = job_view_outputs(JOB, 'emw-align-volumes', os.path.join(self.root, JOB))
         self.assertEqual([o['value'] for o in outputs], [self.value])
         self.assertEqual(outputs[0]['outputName'], 'Analyze Results')
-        self.assertEqual(job_view_outputs(JOB, 'emw-aligned-volumes',
+        self.assertEqual(job_view_outputs(JOB, 'emw-align-volumes',
                                           os.path.join(self.root, 'Refine3D/job010')), [])
 
     def test_table(self):
@@ -111,7 +111,7 @@ class TestAlignedVolumesView(unittest.TestCase):
                          'EMwrap/job050/ref_class002_membrane.mrc')
         self.assertEqual(config['initialTab'], 'volume3d')
         # Without alignment: the others over the first reference
-        value = job_view_value(COPY_JOB, 'aligned-volumes')
+        value = job_view_value(COPY_JOB, 'align-volumes')
         config = build_job_view_pane(self.root, value, 'all', {})['viewerConfig']
         self.assertEqual(config['overlaysMainLabel'], 'Class 1')
         self.assertEqual(len(config['overlays']), 1)
@@ -158,7 +158,7 @@ class TestAlignedVolumesView(unittest.TestCase):
     def test_copied(self):
         """ Without an alignment map: no CC columns nor Overall row, and the
         volumes pane only shows the reference. """
-        value = job_view_value(COPY_JOB, 'aligned-volumes')
+        value = job_view_value(COPY_JOB, 'align-volumes')
         table = build_job_view_table(self.root, value)
         self.assertNotIn('aligned to', table['title'])
         self.assertNotIn('ccAfter', [c['id'] for c in table['columns']])
@@ -178,9 +178,9 @@ class TestAlignedVolumesView(unittest.TestCase):
     def test_map_class(self):
         """ A reference that is the map of the poses (kept as it is) is
         'Class k (ref)': no row of its own for the map. """
-        from emhub.data.processing.aligned_volumes import (load_aligned_volumes, map_class,
-                                                           build_similarity_pane)
-        data = load_aligned_volumes(self.root, os.path.join(self.root, JOB))
+        from emhub.data.processing.align_volumes import (load_align_volumes, map_class,
+                                                         build_similarity_pane)
+        data = load_align_volumes(self.root, os.path.join(self.root, JOB))
         self.assertIsNone(map_class(data))  # class 1 is another file
         data.references[0]['emwSourceImage'] = data.general['emwAlignReference']
         self.assertEqual(map_class(data), 1)
@@ -190,9 +190,9 @@ class TestAlignedVolumesView(unittest.TestCase):
 
     def test_similarity_computed(self):
         """ A job before the 'similarity' table: computed from the references. """
-        from emhub.data.processing.aligned_volumes import (load_aligned_volumes,
-                                                           compute_similarity)
-        data = load_aligned_volumes(self.root, os.path.join(self.root, JOB))
+        from emhub.data.processing.align_volumes import (load_align_volumes,
+                                                         compute_similarity)
+        data = load_align_volumes(self.root, os.path.join(self.root, JOB))
         stored = dict(data.similarity)
         data.similarity = {}
         computed = compute_similarity(self.root, data)
