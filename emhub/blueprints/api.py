@@ -2076,9 +2076,10 @@ def stop_jobs():
 @api_bp.route('/inspect_cluster_job', methods=['POST'])
 @flask_login.login_required
 def inspect_cluster_job():
-    """ Information about the cluster job of a job (run_id), shown when
-    clicking its cluster job id. Only launched/running jobs whose queue has
-    an 'inspect' command query the queueing system, see
+    """ Information about where a job (run_id) runs, shown when clicking
+    its cluster job id or its pid (run locally), with the resource usage
+    of its profiled runs. Only launched/running jobs whose queue has an
+    'inspect' command query the queueing system, see
     RelionSessionData.inspect_cluster_job. """
     def _inspect(**attrs):
         pp = app.dm.get_processing_project(**attrs)['project']
