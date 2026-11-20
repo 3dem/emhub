@@ -526,7 +526,7 @@ def build_iteration_volumes_pane(root, data, it):
     classes (Classes3D outputs). """
     # Imported here: the viewers are in the blueprints, that import this package
     from emhub.blueprints.api_viewers import (build_volume_viewer_pane_content,
-                                              MAP_VIEWER_CONFIG)
+                                              MAP_VIEWER_CONFIG, with_relion_mask)
     from emhub.blueprints.api_viewers_spa import CLASS3D_MAX_VOXELS
 
     cells = _class_volume_cells(it)
@@ -534,9 +534,10 @@ def build_iteration_volumes_pane(root, data, it):
         raise Exception(f'No volumes in {it.model}')
 
     def _volume(title, volume, max_voxels):
+        # The job's reference mask, with the Mask button
         return build_volume_viewer_pane_content(
             root, volume, title=title, slices=False, density='inline',
-            max_voxels=max_voxels, viewer_config=MAP_VIEWER_CONFIG)
+            max_voxels=max_voxels, viewer_config=with_relion_mask(root, volume, MAP_VIEWER_CONFIG))
 
     if data.refine:
         title, volume = cells[0]

@@ -56,6 +56,7 @@ from .api_viewers import (
     processing_project_manager,
     build_volume_viewer_pane_content,
     build_overlays_pane_content,
+    with_relion_mask,
     _volume_dimensions,
     _volume_voxel_size,
     map_iterations_source,
@@ -906,7 +907,8 @@ def build_class3d_volume_pane_content(root, row_cells):
     title = f"Class {row_cells.get('classId')} — {row_cells.get('particles')} particles"
     content = build_volume_viewer_pane_content(
         root, volume, title=title, slices=False, density='inline',
-        max_voxels=CLASS3D_MAX_VOXELS, viewer_config=MAP_VIEWER_CONFIG)
+        max_voxels=CLASS3D_MAX_VOXELS,
+        viewer_config=with_relion_mask(root, volume, MAP_VIEWER_CONFIG))
     # The class at every iteration of the job, to play it through them
     if its := map_iterations_source(root, volume):
         content['iterations'] = its
