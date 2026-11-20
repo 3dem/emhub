@@ -2,6 +2,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, JSX } from "react";
 import toast from "react-hot-toast";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Typography, Link, Tooltip } from "@mui/material";
+import DnsOutlinedIcon from "@mui/icons-material/DnsOutlined";
+import DesktopWindowsOutlinedIcon from "@mui/icons-material/DesktopWindowsOutlined";
+import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlined";
 import type {
   CSSProperties,
   Dispatch,
@@ -147,6 +150,9 @@ type StatusNodeProps = {
     launched?: string;
     queued?: number | null;
     clusterJobId?: string;
+    localPid?: string;
+    localHost?: string;
+    localScheduled?: boolean;
     tick?: number;
     numberOfSteps?: number;
     stepsDone?: number;
@@ -210,7 +216,8 @@ type StatusNodeProps = {
     sourceProtocolLabel?: string,
   ) => void;
   onToggleOutputsCard?: (protocolId: string) => void;
-  // Clicking the cluster job id pill shows the cluster job information
+  // Clicking the cluster job id (or local pid) pill shows where the job
+  // runs and its resource usage (ClusterJobDialog)
   onInspectClusterJob?: (protocolId: string) => void;
 
   inPathSelection?: boolean;
@@ -2972,21 +2979,38 @@ export default function ProtocolNodeCard({
                       {data.status}
                     </span>
 
-                    {data.clusterJobId && (
-                      <span
-                        className={[styles.clusterJobPill,
-                          onInspectClusterJob ? styles.clusterJobPillClickable : "",
-                          onInspectClusterJob ? "nodrag" : ""].filter(Boolean).join(" ")}
-                        title={onInspectClusterJob ? "Cluster job id, click to inspect" : "Cluster job id"}
-                        onPointerDown={onInspectClusterJob ? (e) => e.stopPropagation() : undefined}
-                        onClick={onInspectClusterJob ? (e) => {
-                          e.stopPropagation();
-                          onInspectClusterJob(data.id);
-                        } : undefined}
-                      >
-                        {data.clusterJobId}
-                      </span>
-                    )}
+                    {(data.clusterJobId || data.localPid) && (() => {
+                      // Cluster job id or, for jobs run locally, the process id
+                      // (the schedule watcher of a scheduled job): same pill, a
+                      // server, desktop or pending icon tells them apart
+                      const isCluster = !!data.clusterJobId;
+                      const isScheduled = !isCluster && !!data.localScheduled;
+                      const where = data.localHost ? ` on ${data.localHost}` : "";
+                      const what = isCluster
+                        ? `Cluster job ${data.clusterJobId}`
+                        : isScheduled
+                          ? `Schedule watcher ${data.localPid}${where}`
+                          : `Local process ${data.localPid}${where}`;
+                      const PillIcon = isCluster ? DnsOutlinedIcon
+                        : isScheduled ? PendingActionsOutlinedIcon : DesktopWindowsOutlinedIcon;
+                      return (
+                        <span
+                          className={[styles.clusterJobPill,
+                            onInspectClusterJob ? styles.clusterJobPillClickable : "",
+                            onInspectClusterJob ? "nodrag" : ""].filter(Boolean).join(" ")}
+                          aria-label={what}
+                          data-kind={isCluster ? "cluster" : isScheduled ? "scheduled" : "local"}
+                          onPointerDown={onInspectClusterJob ? (e) => e.stopPropagation() : undefined}
+                          onClick={onInspectClusterJob ? (e) => {
+                            e.stopPropagation();
+                            onInspectClusterJob(data.id);
+                          } : undefined}
+                        >
+                          <PillIcon className={styles.clusterJobPillIcon} aria-hidden="true" />
+                          {isCluster ? data.clusterJobId : data.localPid}
+                        </span>
+                      );
+                    })()}
 
                     <Tooltip
                       title={elapsedTooltip}

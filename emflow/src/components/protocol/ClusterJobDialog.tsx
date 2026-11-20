@@ -1,9 +1,11 @@
 // src/components/protocol/ClusterJobDialog.tsx
-// Information about the cluster job of a protocol, opened by clicking its
-// cluster job id pill. Launched/running jobs show the output of the queue
-// 'inspect' command (e.g. lsf_inspect_job.py --json), other jobs the info
-// recorded in the job files (no query to the queueing system).
-import { useEffect, useState, type ReactNode } from "react";
+// Where a protocol runs, opened by clicking its cluster job id or local pid
+// pill. Launched/running cluster jobs show the output of the queue 'inspect'
+// command (e.g. lsf_inspect_job.py --json), running local jobs their process
+// tree (if EMhub runs in the same host), other jobs the info recorded in the
+// job files (no query to the queueing system). Profiled runs add a
+// "Resource usage" tab (JobResourceUsage).
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Alert,
   Box,
@@ -15,15 +17,20 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  Tabs,
   Typography,
 } from "@mui/material";
+import { Maximize, Minimize } from "lucide-react";
 
-import type { ClusterJobInspection } from "@/services/ProjectService";
+import type { ClusterJobInspection, JobProfileRun, LocalProcessInfo } from "@/services/ProjectService";
+import JobResourceUsage, { latestSampleText } from "./JobResourceUsage";
 
 type ClusterJobDialogProps = {
   open: boolean;
@@ -217,6 +224,82 @@ function LsfInspection({ data }: { data: any }) {
 }
 
 /** Info recorded in the job files (no query to the queueing system) */
+function LocalProcess({ process }: { process: LocalProcessInfo }) {
+  const children = process.children || [];
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+      <FieldsGrid>
+        <Field label="Process" value={`${process.pid}${process.status ? ` (${process.status})` : ""}`} />
+        <Field label="Uptime" value={process.uptime != null ? fmtSeconds(process.uptime) : undefined} />
+        <Field label="CPU now" value={process.cpu != null ? `${(process.cpu / 100).toFixed(1)} cores` : undefined} />
+        <Field label="Memory (RSS)" value={process.rss_gb != null ? `${process.rss_gb.toFixed(2)} GiB` : undefined} />
+        <Field label="Processes" value={process.procs} />
+        <Field label="Threads" value={process.threads} />
+      </FieldsGrid>
+      {children.length > 0 && (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              {["PID", "Name", "Status", "CPU %", "RSS", "Threads"].map((h) => (
+                <TableCell key={h}>{h}</TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {children.map((c) => (
+              <TableRow key={c.pid} title={c.cmdline || undefined}>
+                <TableCell>{c.pid}</TableCell>
+                <TableCell sx={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</TableCell>
+                <TableCell>{c.status || "-"}</TableCell>
+                <TableCell>{c.cpu != null ? c.cpu.toFixed(1) : "-"}</TableCell>
+                <TableCell>{fmtMb(c.rss_mb)}</TableCell>
+                <TableCell>{c.threads ?? "-"}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+        Process tree of the job right now (CPU over half a second); the busiest
+        {children.length >= 10 ? " 10" : ""} child processes, hover a row for its command.
+      </Typography>
+    </Box>
+  );
+}
+
+function ScheduleInfo({ data }: { data: any }) {
+  const process: LocalProcessInfo | null = data?.process || null;
+  const log: string[] = data?.log || [];
+  const logRef = useRef<HTMLPreElement | null>(null);
+  useEffect(() => {
+    // Show the end of the log: the last dependency check
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [log]);
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+      {process && (
+        <FieldsGrid>
+          <Field label="Watcher" value={`${process.pid}${process.status ? ` (${process.status})` : ""}`} />
+          <Field label="Uptime" value={process.uptime != null ? fmtSeconds(process.uptime) : undefined} />
+        </FieldsGrid>
+      )}
+      <Typography variant="subtitle2">Schedule log</Typography>
+      <Box
+        component="pre"
+        ref={logRef}
+        sx={{ m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, fontSize: "0.78rem", maxHeight: "var(--cjd-pre-max, 340px)", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}
+      >
+        {log.length ? log.join("\n") : "(no schedule log)"}
+      </Box>
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+        The job is waiting for its inputs: the schedule watcher checks its parent
+        jobs periodically and launches it once they have finished (job.log since
+        the job was scheduled).
+      </Typography>
+    </Box>
+  );
+}
+
 function RecordedInfo({ data }: { data: any }) {
   const s = data.summary || {};
   const r = data.report || {};
@@ -226,17 +309,21 @@ function RecordedInfo({ data }: { data: any }) {
     report: "the cluster report at the end of run.out",
     params: "the job params / submission script (requested resources)",
   };
+  // Recorded by the run in GiB (a number), the cluster reports have units
+  const nodeMemory = typeof s.node_memory === "number" ? `${s.node_memory} GiB` : s.node_memory || "-";
+  const isLocal = !s.cluster && !!s.pid;
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
       <FieldsGrid>
         <Field label="Cluster" value={s.cluster} />
         <Field label="Queue" value={s.queue || r.queue} />
         <Field label="Host(s)" value={s.host || r.hosts} />
+        {s.pid && <Field label="PID" value={s.pid} />}
         <Field label="CPUs" value={s.cpus != null ? `${s.cpus}${s.requested ? " (requested)" : ""}` : undefined} />
         <Field label="GPUs" value={s.gpus != null ? `${s.gpus}${s.gpu_type ? ` ${s.gpu_type}` : ""}` : undefined} />
         <Field label="Max memory" value={s.memory_max || r.max_mem} />
         <Field label="Avg memory" value={s.memory_avg || r.avg_mem} />
-        <Field label="Node" value={s.node_cpus ? `${s.node_cpus} CPUs, ${s.node_memory || "-"}, ${s.node_gpus || 0} GPUs` : undefined} />
+        <Field label="Node" value={s.node_cpus ? `${s.node_cpus} CPUs, ${nodeMemory}, ${s.node_gpus || 0} GPUs` : undefined} />
         <Field label="Elapsed" value={s.elapsed ? fmtSeconds(s.elapsed) : undefined} />
         <Field label="Runs" value={s.runs} />
       </FieldsGrid>
@@ -267,7 +354,7 @@ function RecordedInfo({ data }: { data: any }) {
       )}
       <Typography variant="caption" sx={{ color: "text.secondary" }}>
         Recorded information, taken from {sources[s.source] || "the job files"}.
-        The queueing system is not queried.
+        {isLocal ? "" : " The queueing system is not queried."}
       </Typography>
     </Box>
   );
@@ -278,6 +365,9 @@ export default function ClusterJobDialog({ open, protocolId, onClose, inspect }:
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ClusterJobInspection | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
+  const [tab, setTab] = useState(0);
+  // Expanded to the whole browser window (as in VolumeViewer)
+  const [full, setFull] = useState(false);
 
   useEffect(() => {
     if (!open || !protocolId) return;
@@ -299,56 +389,102 @@ export default function ClusterJobDialog({ open, protocolId, onClose, inspect }:
     if (!open) {
       setResult(null);
       setError(null);
+      setTab(0);
+      setFull(false);
     }
   }, [open]);
 
   const data = result?.data;
   const jsonError = result?.format === "json" ? data?.error : null;
-  const title = `Job ${protocolId ?? ""}${result?.cluster_job_id ? ` · cluster job ${result.cluster_job_id}` : ""}`;
+  const isLocal = !result?.cluster_job_id && !!result?.local_pid;
+  const isScheduled = !!result?.scheduled;
+  const where = result?.cluster_job_id
+    ? ` · cluster job ${result.cluster_job_id}`
+    : isLocal
+      ? ` · ${isScheduled ? "schedule watcher" : "pid"} ${result!.local_pid}${result!.local_host ? ` on ${result!.local_host}` : ""}`
+      : "";
+  const title = `Job ${protocolId ?? ""}${where}`;
+  const profiles: JobProfileRun[] = result?.profiles || [];
+  const lastProfile = profiles[profiles.length - 1];
+  const recording = !!lastProfile?.latest;
+  const process: LocalProcessInfo | null = data?.process || null;
+  const showUsage = tab === 1 && profiles.length > 0;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      // Esc first goes back from the expanded size
+      onClose={(_e, reason) => (reason === "escapeKeyDown" && full ? setFull(false) : onClose())}
+      maxWidth="md"
+      fullWidth
+      fullScreen={full}
+    >
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1.5 }}>
         <Box component="span" sx={{ flex: 1, fontWeight: 700 }}>{title}</Box>
         {result && (
           <Chip
             size="small"
             variant="outlined"
-            label={result.mode === "live" ? `live · ${result.queue || "queue"}` : "recorded"}
+            label={result.mode === "live"
+              ? `live · ${isScheduled ? "scheduler" : isLocal ? "local" : result.queue || "queue"}`
+              : "recorded"}
             title={result.command || undefined}
           />
         )}
         {result?.status && <Chip size="small" label={result.status} />}
+        <IconButton size="small" onClick={() => setFull((v) => !v)}
+                    aria-label={full ? "Back to normal size" : "Expand to the browser window"}
+                    title={full ? "Back to normal size (Esc)" : "Expand to the browser window"}
+                    sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}>
+          {full ? <Minimize size={16} /> : <Maximize size={16} />}
+        </IconButton>
       </DialogTitle>
-      <DialogContent dividers>
+      <DialogContent
+        dividers
+        sx={full ? { display: "flex", flexDirection: "column", "--cjd-pre-max": "calc(100vh - 300px)" } : undefined}
+      >
         {loading && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 3, justifyContent: "center" }}>
             <CircularProgress size={24} />
             <Typography variant="body2">
-              Querying the cluster job…
+              Inspecting the job…
             </Typography>
           </Box>
         )}
         {!loading && error && <Alert severity="error">{error}</Alert>}
-        {!loading && !error && result && (
+        {!loading && !error && result && profiles.length > 0 && (
+          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ minHeight: 36, mt: -1, mb: 1 }}>
+            <Tab label="Overview" sx={{ minHeight: 36, py: 0 }} />
+            <Tab label={recording ? "Resource usage · recording" : "Resource usage"} sx={{ minHeight: 36, py: 0 }} />
+          </Tabs>
+        )}
+        {!loading && !error && result && showUsage && <JobResourceUsage profiles={profiles} fill={full} />}
+        {!loading && !error && result && !showUsage && (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
             {result.note && <Alert severity="info" sx={{ py: 0 }}>{result.note}</Alert>}
+            {process && !isScheduled && <LocalProcess process={process} />}
+            {!process && recording && (
+              <Alert severity="info" icon={false} sx={{ py: 0 }}>
+                Latest sample, {lastProfile.latest!.age ?? "?"} s ago: {latestSampleText(lastProfile.latest!, lastProfile.gpus)}
+              </Alert>
+            )}
             {jsonError && <Alert severity="error">{jsonError}</Alert>}
             {result.format === "json" && !jsonError && data && <LsfInspection data={data} />}
             {result.format === "text" && (
               <Box
                 component="pre"
-                sx={{ m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, fontSize: "0.8rem", maxHeight: 420, overflow: "auto", whiteSpace: "pre-wrap" }}
+                sx={{ m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, fontSize: "0.8rem", maxHeight: "var(--cjd-pre-max, 420px)", overflow: "auto", whiteSpace: "pre-wrap" }}
               >
                 {result.text || "(no output)"}
               </Box>
             )}
             {result.format === "summary" && data && <RecordedInfo data={data} />}
+            {result.format === "schedule" && <ScheduleInfo data={data} />}
           </Box>
         )}
       </DialogContent>
       <DialogActions>
-        {result?.mode === "live" && (
+        {(result?.mode === "live" || recording || isScheduled) && (
           <Button onClick={() => setReloadTick((t) => t + 1)} disabled={loading}>Refresh</Button>
         )}
         <Button onClick={onClose} variant="contained">Close</Button>

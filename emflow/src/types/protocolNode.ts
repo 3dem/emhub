@@ -18,6 +18,11 @@ export interface ProtocolNode {
   queued?: number | null;
   // Id of the cluster job of a launched or running job submitted to a queue
   clusterJobId?: string;
+  // Process id and host of a job run locally (not in a cluster)
+  localPid?: string;
+  localHost?: string;
+  // localPid is the schedule watcher of a scheduled job (waiting for inputs)
+  localScheduled?: boolean;
   stepsDone: string;
   numberOfSteps: string;
   outputs: any;
