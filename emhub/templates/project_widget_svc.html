@@ -767,6 +767,8 @@ var svc = {
     if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries' || pointerClass === 'TiltSeriesAligned' || pointerClass === 'Tomograms' || pointerClass === 'TomoCoordinates' || pointerClass === 'TomoParticles' ||
         pointerClass === 'Movies' || pointerClass === 'Micrographs' || pointerClass === 'MultiClasses2D' ||
         pointerClass === 'Particles' || pointerClass === 'Classes3D' || pointerClass === 'WarpPopulation' ||
+        // A list of maps (e.g. the references of a 3D classification), a row per map
+        pointerClass === 'Volumes' ||
         // Views of a whole job (e.g. CTF Plots), value '<job id>#<view id>'
         pointerClass === 'JobView') {
       return buildTableViewerAnalyzeDecision(ctx, pointerClass);

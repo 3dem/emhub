@@ -74,6 +74,23 @@ _rlnGoldStandardFsc #5
 """
 
 
+# job.star of a Relion job with a reference mask
+JOB_STAR = """
+data_job
+
+_rlnJobTypeLabel             relion.refine3d.tomo
+_rlnJobIsContinue                       0
+_rlnJobIsTomo                           1
+
+data_joboptions_values
+
+loop_
+_rlnJobOptionVariable #1
+_rlnJobOptionValue #2
+fn_mask   {mask}
+"""
+
+
 class TestRelionIterations(unittest.TestCase):
 
     def setUp(self):
@@ -186,6 +203,39 @@ class TestRelionIterations(unittest.TestCase):
         ssnr = cells['bottomRight']
         self.assertEqual(ssnr['figure']['layout']['yaxis']['type'], 'log')
         self.assertEqual(ssnr['figure']['data'][0]['y'], [None, 50.0, 3.0, 0.5])
+
+    def test_job_mask(self):
+        """ The maps of a Relion job show its reference mask (fn_mask of its
+        job.star, on the same box), hidden at first. """
+        import numpy as np
+        import mrcfile
+        from emhub.blueprints.api_viewers import relion_job_mask, build_volume_output_pane_content
+        job = self._refine()
+        vol = f'{job}/run_class001.mrc'
+        for path, n in [(vol, 16), ('MaskCreate/job010/mask.mrc', 16),
+                        ('MaskCreate/job011/mask.mrc', 8)]:
+            os.makedirs(os.path.join(self.root, os.path.dirname(path)), exist_ok=True)
+            with mrcfile.new(os.path.join(self.root, path)) as m:
+                m.set_data(np.random.rand(n, n, n).astype(np.float32))
+        self.assertIsNone(relion_job_mask(self.root, vol))  # no job.star
+        self._write(f'{job}/job.star', JOB_STAR.format(mask='MaskCreate/job010/mask.mrc'))
+        self.assertEqual(relion_job_mask(self.root, vol), 'MaskCreate/job010/mask.mrc')
+        mask = build_volume_output_pane_content(self.root, vol)['viewerConfig']['mask']
+        self.assertEqual((mask['type'], mask['label'], mask['show']), ('map', 'mask.mrc', False))
+        self.assertEqual(mask['density']['payload']['path'], 'MaskCreate/job010/mask.mrc')
+        # Another box: no mask
+        self._write(f'{job}/job.star', JOB_STAR.format(mask='MaskCreate/job011/mask.mrc'))
+        self.assertIsNone(relion_job_mask(self.root, vol))
+        self.assertNotIn('mask', build_volume_output_pane_content(self.root, vol)['viewerConfig'])
+
+    def test_initialmodel_outputs(self):
+        """ InitialModel jobs have the Analyze Results of the iterations. """
+        job = self._class3d('InitialModel/job066')
+        for jobtype in ('relion.initialmodel', 'relion.initialmodel.tomo'):
+            outputs = job_view_outputs(job, jobtype, os.path.join(self.root, job), 'Succeeded')
+            self.assertEqual([o['value'] for o in outputs], [f'{job}#relion-iterations'])
+        table = build_job_view_table(self.root, job_view_value(job, 'relion-iterations'))
+        self.assertEqual(len(table['rows']), 3)  # Overall and 2 iterations (not 0)
 
     def test_refine_initial_values(self):
         """ Iteration 0 is skipped; Relion writes an 'inf' resolution and 999

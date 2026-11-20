@@ -320,6 +320,10 @@ export type TableViewerRow = {
   >;
 
   children?: TableViewerRowChildren;
+
+  /** false: no card in the gallery (only in the table), e.g. a row of all
+   * the volumes of a table. */
+  gallery?: boolean;
 };
 
 export type TableViewerChildrenRequest = {
@@ -374,7 +378,8 @@ export type TableViewerVariantData = {
 };
 
 /** A gallery of the rows (e.g. the 3D classes of an iteration), toggled
- * with the table in its toolbar: a card per row (search and sort apply)
+ * with the table in its toolbar: a card per row (search and sort apply;
+ * not the rows with `gallery: false`)
  * with a section of a small volume, its selection checkbox (the first
  * boolean edit column, as in the table) and a button for the row's default
  * action (shown in the viewer pane, as a row click). */

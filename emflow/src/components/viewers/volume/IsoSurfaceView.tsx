@@ -8,13 +8,16 @@
 // like the density) is drawn over it. The surface may be colored by a local
 // resolution map (colorBy), with its color key over the scene, as ChimeraX's
 // "color sample ... key true".
+// Other maps on the same box (overlays) are drawn as iso-surfaces too; a
+// linked overlay follows the threshold of the density: it encloses the same
+// share of its voxels, so maps of other scales show at a comparable size.
 // When the density changes to another map of a series (the iterations of a
 // Relion map, `preload`ed in the background) the same share of voxels stays
 // enclosed and the view is not framed again, so the series plays smoothly.
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import styles from "../VolumeViewer.module.css";
 import { useDataLoader, useLoad } from "@/data/DataLoaderContext";
-import { IsoSurfaceScene, RESOLUTION_PALETTE, type IsoMask, type IsoState, type MaskStyle } from "./IsoSurfaceScene";
+import { IsoSurfaceScene, RESOLUTION_PALETTE, type IsoMask, type IsoOverlay, type IsoState, type MaskStyle } from "./IsoSurfaceScene";
 import DensityPanel, { DETAILS, enclosedFraction, levelForFraction, type DensityOptions } from "./DensityPanel";
 import { densityValues, prepareDensity, removeDust } from "./densityGrid";
 import { isDensitySource, type DensitySource, type Vec3, type VolumeDensity } from "./volumeMath";
@@ -25,6 +28,19 @@ export type IsoSurfaceHandle = { reset: () => void };
 export type IsoMaskInput =
   | { type: "sphere"; center: Vec3; diameter: number }
   | { type: "map"; density: VolumeDensity | DensitySource; threshold?: number };
+
+/** An overlay of the view (decoded, see IsoSurfaceScene.IsoOverlay): its
+ * threshold, or null to follow the density's (the same enclosed share). */
+export type IsoOverlayInput = Omit<IsoOverlay, "threshold" | "below"> & { threshold: number | null };
+
+/** Threshold of an overlay that encloses the same share of its voxels as
+ * the density at `threshold` (the middle of its range without histograms). */
+export function linkedThreshold(main: VolumeDensity, threshold: number, below: boolean, d: VolumeDensity): number {
+  const h0 = main.histogram, h1 = d.histogram;
+  if (h0 && h1) return levelForFraction(h1, enclosedFraction(h0, threshold, below), below);
+  const [v0, v1] = d.valueRange;
+  return (v0 + v1) / 2;
+}
 
 /** Timing of the density, for VolumeViewer's debug line. */
 export type DensityDebug = {
@@ -98,6 +114,15 @@ type Props = {
   /** Color the surface by this map (decoded, on the same box), e.g. a local
    * resolution map; null: the plain color. */
   colorBy?: ColorByInput | null;
+  /** Other maps on the same box, drawn as iso-surfaces (see IsoOverlayInput). */
+  overlays?: IsoOverlayInput[] | null;
+  /** Show the density (true); false: only the overlays. */
+  showDensity?: boolean;
+  /** Called with the thresholds the overlays take (linked or their own, in
+   * the order of `overlays`) and the dark density setting, when they change. */
+  onOverlayThresholds?: (thresholds: number[], below: boolean) => void;
+  /** Called with the color of the surface when it changes. */
+  onColor?: (color: string) => void;
 };
 
 /** A map that colors the surface (see Props.colorBy). */
@@ -397,6 +422,45 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
   useEffect(() => {
     if (maskStyle) sceneRef.current?.setMaskStyle(maskStyle);
   }, [maskStyle?.show, maskStyle?.color, maskStyle?.opacity]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ---------- overlays ---------- */
+  const overlays = props.overlays ?? null;
+  const resolved = useMemo<IsoOverlay[]>(() => {
+    if (!overlays || !density) return [];
+    return overlays.map((o) => ({
+      ...o,
+      below,
+      threshold: o.threshold ?? linkedThreshold(density, thr, below, o.density),
+    }));
+  }, [overlays, density, thr, below]);
+  useEffect(() => {
+    sceneRef.current?.setOverlays(resolved);
+  }, [resolved, error]);
+  const showDensity = props.showDensity ?? true;
+  useEffect(() => {
+    sceneRef.current?.setDensityVisible(showDensity);
+  }, [showDensity, error]);
+  // Frame what is drawn when overlays come or the density is hidden (until
+  // the user moves the view)
+  const shownOverlays = resolved.filter((o) => o.show).length;
+  const overlaysFramed = useRef(false);
+  useEffect(() => {
+    if (!overlaysFramed.current && !shownOverlays && showDensity) return;
+    overlaysFramed.current = true;
+    autoFit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolved.length, shownOverlays, showDensity]);
+  const onColorRef = useRef(props.onColor);
+  onColorRef.current = props.onColor;
+  const surfaceColor = opts?.color;
+  useEffect(() => {
+    if (surfaceColor) onColorRef.current?.(surfaceColor);
+  }, [surfaceColor]);
+  const onOverlayThresholdsRef = useRef(props.onOverlayThresholds);
+  onOverlayThresholdsRef.current = props.onOverlayThresholds;
+  useEffect(() => {
+    if (resolved.length) onOverlayThresholdsRef.current?.(resolved.map((o) => o.threshold), below);
+  }, [resolved, below]);
 
   /* ---------- color by a map (local resolution) ---------- */
   const colorBy = props.colorBy ?? null;

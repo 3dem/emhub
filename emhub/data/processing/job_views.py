@@ -27,6 +27,8 @@ from .star_columns import (load_star_columns, build_star_columns_table,
                            build_star_column_pane)
 from .relion_iterations import (load_relion_iterations, build_iterations_table,
                                 build_iteration_pane)
+from .align_volumes import (ALIGNMENT_STAR, load_align_volumes,
+                            build_align_volumes_table, build_align_volumes_pane)
 
 
 JOB_VIEW_CLASS = 'JobView'
@@ -184,14 +186,15 @@ class MotionPlotsView(StarColumnsPlotsView):
 
 
 class RelionIterationsView(JobView):
-    """ Results of the iterations of a Relion 3D classification or 3D
-    auto-refine (SPA and tomography): a row per iteration with its plots and
+    """ Results of the iterations of a Relion 3D classification, 3D
+    auto-refine or initial model (SPA and tomography): a row per iteration with its plots and
     maps, see relion_iterations. Also while running (or after a failure),
     to follow the intermediate results. """
     id = 'relion-iterations'
     label = 'Analyze Results'
     jobtypes = ('relion.class3d', 'relion.class3d.tomo',
-                'relion.refine3d', 'relion.refine3d.tomo')
+                'relion.refine3d', 'relion.refine3d.tomo',
+                'relion.initialmodel', 'relion.initialmodel.tomo')
     statuses = ('Succeeded', 'Running', 'Failed', 'Aborted')
 
     def available(self, job_dir):
@@ -436,8 +439,29 @@ class CoordinatesCompareView(JobView):
             coordinates=cc.coordinates(tomo, distance, edge))
 
 
+class AlignVolumesView(JobView):
+    """ How the references of an emw-align-volumes job were aligned to the
+    map of the particle poses: a row per reference with its CC before and
+    after, rotation and shift, and its volumes; the CC plots, the similarity
+    matrix of the references and all of them in 3D (see align_volumes). """
+    id = 'align-volumes'
+    label = 'Analyze Results'
+    jobtypes = ('emw-align-volumes',)
+    source = ALIGNMENT_STAR
+
+    def table(self, root, job_dir):
+        job_id = os.path.relpath(job_dir, root)
+        return build_align_volumes_table(load_align_volumes(root, job_dir),
+                                         f'{self.label} — {job_id}')
+
+    def pane(self, root, job_dir, action_id, row_cells):
+        return build_align_volumes_pane(root, load_align_volumes(root, job_dir),
+                                        action_id, row_cells)
+
+
 register_job_view(CtfPlotsView())
 register_job_view(MotionPlotsView())
 register_job_view(RelionIterationsView())
 register_job_view(WarpTsAlignProgressView())
 register_job_view(CoordinatesCompareView())
+register_job_view(AlignVolumesView())

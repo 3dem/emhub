@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, type DragEvent } from "react";
 import {
   Box,
   IconButton,
@@ -11,12 +11,17 @@ import {
   Tooltip,
 } from "@mui/material";
 import { PlusIcon, TrashBinIcon } from "../../icons";
+import { useDrag } from "./DragContext";
 import {
   buildEmptyTableRow,
   getTableColumns,
+  tableColumnAcceptsOutput,
   type TableColumnDef,
   validateTableCellValue,
 } from "@/utils/protocolform.utils";
+
+// Data of the outputs dragged from the protocol cards (ProtocolNodeCard)
+const OUTPUT_DRAG_TYPE = "application/scipion-output";
 
 type TableParamRowProps = {
   def: any;
@@ -25,6 +30,9 @@ type TableParamRowProps = {
   onCellChange: (rowIndex: number, colName: string, value: string) => void;
   onAddRow: () => void;
   onRemoveRow: (rowIndex: number) => void;
+  /** Dropping an output on a row sets the value of the table's first column
+   * with a pointerClass (rowIndex may be a new row, after the last one). */
+  onCellDrop?: (rowIndex: number, colName: string, value: string) => void;
 };
 
 function cellInputType(paramClass: string): "text" | "number" {
@@ -47,8 +55,15 @@ export default function TableParamRow({
   onCellChange,
   onAddRow,
   onRemoveRow,
+  onCellDrop,
 }: TableParamRowProps) {
   const columns = useMemo(() => getTableColumns(def), [def]);
+  // The column that takes the outputs dropped on the rows, if any
+  const pointerColumn = useMemo(() => columns.find((c) => c.pointerClass), [columns]);
+  const dropEnabled = Boolean(pointerColumn && onCellDrop);
+  const { currentDraggedOutput } = useDrag();
+  const [dragOverRow, setDragOverRow] = useState<number | null>(null);
+  const draggedAccepted = tableColumnAcceptsOutput(pointerColumn?.pointerClass, currentDraggedOutput);
 
   const displayRows = useMemo(() => {
     const list = Array.isArray(rows) ? [...rows] : [];
@@ -57,6 +72,51 @@ export default function TableParamRow({
     }
     return list;
   }, [rows, columns]);
+
+  // Dropped on the 'add' row: the first row without a value in the pointer
+  // column (e.g. the empty one of a new table), or a new row
+  const addRowTarget = useMemo(() => {
+    if (!pointerColumn) return displayRows.length;
+    const i = displayRows.findIndex((r) => !String(r?.[pointerColumn.name] ?? "").trim());
+    return i >= 0 ? i : displayRows.length;
+  }, [displayRows, pointerColumn]);
+
+  const dropHandlers = (rowIndex: number) => {
+    if (!dropEnabled || !pointerColumn) return {};
+    return {
+      onDragOver: (e: DragEvent) => {
+        e.preventDefault();
+        setDragOverRow(rowIndex);
+      },
+      onDragLeave: () => setDragOverRow(null),
+      onDrop: (e: DragEvent) => {
+        e.preventDefault();
+        setDragOverRow(null);
+        try {
+          const raw = e.dataTransfer.getData(OUTPUT_DRAG_TYPE);
+          if (!raw) return;
+          const output = JSON.parse(raw);
+          const value = String(output?.value ?? "").trim();
+          if (!value || !tableColumnAcceptsOutput(pointerColumn.pointerClass, output)) return;
+          // The same output only once
+          if (displayRows.some((r, i) => i !== rowIndex && r?.[pointerColumn.name] === value)) return;
+          onCellDrop?.(rowIndex, pointerColumn.name, value);
+        } catch (err) {
+          console.error("Drop error:", err);
+        }
+      },
+    };
+  };
+
+  const dropRowSx = (rowIndex: number) => (theme: any) => ({
+    backgroundColor:
+      dragOverRow === rowIndex
+        ? draggedAccepted
+          ? theme.palette.mode === "dark" ? "rgba(34, 197, 94, 0.20)" : "#b7f5c7"
+          : theme.palette.mode === "dark" ? "rgba(248, 113, 113, 0.20)" : "#f5b7b7"
+        : "transparent",
+    transition: "background-color 0.15s ease-in-out",
+  });
 
   if (columns.length === 0) {
     return (
@@ -153,7 +213,7 @@ export default function TableParamRow({
           </TableHead>
           <TableBody>
             {displayRows.map((row, rowIndex) => (
-              <TableRow key={rowIndex}>
+              <TableRow key={rowIndex} sx={dropRowSx(rowIndex)} {...dropHandlers(rowIndex)}>
                 {columns.map((col) => (
                   <TableCell key={`${rowIndex}-${col.name}`}>{renderCell(row, rowIndex, col)}</TableCell>
                 ))}
@@ -170,6 +230,18 @@ export default function TableParamRow({
                 </TableCell>
               </TableRow>
             ))}
+            {dropEnabled && (
+              <TableRow sx={dropRowSx(displayRows.length)} {...dropHandlers(addRowTarget)}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setDragOverRow(displayRows.length);
+                        }}>
+                <TableCell colSpan={columns.length + 1}
+                           sx={{ fontStyle: "italic", color: "text.secondary", textAlign: "center" }}>
+                  Drop {pointerColumn?.pointerClass} outputs here to add a row
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Box>

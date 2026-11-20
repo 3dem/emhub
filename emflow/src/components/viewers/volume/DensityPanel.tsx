@@ -4,8 +4,9 @@
 // the units of the map, from the host) with the threshold on it (click or
 // drag to move it), the threshold, the share of voxels it encloses, the
 // opacity, color and the detail of the grid. Beside the scene its two groups
-// (threshold and dark density; surface options) are stacked; below it
-// (`width`) they are two columns, so the panel is about half as high.
+// (threshold; surface options) are stacked; below it (`width`) they are two
+// columns, so the panel is about half as high. The dark density (enclose the
+// values below the threshold) is the Invert button of the viewer toolbar.
 import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import styles from "../VolumeViewer.module.css";
 import type { VolumeDensity } from "./volumeMath";
@@ -158,7 +159,6 @@ export default function DensityPanel(props: Props) {
   const lo = h?.range[0] ?? d.valueRange[0];
   const hi = h?.range[1] ?? d.valueRange[1];
   const step = Number(((hi - lo) / 400).toPrecision(2)) || 0.001;
-  const sigma = s && s.std > 0 ? (threshold - s.mean) / s.std : null;
   const frac = h ? enclosedFraction(h, threshold, below) : null;
 
   // Its natural height (scrollHeight also counts what is scrolled out)
@@ -207,14 +207,9 @@ export default function DensityPanel(props: Props) {
         </label>
         <input type="range" className={styles.isoRange} min={lo} max={hi} step={step} value={threshold}
                onChange={(e) => onChange({ threshold: Number(e.target.value) })} />
-        <div className={styles.isoNote}>
-          {sigma !== null && <>{sigma >= 0 ? "mean + " : "mean − "}{Math.abs(sigma).toFixed(2)} σ</>}
-          {frac !== null && <>{sigma !== null && " · "}encloses {(frac * 100).toPrecision(2)}% of the voxels</>}
-        </div>
-        <label className={styles.panelRow} title="Enclose the values below the threshold (linked to the Invert button of the toolbar)">
-          <input type="checkbox" checked={below} onChange={(e) => onChange({ below: e.target.checked })} />
-          Dark density
-        </label>
+        {frac !== null && (
+          <div className={styles.isoNote}>encloses {(frac * 100).toPrecision(2)}% of the voxels</div>
+        )}
       </div>
 
       <div className={styles.isoGroup}>

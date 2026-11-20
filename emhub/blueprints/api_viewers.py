@@ -1415,6 +1415,30 @@ def build_tomogram_volume_slider_pane_content(
         viewer_config=TOMOGRAM_VIEWER_CONFIG, coordinates=coordinates)
 
 
+# Longest side of the density grids of the overlays of a map (other maps
+# on its box, drawn over it in the 3D volume tab)
+OVERLAY_MAX_SIZE = 192
+
+
+def build_overlays_pane_content(root, main, overlays, title=None, main_label=None,
+                                main_description=None):
+    """ VolumeViewer pane of a map with other maps on the same box drawn
+    over it (emflow's `overlays`, each one shown or hidden in its Maps
+    panel), e.g. the references of a 3D classification over the map of
+    their poses. main: the map (path); overlays: [(label, path)], a short
+    label (e.g. 'Class 2'); the full names (tooltips) are the files, or
+    main_description. """
+    config = dict(MAP_VIEWER_CONFIG,
+                  overlays=[{'label': label, 'description': rel,
+                             'density': volume_density_source(root, rel, OVERLAY_MAX_SIZE)}
+                            for label, rel in overlays],
+                  overlaysMainLabel=main_label or os.path.basename(main),
+                  overlaysMainDescription=main_description or main)
+    return build_volume_viewer_pane_content(
+        root, main, title=title or main, slices=False, density='lazy',
+        max_size=OVERLAY_MAX_SIZE, viewer_config=config)
+
+
 # Volume and VolumeMask outputs (emflow's volume viewer dialog): 3D volume
 # first and the slices, as the mask wizard (VolumeMaskWizard) shows them
 VOLUME_OUTPUT_VIEWER_CONFIG = {
@@ -1455,6 +1479,37 @@ def _mask_source_map(root, mask_rel):
     return None
 
 
+def relion_job_mask(root, vol_rel):
+    """ The reference mask (fn_mask of its job.star) of the Relion job that
+    wrote a map (Refine3D, Class3D, InitialModel...), if it is on the same
+    box as the map, or None. """
+    try:
+        job_star = _resolve_data_path(root, os.path.join(os.path.dirname(vol_rel), 'job.star'))
+        if not job_star or not os.path.exists(job_star):
+            return None
+        mask = RelionStar.read_jobstar(job_star).get('fn_mask')
+        mask_path = _resolve_data_path(root, mask) if mask else None
+        if not mask_path or not os.path.isfile(mask_path):
+            return None
+        if _volume_dimensions(mask_path) != _volume_dimensions(_resolve_data_path(root, vol_rel)):
+            return None
+    except Exception:
+        return None
+    return mask
+
+
+def with_relion_mask(root, vol_rel, viewer_config):
+    """ The viewer config of a Relion map with its job's reference mask
+    (relion_job_mask) as the viewer's mask, hidden at first (the Mask button
+    of the toolbar shows it), or the config as it was. """
+    mask = relion_job_mask(root, vol_rel)
+    if not mask:
+        return viewer_config
+    return dict(viewer_config, mask={
+        'type': 'map', 'label': os.path.basename(mask), 'show': False,
+        'density': volume_density_source(root, mask, VOLUME_OUTPUT_MAX_SIZE)})
+
+
 def build_volume_output_pane_content(root, rel_path, pointer_class='Volume'):
     """ VolumeViewer of a Volume output, or of a VolumeMask output: the map
     it was created from with the mask over it (or the mask alone if the map
@@ -1470,6 +1525,9 @@ def build_volume_output_pane_content(root, rel_path, pointer_class='Volume'):
             'label': os.path.basename(rel_path),
         }
         title = f'Mask {rel_path} over {source}'
+    elif pointer_class != 'VolumeMask':
+        # A Relion map: the mask of its job, with the Mask button
+        config = with_relion_mask(root, rel_path, config)
     content = build_volume_viewer_pane_content(
         root, vol_rel, title=title, slices=False, density='lazy',
         max_size=VOLUME_OUTPUT_MAX_SIZE, viewer_config=config)

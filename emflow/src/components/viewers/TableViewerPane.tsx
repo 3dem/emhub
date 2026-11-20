@@ -1917,7 +1917,7 @@ export default function TableViewerPane({
                 {showGallery && table.gallery && (
                     <TableViewerGallery
                         gallery={table.gallery}
-                        rows={filteredRows}
+                        rows={filteredRows.filter((row) => row.gallery !== false)}
                         state={galleryState}
                         onStateChange={setGalleryState}
                         loadDensity={loadGalleryDensity}
