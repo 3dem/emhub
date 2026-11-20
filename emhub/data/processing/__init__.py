@@ -39,6 +39,26 @@ def resolve_processing_path(project_path):
     return os.path.abspath(path)
 
 
+def absolute_project_path(path, label='Path'):
+    """ Validate a path given by the user to create or register a project
+    (processing or data folder) and return it ready for filesystem access:
+    a leading ~ is expanded (e.g. ~/projects, the home folder of the user
+    running EMhub, as in OnDemand) and the result normalized. Empty values
+    are returned as ''. Relative paths are rejected (ValueError): they would
+    be resolved from the folder where the EMhub server runs, not from
+    anything the user sees. """
+    path = (path or '').strip()
+    if not path:
+        return ''
+    expanded = os.path.expanduser(path)
+    if not os.path.isabs(expanded):
+        raise ValueError(
+            f"{label} '{path}' must be an absolute path, or start with ~ for "
+            f"your home folder (e.g. ~/projects/my_project). Relative paths "
+            f"are ambiguous.")
+    return os.path.normpath(expanded)
+
+
 def resolve_project_root(project_path):
     """ Same as resolve_processing_path, kept for its callers. """
     return resolve_processing_path(project_path)

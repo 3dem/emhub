@@ -303,10 +303,22 @@ def register_content(dc):
         def _hms(seconds):
             return Pretty.delta(dt.timedelta(seconds=int(seconds or 0)))
 
+        def _short(seconds):
+            """ e.g. '1d 19:58' or '3:05:12' (header) """
+            d, rest = divmod(int(seconds or 0), 86400)
+            h, rest = divmod(rest, 3600)
+            m, sec = divmod(rest, 60)
+            return f"{d}d {h:02d}:{m:02d}" if d else f"{h}:{m:02d}:{sec:02d}"
+
         for row in data['jobs']:
             row['elapsed_str'] = _hms(row['elapsed'])
         data['totals']['elapsed_str'] = _hms(data['totals']['elapsed'])
-        data.update(processing_path=pp.path, selected=bool(job_ids))
+        data['totals']['elapsed_short'] = _short(data['totals']['elapsed'])
+        # The project selector, to inspect a job from its row (job dialog)
+        project_args = {k: v for k, v in (ppDict.get('args') or {}).items()
+                        if k in ('session_id', 'entry_id', 'path')}
+        data.update(processing_path=pp.path, selected=bool(job_ids),
+                    project_args=project_args)
         return data
 
     @dc.content

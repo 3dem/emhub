@@ -40,7 +40,7 @@ from emtools.image import Thumbnail
 from emtools.metadata import StarFile, RelionStar, WarpXml
 
 from emwrap.base import ProcessingConfig
-from emhub.data.processing import resolve_processing_path
+from emhub.data.processing import resolve_processing_path, absolute_project_path
 from emhub.utils.python_env import python_env_rows
 
 
@@ -503,8 +503,11 @@ def register_content(dc):
     def entry_tomo_processing_validate(entry):
         e = entry.json()
         data = e['extra']['data']
-        dpath = resolve_processing_path(data.get('data_path', '').strip())
-        ppath = resolve_processing_path(data.get('processing_path', '').strip())
+        # Absolute or ~ (expanded) paths only: relative ones would be taken
+        # from the folder where the server runs
+        ppath = absolute_project_path(data.get('processing_path'),
+                                      'Processing path')
+        dpath = absolute_project_path(data.get('data_path'), 'Data path')
 
         if not ppath:
             raise Exception(f"Processing path can not be empty.")
@@ -794,13 +797,35 @@ def register_content(dc):
 
         return data
 
-    @dc.content
-    def benchmark_usage_plot(**kwargs):
+    def _usage_series_csv(csv_file):
+        """ GPU utilization series from a ResourceMonitor CSV file
+        (profile_NNN.csv). It only has the seconds since the start, which
+        is taken as the file modification time (its last row) minus the
+        last of them. """
+        import csv
+        with open(csv_file, newline='') as f:
+            rows = list(csv.DictReader(f))
+        gpus = [c[:-5] for c in (rows[0] if rows else {}) if c.startswith('gpu') and c.endswith('_util')]
+        series = {g: {'name': g.replace('gpu', 'gpu-'), 'id': g, 'data': []} for g in gpus}
+        tseries = {'name': 'total', 'id': 'total', 'data': []}
+        if rows:
+            start = os.path.getmtime(csv_file) - float(rows[-1]['time'])
+            for row in rows:
+                ts = (start + float(row['time'])) * 1000
+                total = 0
+                for g in gpus:
+                    u = float(row[f'{g}_util'] or 0)
+                    total += u
+                    series[g]['data'].append([ts, u])
+                tseries['data'].append([ts, total])
+        return [tseries] + list(series.values())
+
+    def _usage_series_json(json_file):
+        """ GPU utilization series from the JSON file of the old
+        emtools GpuMonitor (gpu_monitor_NNN.json). """
         series = None
         tseries = {'name': 'total', 'id': 'total', 'data': []}
-
-        gpu_monitor_file = kwargs['file_path']
-        with open(gpu_monitor_file) as f:
+        with open(json_file) as f:
             gpu_usage = json.load(f)
             for row in gpu_usage['rows']:
                 tsStr, rowData = row
@@ -820,9 +845,15 @@ def register_content(dc):
                     t += u
                     series[int(g)]['data'].append([ts, u])
                 tseries['data'].append([ts, t])
+        return [tseries] + (series or [])
 
-        series.insert(0, tseries)
-
+    @dc.content
+    def benchmark_usage_plot(**kwargs):
+        usage_file = kwargs['file_path']
+        if usage_file.endswith('.csv'):
+            series = _usage_series_csv(usage_file)
+        else:
+            series = _usage_series_json(usage_file)
         return {'plot': {'series': series}}
 
     @dc.content
@@ -845,9 +876,13 @@ def register_content(dc):
                 'data': [_elapsed(s) for s in r['steps']]})
             categories = [s['JOBNAME'] for s in r['steps']]
             for s in r['steps']:
-                gpu_monitor = s['JOBID'].replace('job', 'gpu_monitor_') + '.json'
-                if os.path.exists(os.path.join(r.get('path', ''), gpu_monitor)):
-                    s['gpu_monitor'] = gpu_monitor
+                # Usage file of the step: ResourceMonitor CSV (profile_NNN.csv)
+                # or the old GpuMonitor JSON (gpu_monitor_NNN.json)
+                for usage_file in [s['JOBID'].replace('job', 'profile_') + '.csv',
+                                   s['JOBID'].replace('job', 'gpu_monitor_') + '.json']:
+                    if os.path.exists(os.path.join(r.get('path', ''), usage_file)):
+                        s['gpu_monitor'] = usage_file
+                        break
 
         return {
             'benchmark': benchmark,

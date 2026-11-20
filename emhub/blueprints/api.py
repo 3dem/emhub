@@ -59,7 +59,7 @@ from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
 from emhub.data.data_manager import SqlFilterError
 from emhub.data import workflow_store
 from emhub.data.processing import (resolve_project_root, resolve_processing_path,
-                                   project_file_path)
+                                   project_file_path, absolute_project_path)
 from .api_viewers import *
 from .api_viewers_spa import (resolve_spa_table_view_type, build_spa_table,
                               build_spa_pane_content, create_classes_subset)
@@ -650,7 +650,8 @@ def get_session_run():
     """
     def _get_run(**attrs):
         pp, pm = get_project_manager(**attrs)
-        run = pp['run']
+        # No 'run' without run_id, e.g. the form of a job type (job_type)
+        run = pp.get('run')
         if run is None and not attrs.get('job_type'):
             raise Exception(f"Job not found: {attrs.get('run_id')}")
         jobtype = run.jobtype if run else attrs['job_type']
@@ -1681,7 +1682,9 @@ def create_tomo_project():
         if not processing_path:
             raise Exception("Missing 'processing_path'")
 
-        root = resolve_project_root(processing_path)
+        # Absolute or ~ only (also checked by the entry validation), before
+        # comparing it with the other projects
+        root = absolute_project_path(processing_path, 'Processing path')
         for e in app.dm.get_entries(condition="type='tomo_processing'"):
             path = e.extra.get('data', {}).get('processing_path', '')
             if path and resolve_project_root(path) == root:
@@ -2076,9 +2079,10 @@ def stop_jobs():
 @api_bp.route('/inspect_cluster_job', methods=['POST'])
 @flask_login.login_required
 def inspect_cluster_job():
-    """ Information about the cluster job of a job (run_id), shown when
-    clicking its cluster job id. Only launched/running jobs whose queue has
-    an 'inspect' command query the queueing system, see
+    """ Information about where a job (run_id) runs, shown when clicking
+    its cluster job id or its pid (run locally), with the resource usage
+    of its profiled runs. Only launched/running jobs whose queue has an
+    'inspect' command query the queueing system, see
     RelionSessionData.inspect_cluster_job. """
     def _inspect(**attrs):
         pp = app.dm.get_processing_project(**attrs)['project']

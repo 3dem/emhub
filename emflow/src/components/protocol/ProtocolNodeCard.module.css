@@ -821,10 +821,12 @@
   width: 100%;
 }
 
-/* Id of the cluster job (launched / running), next to the status */
+/* Id of the cluster job or, for jobs run locally, the process id, next to
+   the status. The leading icon (server / desktop) tells them apart */
 .clusterJobPill {
   display: inline-flex;
   align-items: center;
+  gap: 0.3em;
   border-radius: 9999px;
   padding: 4px 10px;
   background-color: #1f2937;
@@ -1532,6 +1534,11 @@
 
 .clusterJobPillClickable {
   cursor: pointer;
+}
+
+.clusterJobPillIcon {
+  font-size: 1em !important;
+  opacity: 0.8;
 }
 
 .clusterJobPillClickable:hover {

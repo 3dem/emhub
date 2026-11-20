@@ -21,6 +21,7 @@ import ImageSlider from "./components/viewers/ImageSlider";
 import TableViewerContent from "./components/viewers/TableViewerContent";
 import TiltSeriesViewer from "./components/viewers/TiltSeriesViewer";
 import TableViewerGrid from "./components/viewers/TableViewerGrid";
+import ClusterJobDialog from "./components/protocol/ClusterJobDialog";
 import { mountComponent, type MountableComponent, type MountOptions, type Mounted } from "./widget/mount";
 import { ROOT_CLASS } from "./widget/constants";
 import { DataLoader } from "./data/DataLoader";
@@ -34,6 +35,7 @@ export type { MountOptions, Mounted } from "./widget/mount";
 export type { DataLoaderOptions } from "./data/DataLoader";
 export type { VolumeViewerProps, VolumeViewerHandle } from "./components/viewers/VolumeViewer";
 export type { PlotProps } from "./components/viewers/Plot";
+export type { ClusterJobInspection, JobProfileRun } from "./services/ProjectService";
 
 /** Components that hosts can mount by name with `mount()`. */
 const COMPONENTS: Record<string, MountableComponent> = {
@@ -63,6 +65,11 @@ const COMPONENTS: Record<string, MountableComponent> = {
   TableViewerContent: { component: TableViewerContent },
   /** A grid pane ({kind: "grid", layout, cells}), filling the container. */
   TableViewerGrid: { component: TableViewerGrid, fill: true },
+  /** The job dialog of the protocol cards (where a job runs, its process or
+   *  cluster job, schedule log and resource usage), props {open, protocolId,
+   *  onClose, inspect: (protocolId) => Promise<ClusterJobInspection>}; e.g.
+   *  the rows of the EMhub Computing Summary page. */
+  JobInspector: { component: ClusterJobDialog },
 };
 
 export const components = Object.keys(COMPONENTS);

@@ -24,7 +24,7 @@ from functools import cached_property
 from datetime import datetime, timedelta
 
 import mrcfile
-from emtools.utils import Path, Timer, Pretty, FolderManager
+from emtools.utils import Path, Timer, Pretty, FolderManager, ResourceMonitor
 from emtools.metadata import StarFile, EPU, SqliteFile, RelionStar
 from emtools.image import Thumbnail
 
@@ -279,27 +279,20 @@ class RelionSessionData(SessionData):
             return ''
         return '/'.join(micrographs.split('/')[:-1])
 
-    def _cluster_job_id(self, job):
-        """ Id of the last cluster job of a job submitted to a queue, or ''
-        (run locally). It is the job.id written by emwrap when submitting
-        (only kept if the last launch was submitted to a queue) or, for
-        older jobs, the cluster job recorded in the last run (info.json).
-        It never queries the queueing system. """
-        if clusterJobId := self._read_first_line(job.id, self.project.JOB_CLUSTER_ID_FILE):
-            return clusterJobId
-        if job['status'] in ('Launched', 'Running'):
-            return ''  # launched locally, the last run may be an old one
-        runs = self.project.getJobRuns(job)
-        computing = (runs[-1].get('computing') or {}) if runs else {}
-        return str((computing.get('cluster') or {}).get('job_id') or '')
-
     def inspect_cluster_job(self, job_id):
-        """ Information about the cluster job of a job, for the dialog shown
-        when clicking its cluster job id. Only launched or running jobs whose
-        queue defines an 'inspect' command query the queueing system
-        (live mode, see ProjectManager.inspectJob), for other jobs the info
-        is taken from the job files: info.json, the LSF report at the end of
-        run.out and job.script (recorded mode, see get_computing_summary).
+        """ Information about where a job runs, for the dialog shown when
+        clicking its cluster job id or, for jobs run locally, its pid.
+        Scheduled jobs show their schedule watcher instead (format
+        'schedule', data: {process, log}, the job.log lines since it was
+        scheduled). Only launched or running jobs whose queue defines an 'inspect'
+        command query the queueing system (live mode, see
+        ProjectManager.inspectJob). Running local jobs are inspected with
+        psutil if they run in this host (live mode, data['process'], see
+        ResourceMonitor.snapshot). For other jobs the info is taken from the job files:
+        info.json, the LSF report at the end of run.out and job.script
+        (recorded mode, see get_computing_summary). In all modes, 'profiles'
+        has the resource usage of the profiled runs (see
+        ProjectManager.getJobProfiles).
         """
         job_id = Path.rmslash(job_id)
         wf = self.project.get_workflow()
@@ -307,25 +300,65 @@ class RelionSessionData(SessionData):
             raise Exception(f"Job {job_id} not found in the project.")
         job = wf.getJob(job_id)
         status = STATUS_MAP.get(job['status'], job['status'])
+        clusterJobId = self.project.getClusterJobId(job)
+        active = job['status'] in ('Launched', 'Running')
         result = {'run_id': job_id, 'status': status,
-                  'cluster_job_id': self._cluster_job_id(job)}
+                  'cluster_job_id': clusterJobId,
+                  'profiles': self.project.getJobProfiles(job_id, active=active)}
 
-        if (job['status'] in ('Launched', 'Running')
-                and self.project.canInspectJob(job_id)):
+        if scheduled := self.project.getScheduleProcess(job):
+            # Waiting for its inputs: the schedule watcher and its log
+            import socket
+            here = socket.gethostname()
+            process = None
+            if ProjectManager.same_host(scheduled['host'], here) or not scheduled['host']:
+                process = ResourceMonitor.snapshot(scheduled['pid'], match=job_id)
+                if process is None:
+                    result['note'] = (f"Schedule watcher {scheduled['pid']} is "
+                                      f"not running in {here}.")
+            else:
+                result['note'] = (f"The schedule watcher runs in {scheduled['host']} "
+                                  f"and EMhub in {here}, its process can not be "
+                                  f"inspected from here.")
+            result.update(cluster_job_id='', scheduled=True,
+                          local_pid=scheduled['pid'], local_host=scheduled['host'],
+                          mode='live' if process else 'recorded', format='schedule',
+                          data={'process': process, 'log': self.project.readScheduleLog(job_id)})
+            return result
+
+        if active and clusterJobId and self.project.canInspectJob(job_id):
             result['mode'] = 'live'
             result.update(self.project.inspectJob(job_id))
             return result
 
+        process = None
+        if not clusterJobId and (local := self.project.getLocalProcess(job)):
+            import socket
+            here = socket.gethostname()
+            result.update(local_pid=local['pid'], local_host=local['host'])
+            # The pid can only be checked in the host running it
+            sameHost = (ProjectManager.same_host(local['host'], here)
+                        or (not local['host'] and active))
+            if active and sameHost:
+                process = ResourceMonitor.snapshot(local['pid'], match=job_id)
+                if process is None:
+                    result['note'] = (f"Process {local['pid']} of this job is "
+                                      f"not running in {here}.")
+            elif active:
+                result['note'] = (f"The job runs in {local['host']} and EMhub "
+                                  f"in {here}, its process can not be inspected "
+                                  f"from here: showing recorded information.")
+
         rows = self.get_computing_summary([job_id])['jobs']
         summary = rows[0] if rows else {}
-        report = lsf_job_report(self.join(job_id, 'run.out')) or {}
+        report = (lsf_job_report(self.join(job_id, 'run.out')) or {}) if clusterJobId else {}
         result.update({
-            'mode': 'recorded',
+            'mode': 'live' if process else 'recorded',
             'format': 'summary',
-            'data': {'summary': summary, 'report': report,
+            'data': {'summary': summary, 'report': report, 'process': process,
                      'runs': self._job_timing(job)['runs']}
         })
-        if job['status'] in ('Launched', 'Running'):
+        if active and clusterJobId:
             result['note'] = ("No 'inspect' command configured for the queue "
                               "of this job, showing recorded information.")
         return result
@@ -395,7 +428,10 @@ class RelionSessionData(SessionData):
           2. LSF job report appended to run.out (last cluster run, finished)
           3. job.script of the last cluster submission (requested resources)
           4. job params (requested resources)
-        'requested' is True when CPUs/GPUs come from 3 or 4 (not recorded). """
+        'requested' is True when CPUs/GPUs come from 3 or 4 (not recorded).
+        Jobs run locally have their 'pid' (the schedule watcher one for
+        scheduled jobs, 'scheduled'), and profiled jobs the usage of their
+        last profiled run ('profile', see _profile_row). """
         from emwrap.base.job_resources import count_job_cpus, get_job_gpu_list
 
         wf = self.project.get_workflow()
@@ -420,6 +456,10 @@ class RelionSessionData(SessionData):
                     report = lsf_job_report(self.join(job.id, 'run.out')) or {}
                 script = queue_script_resources(self.join(job.id, 'job.script'))
             isLocal = not clusterJobId and self.exists(job.id, self.project.JOB_PROCESS_ID_FILE)
+            # Process of a job run locally, or the schedule watcher
+            scheduleProcess = self.project.getScheduleProcess(job)
+            localProcess = scheduleProcess or (
+                {} if cluster or clusterJobId else self.project.getLocalProcess(job, runs))
 
             try:
                 params = read_job_params(self.join(job.id))
@@ -462,7 +502,10 @@ class RelionSessionData(SessionData):
                 'elapsed': timing['elapsed'] or 0,  # seconds, all runs
                 'source': 'run' if computing else ('report' if report else 'params'),
                 'requested': recordedCpus is None,
-                'host': _first(computing.get('host'), report.get('hosts')) or '',
+                'host': _first(computing.get('host'), report.get('hosts'),
+                               localProcess.get('host')) or '',
+                'pid': localProcess.get('pid') or '',
+                'scheduled': bool(scheduleProcess),
                 'cluster': _first(cluster.get('system'), 'LSF' if report or script else None) or '',
                 'cluster_job_id': _first(cluster.get('job_id'), report.get('job_id'),
                                          clusterJobId) or '',
@@ -470,11 +513,14 @@ class RelionSessionData(SessionData):
                 'cpus': cpus,
                 'gpus': gpus,
                 'gpu_type': gpuType or '',
+                # nvidia-smi indexes of the job GPUs in its node
+                'gpu_node_ids': computing.get('gpu_node_ids') or [],
                 'memory_max': _first(memory.get('max'), report.get('max_mem')) or '',
                 'memory_avg': _first(memory.get('avg'), report.get('avg_mem')) or '',
                 'node_cpus': node.get('cpus'),
                 'node_memory': node.get('memory'),
                 'node_gpus': len(node.get('gpus') or []),
+                'profile': self._profile_row(job, runs),
             })
 
         def _hours(key):
@@ -482,6 +528,14 @@ class RelionSessionData(SessionData):
 
         def _values(key):
             return sorted({r[key] for r in rows if r[key]})
+
+        def _counts(key):
+            """ [value, number of jobs] of a column, sorted by value. """
+            counts = defaultdict(int)
+            for r in rows:
+                if r[key]:
+                    counts[r[key]] += 1
+            return [[v, counts[v]] for v in sorted(counts)]
 
         return {
             'jobs': rows,
@@ -493,7 +547,55 @@ class RelionSessionData(SessionData):
                 'hosts': _values('host'),
                 'queues': _values('queue'),
                 'gpu_types': _values('gpu_type'),
+                # Jobs of each node, queue and GPU type: [[value, jobs], ...]
+                'host_jobs': _counts('host'),
+                'queue_jobs': _counts('queue'),
+                'gpu_type_jobs': _counts('gpu_type'),
+                'profiled': sum(1 for r in rows if r['profile']),
             }
+        }
+
+    def _profile_row(self, job, runs):
+        """ Usage of the last profiled run of a job for the computing
+        summary, None if it has none: run, interval and, from its summary
+        CPU avg/max in cores, max RSS, I/O totals and, per GPU, utilization
+        avg/max and max memory. The summary is computed from the CSV if the
+        run has none (still recording, or killed before writing it). """
+        last = next(((i, r) for i, r in reversed(list(enumerate(runs)))
+                     if (r.get('profile') or {}).get('file')), None)
+        if last is None:
+            return None
+        i, run = last
+        profile = run['profile']
+        summary = profile.get('summary')
+        recording = (not summary and not run.get('end')
+                     and job['status'] in ('Launched', 'Running'))
+        if not summary:  # Still recording, or killed before writing it
+            try:
+                summary = ResourceMonitor.summarize(self.join(job.id, profile['file']))
+            except Exception:
+                summary = {}
+        summary = summary or {}
+
+        def _stat(key, stat, scale=1.0):
+            v = (summary.get(key) or {}).get(stat)
+            return None if v is None else round(v / scale, 2)
+
+        gpus = profile.get('gpus') or sorted(
+            {k[3:-5] for k in summary if k.startswith('gpu') and k.endswith('_util')})
+        return {
+            'run': i + 1,
+            'interval': profile.get('interval'),
+            'recording': recording,
+            'duration': summary.get('duration'),
+            'cpu_avg': _stat('cpu', 'avg', 100),  # cores
+            'cpu_max': _stat('cpu', 'max', 100),
+            'rss_max': _stat('rss_gb', 'max'),
+            'read_gb': summary.get('read_gb'),
+            'write_gb': summary.get('write_gb'),
+            'gpus': [{'id': g, 'util_avg': _stat(f'gpu{g}_util', 'avg'),
+                      'util_max': _stat(f'gpu{g}_util', 'max'),
+                      'mem_max': _stat(f'gpu{g}_mem_gb', 'max')} for g in gpus],
         }
 
     def _read_first_line(self, *paths):
@@ -607,6 +709,10 @@ class RelionSessionData(SessionData):
             outputs.extend(job_view_outputs(job.id, job['jobtype'],
                                             self.join(job.id), job['status']))
 
+            # A scheduled job shows its schedule watcher (not a previous run)
+            scheduleProcess = self.project.getScheduleProcess(job)
+            clusterJobId = '' if scheduleProcess else self.project.getClusterJobId(job)
+            localProcess = scheduleProcess or ({} if clusterJobId else self.project.getLocalProcess(job))
             prot = {
                 'id': job.id,
                 'label': RelionRun.jobAlias(job) or '',
@@ -622,7 +728,12 @@ class RelionSessionData(SessionData):
                 "elapsedRuns": timing['runs'],
                 "launched": timing['launched'],
                 "queued": timing['queued'],
-                "clusterJobId": self._cluster_job_id(job),
+                "clusterJobId": clusterJobId,
+                # Process (pid and host) of a job run locally, not in a cluster
+                "localPid": localProcess.get('pid', ''),
+                "localHost": localProcess.get('host', ''),
+                # The local pid is the schedule watcher of a scheduled job
+                "localScheduled": bool(scheduleProcess),
                 "isInteractive": False,
                 "numberOfSteps": 1,
                 "stepsDone": 1,
@@ -710,16 +821,18 @@ class RelionSessionData(SessionData):
                 formDef['sections'].append(sectionDef)
             Wizards.tag_form(formDef, jobForm)
 
+            def _compute_section():
+                """ Compute section of the form, added if missing. """
+                for sectionDef in formDef['sections']:
+                    if sectionDef['label'] == 'Compute':
+                        return sectionDef
+                computeSection = {'label': 'Compute', 'params': []}
+                formDef['sections'].append(computeSection)
+                return computeSection
+
             # Add queue parameters if defined in the config
             if queues := ProcessingConfig.get_queues():
-                computeSection = None
-                for sectionDef in jobForm['sections']:
-                    if sectionDef['label'] == 'Compute':
-                        computeSection = sectionDef
-                        break
-                if computeSection is None:
-                    computeSection = {'label': 'Compute', 'params': []}
-                    formDef['sections'].append(computeSection)
+                computeSection = _compute_section()
 
                 queueParam = {
                     "name": "queue.name",
@@ -752,6 +865,35 @@ class RelionSessionData(SessionData):
                         _register(param)
 
                 computeSection['params'].append(queueGroup)
+
+            # Resource usage profiling of the run (all job types), in the
+            # Launchers group of the Compute section (added if missing)
+            computeSection = _compute_section()
+            launchersGroup = next(
+                (p for p in computeSection['params']
+                 if p.get('paramClass') == 'Group' and p.get('label') == 'Launchers'),
+                None)
+            if launchersGroup is None:
+                launchersGroup = {'label': 'Launchers', 'paramClass': 'Group',
+                                  'help': 'Launchers to use for the different programs',
+                                  'collapsed': True, 'params': []}
+                computeSection['params'].append(launchersGroup)
+            launchersGroup.setdefault('params', [])
+            if not any(p.get('name') == 'profile' for p in launchersGroup['params']):
+                profileParam = {
+                    "name": "profile",
+                    "label": "Profile",
+                    "paramClass": "FloatParam",
+                    "allowsEmpty": True,
+                    "help": "Record the resource usage of the job (CPU, memory, "
+                            "I/O and GPUs) every this number of seconds into "
+                            "profile/runNN.csv in the job folder; 0 for no "
+                            "profiling. If empty, the EMWRAP_PROFILE variable "
+                            "of the job environment is used (no profiling if "
+                            "it is not set)."
+                }
+                launchersGroup['params'].append(profileParam)
+                _register(profileParam)
 
             if jobValues:
                 extraParams = []
