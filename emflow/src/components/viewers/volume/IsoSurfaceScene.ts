@@ -15,6 +15,11 @@
 // "color sample" does: a local resolution map, sampled (trilinear) where each
 // ray hits the surface and colored with RESOLUTION_PALETTE over a range
 // (below it: the first color; above it, outside the map or no value: gray).
+// Other maps on the same box (overlays, e.g. the references of a 3D
+// classification over the map of their poses) are drawn as iso-surfaces too,
+// each with its threshold, color and opacity; the depth of their surfaces
+// mixes them with the density (and with each other) where they cross. The
+// density itself can be hidden, to show only the overlays.
 // The world is the voxel space of the full volume with y flipped.
 import * as THREE from "three";
 import { Trackball } from "./trackball";
@@ -32,6 +37,20 @@ export type MaskStyle = {
   color: string;
   /** 0-1. */
   opacity: number;
+};
+
+/** Another map on the same box, drawn as an iso-surface over the density. */
+export type IsoOverlay = {
+  density: VolumeDensity;
+  /** Threshold in the units of its map. */
+  threshold: number;
+  /** Enclose the values below the threshold (dark density). */
+  below: boolean;
+  /** CSS hex. */
+  color: string;
+  /** 0-1. */
+  opacity: number;
+  show: boolean;
 };
 
 export type IsoState = {
@@ -320,6 +339,9 @@ export class IsoSurfaceScene {
   private maskMesh: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null;
   private maskStyle: MaskStyle = { show: false, color: "#5fd38d", opacity: 0.3 };
   private colorBy: IsoColorBy | null = null;
+  private overlays: IsoOverlay[] = [];
+  private overlayMeshes: RayMesh[] = [];
+  private showDensity = true;
   private raf = 0;
   private fineTimer = 0;
   private coarse = false;
@@ -380,6 +402,7 @@ export class IsoSurfaceScene {
     this.values = values;
     const mesh = rayMesh(d, values, this.state.color);
     mesh.renderOrder = 1;
+    mesh.visible = this.showDensity;
     this.scene.add(mesh);
     this.mesh = mesh;
     this.syncColorBy(true);
@@ -455,6 +478,48 @@ export class IsoSurfaceScene {
     this.syncMask();
   }
 
+  /** The overlays (decoded first, prepareDensity): a new mesh per map
+   * that changed, the others only take the new threshold and style. */
+  setOverlays(overlays: IsoOverlay[]) {
+    if (this.disposed) return;
+    const old = this.overlays;
+    this.overlayMeshes.forEach((m, i) => {
+      if (overlays[i]?.density === old[i]?.density) return;
+      this.scene.remove(m);
+      disposeMesh(m);
+    });
+    this.overlayMeshes = overlays.map((o, i) => {
+      if (o.density === old[i]?.density && this.overlayMeshes[i]) return this.overlayMeshes[i];
+      const m = rayMesh(o.density, densityValues(o.density), o.color);
+      // As the density: the depth of the surfaces mixes them
+      m.renderOrder = 1;
+      this.scene.add(m);
+      return m;
+    });
+    this.overlays = overlays;
+    this.syncOverlays();
+  }
+
+  /** Show or hide the density (the overlays stay). */
+  setDensityVisible(show: boolean) {
+    this.showDensity = show;
+    if (this.mesh) this.mesh.visible = show;
+    this.render();
+  }
+
+  private syncOverlays() {
+    this.overlayMeshes.forEach((m, i) => {
+      const o = this.overlays[i];
+      const u = m.material.uniforms;
+      u.uThr.value = level(o.density, o.threshold);
+      u.uSign.value = o.below ? -1 : 1;
+      u.uOpacity.value = o.opacity;
+      u.uColor.value = rgb(o.color);
+      m.visible = o.show;
+    });
+    this.render();
+  }
+
   setMaskStyle(style: MaskStyle) {
     this.maskStyle = style;
     this.syncMask();
@@ -487,8 +552,13 @@ export class IsoSurfaceScene {
     const { x, y, z } = this.dim;
     const whole = new THREE.Box3(new THREE.Vector3(0, -y, 0), new THREE.Vector3(x, 0, z));
     let content: THREE.Box3 | null = null;
-    if (this.density && this.values) {
+    if (this.density && this.values && this.showDensity) {
       content = gridBounds(this.density, this.values, level(this.density, this.state.threshold), this.state.below);
+    }
+    for (const o of this.overlays) {
+      if (!o.show) continue;
+      const b = gridBounds(o.density, densityValues(o.density), level(o.density, o.threshold), o.below);
+      if (b) content = content ? content.union(b) : b;
     }
     const mask = this.maskStyle.show ? this.maskBounds() : null;
     if (mask) content = content ? content.union(mask) : mask;
@@ -537,6 +607,11 @@ export class IsoSurfaceScene {
     clearTimeout(this.fineTimer);
     this.removeMesh();
     this.removeMask();
+    this.overlayMeshes.forEach((m) => {
+      this.scene.remove(m);
+      disposeMesh(m);
+    });
+    this.overlayMeshes = [];
     this.scene.traverse((obj) => {
       const o = obj as THREE.Mesh;
       o.geometry?.dispose?.();
@@ -605,6 +680,9 @@ export class IsoSurfaceScene {
       this.camera.updateMatrixWorld();
       if (this.mesh && this.density) this.updateRay(this.mesh, this.density);
       if (this.maskMesh && this.mask?.type === "map") this.updateRay(this.maskMesh as RayMesh, this.mask.density);
+      this.overlayMeshes.forEach((m, i) => {
+        if (m.visible) this.updateRay(m, this.overlays[i].density);
+      });
       this.renderer.render(this.scene, this.camera);
     });
   }

@@ -33,8 +33,9 @@ html and plotly), so no viewer specific code is needed:
       with the sections of a small grid of its volume.
     - Volumes: a list of maps (a STAR file with a 'references' table of
       rlnReferenceImage, e.g. the references of a multi-reference 3D
-      classification), a row per map and its VolumeViewer; also shown as
-      a gallery, a card per map (as Classes3D).
+      classification), a row per map and its VolumeViewer, and a first
+      row with all of them: the first map with the others drawn over it;
+      also shown as a gallery, a card per map (as Classes3D).
     - Particles: table of micrographs with their number of particles, and
       the particles coordinates over the micrograph and a grid with some of
       the particles images.
@@ -54,6 +55,7 @@ from .api_viewers import (
     _build_plotly_scatter_figure,
     processing_project_manager,
     build_volume_viewer_pane_content,
+    build_overlays_pane_content,
     _volume_dimensions,
     _volume_voxel_size,
     map_iterations_source,
@@ -73,6 +75,8 @@ _ACTION_PARTICLES = {'id': 'particles', 'label': 'particles', 'column': 'stack'}
 _ACTION_VOLUME = {'id': 'volume', 'label': 'volume', 'column': 'volume'}
 # Small grid of a class volume for its card in the gallery (not a column action)
 _ACTION_GALLERY = {'id': 'gallery', 'label': 'gallery'}
+# All the maps of a Volumes table: the first one with the others over it
+_ACTION_ALL_MAPS = {'id': 'allmaps', 'label': '3D'}
 
 # Particles preview grid (columns x rows)
 PARTICLES_GRID = (5, 5)
@@ -185,9 +189,9 @@ SPA_TABLE_VIEW_SPECS = {
             {'id': 'dimensions', 'label': 'Box (px)', 'align': 'right'},
             {'id': 'pixelSize', 'label': 'Pixel size (Å)', 'align': 'right'},
         ],
-        'actions': [_ACTION_VOLUME],
+        'actions': [_ACTION_VOLUME, _ACTION_ALL_MAPS],
         'default_action': _ACTION_VOLUME,
-        # A card per map, as the Classes3D gallery
+        # A card per map, as the Classes3D gallery (not the All maps row)
         'gallery': {
             'actionId': _ACTION_GALLERY['id'],
             'title': 'Class {classId}',
@@ -333,6 +337,9 @@ def build_spa_pane_content(action_id, root, type_key, row_cells, output_path=Non
         return build_particles_coordinates_pane_content(root, row_cells, output_path)
     if action_id == 'particles':
         return build_particles_grid_pane_content(root, row_cells, output_path)
+    # The All maps row: its volume cell (column action 'volume') too
+    if action_id == 'allmaps' or (type_key == 'volumes' and row_cells.get('volumePaths')):
+        return build_volumes_all_pane_content(root, row_cells)
     if action_id == 'volume' and type_key == 'volumes':
         return build_volumes_volume_pane_content(root, row_cells)
     if action_id == 'volume':
@@ -948,10 +955,29 @@ def build_volumes_table(full_path, root):
         rows.append({'id': i, 'cells': cells, 'actions': [],
                      'defaultAction': _table_view_action_payload(spec['default_action'])})
 
+    if len(rows) > 1:
+        # First: all the maps, the first one with the others over it
+        cells = {'classId': 'All', 'volume': f'{len(rows)} maps', 'dimensions': '', 'pixelSize': '',
+                 'volumePaths': volumes}
+        rows.insert(0, {'id': 'all', 'cells': cells, 'actions': [], 'gallery': False,
+                        'defaultAction': _table_view_action_payload(_ACTION_ALL_MAPS)})
     return {'title': f"{spec['title']} ({len(volumes)} maps)",
             'columns': _table_view_column_actions(spec),
             'rows': rows,
             'gallery': spec['gallery']}
+
+
+def build_volumes_all_pane_content(root, row_cells):
+    """VolumeViewer of the first map of a list of volumes with the others
+    drawn over it (shown or hidden in its Maps panel). """
+    volumes = row_cells.get('volumePaths') or []
+    if not volumes:
+        raise Exception('Missing volume paths')
+    labels = [f'Class {i}' for i in range(1, len(volumes) + 1)]
+    return build_overlays_pane_content(
+        root, volumes[0], list(zip(labels[1:], volumes[1:])),
+        title=f'{len(volumes)} maps over class 1 ({os.path.basename(volumes[0])})',
+        main_label=labels[0])
 
 
 def build_volumes_volume_pane_content(root, row_cells):

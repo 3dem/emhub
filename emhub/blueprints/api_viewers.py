@@ -1415,6 +1415,30 @@ def build_tomogram_volume_slider_pane_content(
         viewer_config=TOMOGRAM_VIEWER_CONFIG, coordinates=coordinates)
 
 
+# Longest side of the density grids of the overlays of a map (other maps
+# on its box, drawn over it in the 3D volume tab)
+OVERLAY_MAX_SIZE = 192
+
+
+def build_overlays_pane_content(root, main, overlays, title=None, main_label=None,
+                                main_description=None):
+    """ VolumeViewer pane of a map with other maps on the same box drawn
+    over it (emflow's `overlays`, each one shown or hidden in its Maps
+    panel), e.g. the references of a 3D classification over the map of
+    their poses. main: the map (path); overlays: [(label, path)], a short
+    label (e.g. 'Class 2'); the full names (tooltips) are the files, or
+    main_description. """
+    config = dict(MAP_VIEWER_CONFIG,
+                  overlays=[{'label': label, 'description': rel,
+                             'density': volume_density_source(root, rel, OVERLAY_MAX_SIZE)}
+                            for label, rel in overlays],
+                  overlaysMainLabel=main_label or os.path.basename(main),
+                  overlaysMainDescription=main_description or main)
+    return build_volume_viewer_pane_content(
+        root, main, title=title or main, slices=False, density='lazy',
+        max_size=OVERLAY_MAX_SIZE, viewer_config=config)
+
+
 # Volume and VolumeMask outputs (emflow's volume viewer dialog): 3D volume
 # first and the slices, as the mask wizard (VolumeMaskWizard) shows them
 VOLUME_OUTPUT_VIEWER_CONFIG = {

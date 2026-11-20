@@ -46,6 +46,11 @@
           <div id="vol-mask-map"></div>
         </div></div></div>
         <div class="col-6"><div class="card"><div class="card-body">
+          <h6>VolumeViewer, a 3D class with 3 overlays (other maps on its box, the Maps button; as the
+            All references row of emw-aligned-volumes)</h6>
+          <div id="vol-overlays"></div>
+        </div></div></div>
+        <div class="col-6"><div class="card"><div class="card-body">
           <h6>VolumeViewer, a real tomogram with its density for the 3D planes volume
             (node_modules/.dev-data/tomo87.json and tomo87_density.json, not in the repository)</h6>
           <div id="vol-tomo-real"></div>
@@ -148,8 +153,8 @@
       // A map as EMhub's data/volume_density.py sends it: blobs + noise, binned
       // by f (block means), histograms of the full and binned values over the
       // 0.01-99.99 percentiles, uint8 over the binned values
-      function mapDensity(X, Y, Z, f, noise = 0.35, dark = false) {
-        let seed = 7;
+      function mapDensity(X, Y, Z, f, noise = 0.35, dark = false, seed0 = 7) {
+        let seed = seed0;
         const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
         const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
         const blobs = [];
@@ -245,6 +250,26 @@
                  tools: { crosshair: false, particles: false }, defaults: { iso: { dust: 100 } },
                  mask: { type: "map", label: "mask.mrc",
                          density: { path: "/api/fetch_volume_density", payload: { root: "/dev", path: "mask.mrc" } } } },
+      });
+      // Overlays: other maps of the same box, loaded with the DataLoader (the
+      // seed of each one in the payload), as build_overlays_pane_content
+      window.devOverlays = EMFlow.mount("VolumeViewer", {
+        container: "#vol-overlays",
+        loader: new EMFlow.DataLoader({
+          request: (path, payload) => new Promise((resolve) => setTimeout(
+            () => resolve({ density: mapDensity(64, 64, 64, 1, 0.3, false, payload.seed) }), 300)),
+        }),
+        props: { data: { kind: "imageSlider", layout: "volume", dimensions: [64, 64, 64], voxelSize: 2.1,
+                         density: mapDensity(64, 64, 64, 1, 0.3) },
+                 tabs: { view3d: false }, initialTab: "volume3d",
+                 tools: { crosshair: false, particles: false },
+                 overlaysMainLabel: "Map of the poses",
+                 overlaysMainDescription: "Refine3D/job223/run_class001.mrc",
+                 overlays: [11, 23, 37].map((seed, i) => ({
+                   label: `Class ${i + 1}`,
+                   description: `EMwrap/job570/ref_class00${i + 1}_job5${i}7_run_it020_class001.mrc`,
+                   density: { path: "/api/fetch_volume_density", payload: { root: "/dev", seed } },
+                 })) },
       });
       // A real tomogram as build_tomogram_volume_slider_pane_content sends it:
       // slices and the density request (loaded when the volume is shown)

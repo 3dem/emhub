@@ -86,17 +86,49 @@ class TestAlignedVolumesView(unittest.TestCase):
         self.assertEqual([c['id'] for c in table['columns']][-1], 'show')
         rows = table['rows']
         self.assertEqual([r['id'] for r in rows],
-                         ['overall', 'similarity', 'class1', 'class2'])
+                         ['overall', 'similarity', 'all', 'class1', 'class2'])
         self.assertEqual(table['initialAction'], {'rowId': 'overall', 'actionId': 'overall'})
         self.assertEqual(rows[1]['defaultAction']['id'], 'similarity')
-        c1, c2 = rows[2]['cells'], rows[3]['cells']
+        self.assertEqual(rows[2]['defaultAction']['id'], 'all')
+        c1, c2 = rows[3]['cells'], rows[4]['cells']
         self.assertEqual((c1['cls'], c1['name'], c1['status']), (1, 'nucleosome', 'kept'))
         self.assertEqual((c2['name'], c2['source']), ('membrane', self.volumes[1]))
         self.assertTrue(c2['status'].startswith('aligned'), c2['status'])
         self.assertGreater(c2['ccAfter'], c2['ccBefore'])
         self.assertGreater(c2['rotation'], 0)
-        self.assertEqual(rows[3]['defaultAction']['id'], 'volumes')
-        self.assertEqual(rows[3]['cellContexts']['show']['actions'][0]['id'], 'volumes')
+        self.assertEqual(rows[4]['defaultAction']['id'], 'volumes')
+        self.assertEqual(rows[4]['cellContexts']['show']['actions'][0]['id'], 'volumes')
+
+    def test_all_references(self):
+        """ The map of the poses with every reference over it (overlays). """
+        pane = build_job_view_pane(self.root, self.value, 'all', {'cls': 'All references'})
+        config = pane['viewerConfig']
+        self.assertEqual(config['overlaysMainLabel'], 'Map of the poses')
+        self.assertEqual([o['label'] for o in config['overlays']], ['Class 1', 'Class 2'])
+        self.assertEqual(config['overlays'][1]['description'],
+                         'EMwrap/job050/ref_class002_membrane.mrc')
+        self.assertEqual(config['overlays'][1]['density']['payload']['path'],
+                         'EMwrap/job050/ref_class002_membrane.mrc')
+        self.assertEqual(config['initialTab'], 'volume3d')
+        # Without alignment: the others over the first reference
+        value = job_view_value(COPY_JOB, 'aligned-volumes')
+        config = build_job_view_pane(self.root, value, 'all', {})['viewerConfig']
+        self.assertEqual(config['overlaysMainLabel'], 'Class 1')
+        self.assertEqual(len(config['overlays']), 1)
+
+    def test_similarity(self):
+        # The map of the poses first (aligned), then the references
+        pane = build_job_view_pane(self.root, self.value, 'similarity', {'cls': 'Similarity'})
+        self.assertEqual(pane['kind'], 'plotly')
+        heatmap = pane['figure']['data'][0]
+        self.assertEqual(heatmap['type'], 'heatmap')
+        self.assertEqual(heatmap['x'], ['Map (ref)', 'Class 1', 'Class 2'])
+        self.assertIn('Class 1: nucleosome', heatmap['text'][1][2])
+        z = heatmap['z']
+        self.assertEqual([z[i][i] for i in range(3)], [1.0, 1.0, 1.0])
+        self.assertEqual(z[1][2], z[2][1])
+        self.assertGreater(z[1][2], 0.9)  # the aligned copy of the map
+        self.assertIn('low-pass 20 Å', pane['title'])
 
     def test_overall(self):
         pane = build_job_view_pane(self.root, self.value, 'overall', {'cls': 'Overall'})
@@ -131,8 +163,8 @@ class TestAlignedVolumesView(unittest.TestCase):
         self.assertNotIn('aligned to', table['title'])
         self.assertNotIn('ccAfter', [c['id'] for c in table['columns']])
         self.assertEqual([r['id'] for r in table['rows']],
-                         ['similarity', 'class1', 'class2'])
-        self.assertEqual([r['cells']['status'] for r in table['rows'][1:]],
+                         ['similarity', 'all', 'class1', 'class2'])
+        self.assertEqual([r['cells']['status'] for r in table['rows'][2:]],
                          ['copied', 'copied'])
         self.assertEqual(table['initialAction'],
                          {'rowId': 'similarity', 'actionId': 'similarity'})
@@ -180,16 +212,26 @@ class TestAlignedVolumesView(unittest.TestCase):
         self.assertEqual(table['title'], 'Volumes (2 maps)')
         rows = table['rows']
         self.assertEqual([r['cells']['volume'] for r in rows],
-                         ['ref_class001_nucleosome.mrc', 'ref_class002_membrane.mrc'])
-        self.assertEqual((rows[0]['cells']['dimensions'], rows[0]['cells']['pixelSize']),
+                         ['2 maps', 'ref_class001_nucleosome.mrc', 'ref_class002_membrane.mrc'])
+        self.assertEqual((rows[1]['cells']['dimensions'], rows[1]['cells']['pixelSize']),
                          ('32³', 8.0))
-        pane = build_spa_pane_content('volume', self.root, 'volumes', rows[1]['cells'])
+        pane = build_spa_pane_content('volume', self.root, 'volumes', rows[2]['cells'])
         self.assertEqual(pane['title'].split(' · ')[0], 'Class 2: ref_class002_membrane.mrc')
-        # A gallery as Classes3D: a card per map
+        # A gallery as Classes3D: a card per map, not the All maps row
         self.assertEqual(table['gallery']['actionId'], 'gallery')
-        card = build_spa_pane_content('gallery', self.root, 'volumes', rows[1]['cells'])
+        self.assertEqual([r.get('gallery', True) for r in rows], [False, True, True])
+        card = build_spa_pane_content('gallery', self.root, 'volumes', rows[2]['cells'])
         self.assertEqual((card['title'], card['layout']), ('Class 2', 'volume'))
         self.assertTrue(card['density']['shape'])
+        # All the maps: the first one with the other over it
+        self.assertEqual(rows[0]['defaultAction']['id'], 'allmaps')
+        # Its volume cell (the column action) shows all the maps too
+        pane = build_spa_pane_content('volume', self.root, 'volumes', rows[0]['cells'])
+        self.assertIn('overlays', pane['viewerConfig'])
+        pane = build_spa_pane_content('allmaps', self.root, 'volumes', rows[0]['cells'])
+        config = pane['viewerConfig']
+        self.assertEqual(config['overlaysMainLabel'], 'Class 1')
+        self.assertEqual([o['label'] for o in config['overlays']], ['Class 2'])
 
 
 if __name__ == '__main__':

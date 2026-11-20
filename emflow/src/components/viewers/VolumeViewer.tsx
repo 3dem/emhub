@@ -19,6 +19,10 @@
 // whole window when expanded): the rest of the tab is measured.
 // An optional `mask` (a sphere or another map) is drawn over the 3D volume
 // and the slices, with its options in a panel (volume/MaskPanel.tsx).
+// Optional `overlays` (other maps on the same box, e.g. the references of a
+// 3D classification over the map of their poses) are drawn as iso-surfaces
+// in the 3D volume tab, each one shown or hidden, with its color, in a panel
+// (volume/OverlaysPanel.tsx).
 // The slices are the host's images (`axes`) or, without them, drawn from the
 // density grid, so a small map is sent once for both tabs. The data is given
 // inline (`data`) or loaded with the DataLoader (`source`, e.g. EMhub's
@@ -45,6 +49,7 @@ import {
   Contrast,
   Crosshair,
   EyeOff,
+  Layers,
   Maximize,
   Minimize,
   Move,
@@ -73,6 +78,7 @@ import DenoisePanel from "./volume/DenoisePanel";
 import { DETAILS } from "./volume/DensityPanel";
 import IterationsBar from "./volume/IterationsBar";
 import MaskPanel, { type MaskOptions } from "./volume/MaskPanel";
+import OverlaysPanel, { type OverlayItem, type OverlayOptions } from "./volume/OverlaysPanel";
 import ResolutionPanel, { type ResolutionStats } from "./volume/ResolutionPanel";
 import IsoSurfaceView, {
   type DensityDebug,
@@ -80,6 +86,7 @@ import IsoSurfaceView, {
   type ColorByInput,
   ColorKey,
   type IsoMaskInput,
+  type IsoOverlayInput,
   type IsoSurfaceHandle,
   maskThreshold,
 } from "./volume/IsoSurfaceView";
@@ -179,6 +186,27 @@ export type VolumeMask = (
   opacity?: number;
 };
 
+/** Another map on the same box, drawn as an iso-surface in the 3D volume
+ * tab (e.g. a reference of a 3D classification over the map of its poses). */
+export type VolumeOverlay = {
+  /** A density grid or a request loaded with the DataLoader (as the
+   * volume's `density`), when the 3D volume tab is first opened. */
+  density: VolumeDensity | DensitySource;
+  /** Short name in the maps panel ("Class 2"). */
+  label?: string;
+  /** Full name, in its tooltip (e.g. the file). */
+  description?: string;
+  /** CSS hex (the categorical palette in order, OVERLAY_COLORS). */
+  color?: string;
+  /** Shown at first (true). */
+  show?: boolean;
+  /** 0-1 (1). */
+  opacity?: number;
+  /** Threshold in map units; by default linked: the same share of voxels
+   * enclosed as the volume at its threshold. */
+  threshold?: number;
+};
+
 /** A map on the same box that colors the 3D volume surface (e.g. a local
  * resolution map), with a toolbar button to turn it on and off. */
 export type VolumeResolutionMap = {
@@ -224,6 +252,13 @@ export type VolumeViewerConfig = {
   /** Mask over the 3D volume and the slices (with a toolbar button and its
    * options there). */
   mask?: VolumeMask | null;
+  /** Other maps on the same box, drawn as iso-surfaces in the 3D volume tab,
+   * with a toolbar button (Maps) to show or hide each one and the volume. */
+  overlays?: VolumeOverlay[] | null;
+  /** Short name of the volume in the maps panel ("Volume"), and its full
+   * name (tooltip). */
+  overlaysMainLabel?: string;
+  overlaysMainDescription?: string;
   /** Map that colors the 3D volume surface (local resolution), with a
    * toolbar button to turn it on and off and the color key over the view. */
   resolution?: VolumeResolutionMap | null;
@@ -364,6 +399,37 @@ export function ToolButton({ title, active, onClick, children, hidden }: {
 
 /** The response of a density request: VolumeDensity or {density}. */
 const unwrapDensity = (r: any): VolumeDensity | null => (r && r.density ? r.density : r?.data ? r : null);
+
+/** Colors of the overlays, in order (the validated categorical palette, dark
+ * steps for the dark scene; blue last, it is close to the volume's #b2b2ff). */
+export const OVERLAY_COLORS = ["#d95926", "#199e70", "#c98500", "#d55181", "#0ca30c", "#9085e9", "#e66767", "#3987e5"];
+
+/** The overlays decoded (prepareDensity), each one with its status: loaded
+ * with the DataLoader when `active` (the 3D volume tab is built). */
+function useDensityGrids(given: (VolumeDensity | DensitySource)[], active: boolean):
+    { density: VolumeDensity | null; status: string | null }[] {
+  const loader = useDataLoader();
+  const [state, setState] = useState<{ density: VolumeDensity | null; status: string | null }[]>([]);
+  useEffect(() => {
+    if (!active || !given.length) {
+      setState([]);
+      return undefined;
+    }
+    let live = true;
+    setState(given.map(() => ({ density: null, status: "Loading the map…" })));
+    const set = (i: number, v: { density: VolumeDensity | null; status: string | null }) =>
+      live && setState((cur) => cur.map((c, j) => (j === i ? v : c)));
+    given.forEach((g, i) => {
+      const p = isDensitySource(g) ? loader.load<unknown>(g.path, g.payload).then(unwrapDensity) : Promise.resolve(g);
+      p.then((d) => {
+        if (!d?.data) return set(i, { density: null, status: "The map has no density." });
+        return prepareDensity(d).then(() => set(i, { density: d, status: null }));
+      }).catch((e) => set(i, { density: null, status: `Could not load the map: ${String(e?.message ?? e)}` }));
+    });
+    return () => { live = false; };
+  }, [given, active, loader]);
+  return state;
+}
 
 /** A density grid, inline or loaded, decoded; or why it is not (`what`:
  * "the mask", "the volume"). */
@@ -617,6 +683,52 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         diameter: angpix ? maskOpts.diameterPx * angpix : null,
       });
     }, [maskOpts, maskCfg?.type, angpix]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Overlays of the 3D volume and the maps panel
+    const overlaysCfg = tabsCfg.volume3d ? props.overlays ?? null : null;
+    const overlayGiven = useMemo(() => (overlaysCfg ?? []).map((o) => o.density), [overlaysCfg]);
+    const overlayMaps = useDensityGrids(overlayGiven, builtIso);
+    const [overlayOpts, setOverlayOpts] = useState<OverlayOptions[]>([]);
+    useEffect(() => {
+      setOverlayOpts((overlaysCfg ?? []).map((o, i) => ({
+        show: o.show !== false,
+        color: o.color ?? OVERLAY_COLORS[i % OVERLAY_COLORS.length],
+        opacity: o.opacity ?? 1,
+        threshold: o.threshold ?? null,
+      })));
+    }, [overlaysCfg]);
+    const [linked, setLinked] = useState(true);
+    const [showMain, setShowMain] = useState(true);
+    // The color of the volume's surface (its swatch in the maps panel)
+    const [mainColor, setMainColor] = useState<string | null>(null);
+    const [overlaysOpen, setOverlaysOpen] = useState(false);
+    const overlaysPanelRef = useRef<HTMLDivElement>(null);
+    // The overlays drawn (the loaded ones) and the index of each in the config
+    const { isoOverlays, isoOverlayIndex } = useMemo(() => {
+      const list: IsoOverlayInput[] = [], index: number[] = [];
+      overlayMaps.forEach((m, i) => {
+        const o = overlayOpts[i];
+        if (!m.density || !o) return;
+        list.push({ density: m.density, show: o.show, color: o.color, opacity: o.opacity,
+                    threshold: linked ? null : o.threshold });
+        index.push(i);
+      });
+      return { isoOverlays: list, isoOverlayIndex: index };
+    }, [overlayMaps, overlayOpts, linked]);
+    // The thresholds they take (linked or their own), by config index
+    const [overlayThr, setOverlayThr] = useState<{ t: Record<number, number>; below: boolean }>({ t: {}, below: false });
+    const onOverlayThresholds = useCallback((thresholds: number[], below: boolean) => {
+      const t: Record<number, number> = {};
+      thresholds.forEach((v, k) => { t[isoOverlayIndex[k]] = v; });
+      setOverlayThr({ t, below });
+    }, [isoOverlayIndex]);
+    const setOverlay = (i: number, patch: Partial<OverlayOptions>) =>
+      setOverlayOpts((cur) => cur.map((o, j) => (j === i ? { ...o, ...patch } : o)));
+    // Unlinking keeps each map at the threshold it had
+    const onLinked = (v: boolean) => {
+      if (!v) setOverlayOpts((cur) => cur.map((o, i) => ({ ...o, threshold: overlayThr.t[i] ?? o.threshold })));
+      setLinked(v);
+    };
+
     // Coloring of the 3D volume by a resolution map: loaded when first on
     const resCfg = tabsCfg.volume3d || tabsCfg.slices ? props.resolution ?? null : null;
     const [resOn, setResOn] = useState(Boolean(resCfg?.show));
@@ -1061,7 +1173,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
 
     /* ---------- expand to the browser window ---------- */
     useEffect(() => {
-      if (!full && !panelOpen && !maskOpen && !denoiseOpen && !resOpen) return undefined;
+      if (!full && !panelOpen && !maskOpen && !denoiseOpen && !resOpen && !overlaysOpen) return undefined;
       // Captured: Esc closes the particles, mask, denoise or resolution panel, then collapses the
       // viewer, and does not reach a dialog around it
       const onKey = (e: KeyboardEvent) => {
@@ -1070,13 +1182,14 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         e.preventDefault();
         if (panelOpen) setPanelOpen(false);
         else if (maskOpen) setMaskOpen(false);
+        else if (overlaysOpen) setOverlaysOpen(false);
         else if (denoiseOpen) setDenoiseOpen(false);
         else if (resOpen) setResOpen(false);
         else setFull(false);
       };
       document.addEventListener("keydown", onKey, true);
       return () => document.removeEventListener("keydown", onKey, true);
-    }, [full, panelOpen, maskOpen, denoiseOpen, resOpen]);
+    }, [full, panelOpen, maskOpen, denoiseOpen, resOpen, overlaysOpen]);
 
     /* ---------- particles panel ---------- */
     // A click outside the panel (and its button) closes it
@@ -1103,6 +1216,18 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       document.addEventListener("mousedown", onDown);
       return () => document.removeEventListener("mousedown", onDown);
     }, [maskOpen]);
+    // ... and for the maps panel
+    useEffect(() => {
+      if (!overlaysOpen) return undefined;
+      const onDown = (e: MouseEvent) => {
+        const t = e.target as Node;
+        if (overlaysPanelRef.current?.contains(t)) return;
+        if ((t as Element).closest?.("[data-overlays-button]")) return;
+        setOverlaysOpen(false);
+      };
+      document.addEventListener("mousedown", onDown);
+      return () => document.removeEventListener("mousedown", onDown);
+    }, [overlaysOpen]);
     // ... and for the denoise panel
     useEffect(() => {
       if (!denoiseOpen) return undefined;
@@ -1221,6 +1346,39 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               maxPx={Math.max(X, Y, Z) * 1.5}
               status={maskCfg.type === "map" ? maskMap.status : null}
               onChange={(patch) => setMaskOpts((o) => ({ ...o, ...patch }))}
+            />
+          </div>
+        )}
+      </span>
+    );
+    // The maps (volume and overlays) of the 3D volume, in its toolbar
+    const overlaysButton = overlaysCfg && overlaysCfg.length > 0 && (
+      <span className={styles.panelAnchor} data-overlays-button>
+        <ToolButton title="Maps: show or hide each one, color, threshold" active={overlaysOpen}
+                    onClick={() => setOverlaysOpen((v) => !v)}>
+          <Layers size={16} />
+        </ToolButton>
+        {overlaysOpen && tab === "volume3d" && (
+          <div ref={overlaysPanelRef}>
+            <OverlaysPanel
+              mainLabel={props.overlaysMainLabel ?? "Volume"}
+              mainDescription={props.overlaysMainDescription}
+              mainColor={mainColor ?? defaults.iso?.color ?? "#b2b2ff"}
+              maxHeight={sizeIso[1] > 0 ? Math.max(160, sizeIso[1] - 8) : undefined}
+              showMain={showMain}
+              items={overlaysCfg.map((o, i): OverlayItem => ({
+                ...(overlayOpts[i] ?? { show: true, color: OVERLAY_COLORS[0], opacity: 1, threshold: null }),
+                label: o.label ?? `Map ${i + 1}`,
+                description: o.description,
+                density: overlayMaps[i]?.density ?? null,
+                status: overlayMaps[i]?.status ?? null,
+                current: overlayThr.t[i] ?? null,
+              }))}
+              linked={linked}
+              below={overlayThr.below}
+              onShowMain={setShowMain}
+              onLinked={onLinked}
+              onChange={setOverlay}
             />
           </div>
         )}
@@ -1550,6 +1708,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                 </ToolButton>
               )}
               {maskButton("volume3d")}
+              {overlaysButton}
               {iters && iterIdx !== null && (
                 <label className={styles.iterSelect} title="Iteration of the map shown in the 3D volume">
                   <select value={iterIdx} onChange={(e) => { setPlaying(false); setIterIdx(Number(e.target.value)); }}>
@@ -1586,7 +1745,10 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                                 panelHeight={sizeIso[2]} panelWidth={sizeIso[3]}
                                 onPanelHeight={onIsoPanelHeight}
                                 inverted={inverted} onInvert={(v) => { if (v !== inverted) toggleInvert(false); }}
-                                mask={isoMask} maskStyle={maskStyle} colorBy={isoColorBy} />
+                                mask={isoMask} maskStyle={maskStyle} colorBy={isoColorBy}
+                                overlays={isoOverlays} showDensity={showMain}
+                                onOverlayThresholds={onOverlayThresholds}
+                                onColor={overlaysCfg?.length ? setMainColor : undefined} />
               )}
             </div>
           </div>

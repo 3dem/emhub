@@ -25,6 +25,9 @@ emflow's table viewer, from the job's alignment.star:
   - Similarity: the CC of every pair of references (and with the map of
     the poses), how similar the classes are. Jobs before the 'similarity'
     table: computed here from the written references (needs emwrap).
+  - All references: the map of the poses (or the first reference) in the 3D
+    volume viewer with every reference drawn over it, each one shown or
+    hidden in its Maps panel.
   - A row per reference (class): its class number, name, input volume, CC
     before and after, rotation and shift; its 'volumes' shows the map of the
     poses, the reference and the input volume as it was.
@@ -44,8 +47,10 @@ ALIGNMENT_STAR = 'alignment.star'
 ACTION_OVERALL = {'id': 'overall', 'label': 'plots'}
 ACTION_VOLUMES = {'id': 'volumes', 'label': 'volumes'}
 ACTION_SIMILARITY = {'id': 'similarity', 'label': 'matrix'}
+ACTION_ALL = {'id': 'all', 'label': '3D'}
 OVERALL_ROW = 'overall'
 SIMILARITY_ROW = 'similarity'
+ALL_ROW = 'all'
 SHOW_COLUMN = 'show'
 # The next solution is close: the fit is ambiguous (e.g. a flat membrane,
 # that can turn in its plane)
@@ -190,6 +195,10 @@ def build_aligned_volumes_table(data, title):
         rows.append({'id': SIMILARITY_ROW, 'cells': {'cls': 'Similarity'}, 'actions': [],
                      'defaultAction': dict(ACTION_SIMILARITY),
                      'cellContexts': {SHOW_COLUMN: {'actions': [dict(ACTION_SIMILARITY)]}}})
+    if len(data.references) > 1 or data.aligned:
+        rows.append({'id': ALL_ROW, 'cells': {'cls': 'All references'}, 'actions': [],
+                     'defaultAction': dict(ACTION_ALL),
+                     'cellContexts': {SHOW_COLUMN: {'actions': [dict(ACTION_ALL)]}}})
     for r in data.references:
         k = r.get('rlnClassNumber')
         source = r.get('emwSourceImage', '')
@@ -347,12 +356,35 @@ def build_reference_volumes_pane(root, data, class_number):
             'cells': {slot: _cell(t, v) for slot, (t, v) in zip(slots, cells)}}
 
 
+def build_all_references_pane(root, data):
+    """ The map of the poses (the first reference without alignment) with
+    every reference over it, in the 3D volume tab. """
+    from emhub.blueprints.api_viewers import build_overlays_pane_content
+
+    refs = [(f"Class {r.get('rlnClassNumber')}", r.get('rlnReferenceImage'))
+            for r in data.references]
+    if data.aligned:
+        main, main_label = data.general.get('emwAlignReference'), 'Map of the poses'
+        title = f'The references over the map of the poses ({main})'
+        # A reference that is the map itself: not drawn twice
+        if (k := map_class(data)) is not None:
+            main_label = f'Class {k} (ref)'
+            refs = [(label, path) for (label, path), r in zip(refs, data.references)
+                    if int(r.get('rlnClassNumber')) != k]
+    else:
+        (main_label, main), refs = refs[0], refs[1:]
+        title = f'The references over class 1 ({main})'
+    return build_overlays_pane_content(root, main, refs, title=title, main_label=main_label)
+
+
 def build_aligned_volumes_pane(root, data, action_id, row_cells):
     if action_id == ACTION_OVERALL['id']:
         return build_overall_pane(data)
     if action_id == ACTION_SIMILARITY['id']:
         compute_similarity(root, data)
         return build_similarity_pane(data)
+    if action_id == ACTION_ALL['id']:
+        return build_all_references_pane(root, data)
     if action_id == ACTION_VOLUMES['id']:
         return build_reference_volumes_pane(root, data, row_cells.get('cls'))
     raise Exception(f'Unknown action {action_id!r}')
