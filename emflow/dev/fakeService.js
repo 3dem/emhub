@@ -597,23 +597,135 @@ const fakeProjectPath = () => {
 };
 let fakeNextJobId = 9000;
 
-// Cluster job ids of some fake jobs: 265 shows the recorded info (finished),
-// 870 the live output of an LSF queue 'inspect' command (lsf_inspect_job.py --json)
+// Cluster job ids of some fake jobs: 265 shows the recorded info (finished,
+// with a profiled run), 870 the live output of an LSF queue 'inspect' command
+// (lsf_inspect_job.py --json)
 const FAKE_CLUSTER_JOB_IDS = { "265": "330047105", "870": "330051234" };
+// Jobs run locally (pid pill): 406 is running (live process tree, profile
+// being recorded, 2 GPUs), 622 finished (recorded info, two profiled runs)
+const FAKE_LOCAL_PROCESSES = {
+  "406": { pid: "48213", host: "cryo-em-wkst03.stjude.org" },
+  "622": { pid: "51877", host: "cryo-em-wkst05.stjude.org" },
+};
+// Scheduled job (pending pill): 134 waits for its input, the pid is its
+// schedule watcher, the dialog shows the schedule log
+const FAKE_SCHEDULED = { "134": { pid: "61540", host: "cryo-em-wkst03.stjude.org" } };
 
 function withFakeClusterJobIds(wf) {
   for (const [id, clusterJobId] of Object.entries(FAKE_CLUSTER_JOB_IDS)) {
     if (wf.protocols?.[id]) wf.protocols[id].clusterJobId = clusterJobId;
   }
+  for (const [id, local] of Object.entries(FAKE_LOCAL_PROCESSES)) {
+    if (wf.protocols?.[id]) {
+      wf.protocols[id].localPid = local.pid;
+      wf.protocols[id].localHost = local.host;
+    }
+  }
+  if (wf.protocols?.["406"]) wf.protocols["406"].status = "running";
+  for (const [id, sched] of Object.entries(FAKE_SCHEDULED)) {
+    if (wf.protocols?.[id]) {
+      Object.assign(wf.protocols[id], { status: "scheduled", localPid: sched.pid,
+                                        localHost: sched.host, localScheduled: true });
+    }
+  }
   return wf;
 }
 
+// A fake resource usage run (emtools ResourceMonitor CSV, reduced): minutes
+// of samples every 'interval' seconds, with the given GPUs
+function fakeProfileRun(run, minutes, interval, gpus, recording) {
+  const n = Math.round((minutes * 60) / interval);
+  const series = { time: [], procs: [], cpu: [], rss_gb: [], read_mbs: [], write_mbs: [], node_cpu: [], node_mem_gb: [] };
+  for (const g of gpus) for (const c of ["util", "mem_gb", "power"]) series[`gpu${g}_${c}`] = [];
+  for (let i = 0; i < n; i++) {
+    const f = i / n, wave = Math.sin(i / 7);
+    const busy = f > 0.08 && f < 0.92;
+    series.time.push(i * interval);
+    series.procs.push(busy ? 9 : 2);
+    series.cpu.push(busy ? 650 + 180 * wave : 40);
+    series.rss_gb.push(busy ? 3.2 + 1.8 * f + 0.2 * wave : 0.4);
+    series.read_mbs.push(busy ? 120 + 60 * Math.cos(i / 5) : 2);
+    series.write_mbs.push(busy ? 35 + 20 * wave : 0);
+    series.node_cpu.push(busy ? 40 + 8 * wave : 6);
+    series.node_mem_gb.push(busy ? 60 + 3 * f : 25);
+    gpus.forEach((g, k) => {
+      series[`gpu${g}_util`].push(busy ? Math.min(100, 85 + 12 * Math.sin(i / 4 + k)) : 0);
+      series[`gpu${g}_mem_gb`].push(busy ? 9.5 + 2 * k : 0.3);
+      series[`gpu${g}_power`].push(busy ? 240 + 20 * wave : 30);
+    });
+  }
+  const stat = (v) => ({ avg: v.reduce((a, b) => a + b, 0) / v.length, max: Math.max(...v) });
+  const summary = { duration: (n - 1) * interval, samples: n, read_gb: 410.5, write_gb: 96.2 };
+  for (const [c, v] of Object.entries(series)) if (c !== "time") summary[c] = stat(v);
+  const last = Object.fromEntries(Object.entries(series).map(([c, v]) => [c, String(v[v.length - 1])]));
+  return {
+    run, start: "2026-11-19 14:02:11", end: recording ? "" : "2026-11-19 14:47:30",
+    interval, gpus, file: `Job/job${run}/profile/run0${run}.csv`, samples: n,
+    summary, series, ...(recording ? { latest: { ...last, age: 2 } } : {}),
+  };
+}
+
+function fakeLocalJobInspection(protocolId) {
+  const local = FAKE_LOCAL_PROCESSES[protocolId];
+  const running = protocolId === "406";
+  const summary = { cluster: "", queue: "local", host: local.host, pid: local.pid, cpus: 12, gpus: 2,
+                    gpu_type: "Tesla P100-PCIE-16GB", node_cpus: 72, node_memory: 376, node_gpus: 5,
+                    elapsed: running ? 1810 : 2719, runs: running ? 1 : 2, source: "run" };
+  const runs = running
+    ? [{ launched: "2026-11-19 14:02:05", start: "2026-11-19 14:02:11", end: "", elapsed: null, status: "running" }]
+    : [{ launched: "2026-11-18 10:00:02", start: "2026-11-18 10:00:09", end: "2026-11-18 10:12:40", elapsed: 751, status: "failed" },
+       { launched: "2026-11-19 14:02:05", start: "2026-11-19 14:02:11", end: "2026-11-19 14:47:30", elapsed: 2719, status: "finished" }];
+  const process = running ? {
+    pid: Number(local.pid), status: "sleeping", uptime: 1810, procs: 9, cpu: 712.4, rss_gb: 4.31, threads: 96,
+    children: [
+      { pid: 48230, name: "WarpTools", status: "running", cpu: 395.2, rss_mb: 2210, threads: 40, cmdline: "WarpTools fs_motion_and_ctf --settings warp_frameseries.settings --device_list 1" },
+      { pid: 48231, name: "WarpTools", status: "running", cpu: 301.7, rss_mb: 1985, threads: 38, cmdline: "WarpTools fs_motion_and_ctf --settings warp_frameseries.settings --device_list 2" },
+      { pid: 48219, name: "python3.8", status: "sleeping", cpu: 12.1, rss_mb: 160, threads: 9, cmdline: "python -m emwrap.warp.warp_mctf -i Job/job406/job.star -o Job/job406" },
+      { pid: 48224, name: "python3.8", status: "sleeping", cpu: 1.6, rss_mb: 28, threads: 2, cmdline: "python -m emtools.scripts.emt_monitor --pid 48219 --interval 2 --gpus 1,2" },
+      { pid: 48225, name: "nvidia-smi", status: "sleeping", cpu: 0.3, rss_mb: 21, threads: 1, cmdline: "nvidia-smi --format=csv,noheader,nounits -i 0000:5E:00.0,0000:86:00.0 -lms 2000" },
+    ],
+  } : null;
+  return {
+    run_id: protocolId, status: running ? "running" : "finished", cluster_job_id: "",
+    local_pid: local.pid, local_host: local.host,
+    mode: running ? "live" : "recorded", format: "summary",
+    data: { summary, report: {}, process, runs },
+    profiles: running
+      ? [fakeProfileRun(1, 30, 2, ["2", "3"], true)]
+      : [fakeProfileRun(1, 12, 2, ["2", "3"], false), fakeProfileRun(2, 45, 5, ["2", "3"], false)],
+  };
+}
+
+function fakeScheduledJobInspection(protocolId) {
+  const sched = FAKE_SCHEDULED[protocolId];
+  const t = (m) => `2026-11-20 09:${String(m).padStart(2, "0")}:24`;
+  const log = [
+    `${t(0)}: Job Refine/job${protocolId} scheduled; starting watcher (interval 5 min)`,
+    `${t(0)}: Started schedule watcher for Refine/job${protocolId} (pid=${sched.pid})`,
+    `${t(0)}: Schedule watcher started for Refine/job${protocolId} (pid=${sched.pid})`,
+  ];
+  for (let m = 0; m <= 25; m += 5) {
+    log.push(`${t(m)}: Input Import/job002/particles.star is ready, parent job Import/job002 finished.`,
+             `${t(m)}: Checking input Class2D/job079/run_it025_classes.star, parent job Class2D/job079 not finished (status Running)`,
+             `${t(m)}: Waiting 5 min before next dependency check`);
+  }
+  return {
+    run_id: protocolId, status: "scheduled", cluster_job_id: "", scheduled: true,
+    local_pid: sched.pid, local_host: sched.host, mode: "live", format: "schedule",
+    data: { process: { pid: Number(sched.pid), status: "sleeping", uptime: 1532, procs: 1 }, log },
+    profiles: [],
+  };
+}
+
 function fakeClusterJobInspection(protocolId) {
+  if (FAKE_SCHEDULED[protocolId]) return fakeScheduledJobInspection(protocolId);
+  if (FAKE_LOCAL_PROCESSES[protocolId]) return fakeLocalJobInspection(protocolId);
   const clusterJobId = FAKE_CLUSTER_JOB_IDS[protocolId];
   if (!clusterJobId) throw new Error(`Job ${protocolId} has no cluster job id.`);
   if (protocolId !== "870") {
     return {
       run_id: protocolId, status: "finished", cluster_job_id: clusterJobId,
+      profiles: [fakeProfileRun(1, 90, 5, ["0", "1"], false)],
       mode: "recorded", format: "summary",
       data: {
         summary: { cluster: "LSF", queue: "gpu_rtx", host: "nodegpu267", cpus: 24, gpus: 2,

@@ -3,7 +3,11 @@
 ## Mount API
 
 Any registered component (`EMFlow.components`: `ProjectPage`, `VolumeViewer`,
-`Plot`, `ImageSlider`, `TiltSeriesViewer`, `TableViewerContent`, `TableViewerGrid`) is mounted the same way:
+`Plot`, `ImageSlider`, `TiltSeriesViewer`, `TableViewerContent`, `TableViewerGrid`, `JobInspector`) is mounted the same way.
+`JobInspector` is the job dialog of the protocol cards (`ClusterJobDialog`), props `{open, protocolId,
+onClose, inspect}`: EMhub's Computing Summary page (`computing_summary.html`) mounts it on the first row
+click, `inspect` posting to `/api/inspect_cluster_job` with the page's project selector, and opens it
+again with `update({open: true, protocolId})`:
 
 ```js
 const h = EMFlow.mount("VolumeViewer", {

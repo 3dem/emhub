@@ -10,17 +10,55 @@ export interface loadWorkflowPayload {
  * mode "live": output of the queue 'inspect' command (launched/running jobs),
  *   format "json" (data, e.g. lsf_inspect_job.py --json) or "text" (text).
  * mode "recorded": format "summary", from the job files (info.json, run.out). */
+/** Resource usage of a profiled run of a job (emtools ResourceMonitor CSV). */
+export type JobProfileRun = {
+  run: number;                 // 1-based run of the job
+  start?: string;
+  end?: string;                // empty while the run is being recorded
+  interval?: number;           // seconds between samples
+  gpus?: string[];             // nvidia-smi indexes of the monitored GPUs
+  file?: string;               // CSV, project relative
+  samples?: number;
+  // {duration, samples, <column>: {avg, max}, read_gb, write_gb}
+  summary?: Record<string, any>;
+  // CSV columns reduced to a few hundred points: time (s), procs, cpu
+  // (% of one core), rss_gb, read_mbs, write_mbs, node_cpu, node_mem_gb,
+  // gpuN_util, gpuN_mem_gb, gpuN_power
+  series?: Record<string, Array<number | null>>;
+  latest?: Record<string, any>; // last sample (and its 'age' in s) while recording
+};
+
+/** Live process tree of a job run locally (data.process in summary format). */
+export type LocalProcessInfo = {
+  pid: number;
+  status?: string;
+  uptime?: number;             // seconds
+  procs?: number;
+  cpu?: number;                // % of one core
+  rss_gb?: number;
+  threads?: number;
+  children?: Array<{ pid: number; name: string; status?: string; cpu?: number;
+                     rss_mb?: number; threads?: number; cmdline?: string }>;
+};
+
 export type ClusterJobInspection = {
   run_id: string;
   status?: string;
   cluster_job_id?: string;
+  // Jobs run locally (no cluster job): their process and host
+  local_pid?: string;
+  local_host?: string;
+  // Scheduled job: local_pid is its schedule watcher, format "schedule"
+  // with data {process: LocalProcessInfo | null, log: string[]}
+  scheduled?: boolean;
   mode: "live" | "recorded";
-  format: "json" | "text" | "summary";
+  format: "json" | "text" | "summary" | "schedule";
   queue?: string;
   command?: string;
   data?: any;
   text?: string;
   note?: string;
+  profiles?: JobProfileRun[];
 };
 
 export type AuthenticatedRequestOptions = {
@@ -1349,7 +1387,8 @@ export interface ProjectService<
   continueAll(projectId: Id, protocolId: Id): Promise<TProject>;
   resetFrom(projectId: Id, protocolId: Id): Promise<TProject>;
   stopProtocol(projectId: Id, ids: string[]): Promise<TProject>;
-  /** Cluster job of a protocol (clicking its cluster job id), see ClusterJobInspection */
+  /** Where a protocol runs (clicking its cluster job id or local pid) and its
+   *  resource usage, see ClusterJobInspection */
   inspectClusterJob?(projectId: Id, protocolId: Id): Promise<ClusterJobInspection>;
   resolveBrowserPaths(projectId: Id, protocolId: Id): Promise<ResolveBrowserPathsResult>;
   listRemoteDirectory(projectId: Id, protocolId: Id, path: string): Promise<any[]>;

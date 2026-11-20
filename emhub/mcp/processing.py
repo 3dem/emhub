@@ -589,10 +589,11 @@ def register_tools(mcp, client, allow_admin=False):
         processing_save_job.
 
         Args:
-            processing_path: Project folder, absolute path.
+            processing_path: Project folder, absolute path or starting
+                with ~ (home folder); relative paths are rejected.
             data_path: Folder with the raw data (frames, mdoc files, gain
-                reference), required for a new project and not allowed
-                when registering an existing one.
+                reference), absolute or ~ path, required for a new project
+                and not allowed when registering an existing one.
             title: Optional title, the folder name is shown without it.
             description: Optional description.
             project_id: EMhub project to add the entry to, by default the
