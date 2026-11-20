@@ -31,6 +31,10 @@ html and plotly), so no viewer specific code is needed:
       STAR), with the class volume and its number of particles, and the
       X/Y/Z slices of the volume; also shown as a gallery, a card per class
       with the sections of a small grid of its volume.
+    - Volumes: a list of maps (a STAR file with a 'references' table of
+      rlnReferenceImage, e.g. the references of a multi-reference 3D
+      classification), a row per map and its VolumeViewer; also shown as
+      a gallery, a card per map (as Classes3D).
     - Particles: table of micrographs with their number of particles, and
       the particles coordinates over the micrograph and a grid with some of
       the particles images.
@@ -50,6 +54,8 @@ from .api_viewers import (
     _build_plotly_scatter_figure,
     processing_project_manager,
     build_volume_viewer_pane_content,
+    _volume_dimensions,
+    _volume_voxel_size,
     map_iterations_source,
     MAP_VIEWER_CONFIG,
     _table_view_action_payload,
@@ -167,6 +173,27 @@ SPA_TABLE_VIEW_SPECS = {
             'footer': '{resolution} Å · {particles} particles ({percent}%)',
         },
     },
+    # A list of maps, e.g. the references of a multi-reference 3D
+    # classification (input_references.star), one row per map (class) in
+    # their order (see build_volumes_table)
+    'volumes': {
+        'title': 'Volumes',
+        'table': None,  # only from the output datatype
+        'columns': [
+            {'id': 'classId', 'label': 'Class', 'align': 'right', 'sortable': True},
+            {'id': 'volume', 'label': 'Volume', 'align': 'left'},
+            {'id': 'dimensions', 'label': 'Box (px)', 'align': 'right'},
+            {'id': 'pixelSize', 'label': 'Pixel size (Å)', 'align': 'right'},
+        ],
+        'actions': [_ACTION_VOLUME],
+        'default_action': _ACTION_VOLUME,
+        # A card per map, as the Classes3D gallery
+        'gallery': {
+            'actionId': _ACTION_GALLERY['id'],
+            'title': 'Class {classId}',
+            'footer': '{volume} · {dimensions} px · {pixelSize} Å/px',
+        },
+    },
 }
 
 # STAR columns that are kept in the row cells, to build the panes
@@ -230,12 +257,15 @@ def _pixel_size(optics):
     return None
 
 
-def build_spa_table(full_path, type_key):
-    """Build TableViewerPane rows from a SPA STAR file."""
+def build_spa_table(full_path, type_key, root=None):
+    """Build TableViewerPane rows from a SPA STAR file (root: the project,
+    where the paths of the files in the STAR are relative to)."""
     if type_key == 'particles':
         return build_particles_table(full_path)
     if type_key == 'classes3d':
         return build_classes3d_table(full_path)
+    if type_key == 'volumes':
+        return build_volumes_table(full_path, root)
 
     spec = SPA_TABLE_VIEW_SPECS[type_key]
     columns = _table_view_column_actions(spec)
@@ -303,6 +333,8 @@ def build_spa_pane_content(action_id, root, type_key, row_cells, output_path=Non
         return build_particles_coordinates_pane_content(root, row_cells, output_path)
     if action_id == 'particles':
         return build_particles_grid_pane_content(root, row_cells, output_path)
+    if action_id == 'volume' and type_key == 'volumes':
+        return build_volumes_volume_pane_content(root, row_cells)
     if action_id == 'volume':
         return build_class3d_volume_pane_content(root, row_cells)
     if action_id == 'gallery':
@@ -889,6 +921,48 @@ def build_class3d_gallery_pane_content(root, row_cells):
     return {'kind': 'imageSlider', 'layout': 'volume',
             'title': f"Class {row_cells.get('classId')}",
             'density': load_volume_preview(vol_path)}
+
+
+def build_volumes_table(full_path, root):
+    """Table with one row per map of a list of volumes (a STAR file with a
+    'references' table, e.g. the references of a 3D classification): the
+    class (the row), the map, its box and pixel size (from the header). """
+    spec = SPA_TABLE_VIEW_SPECS['volumes']
+    with StarFile(full_path) as sf:
+        volumes = [row.rlnReferenceImage
+                   for row in sf.iterTable('references', guessType=False)]
+
+    rows = []
+    for i, volume in enumerate(volumes, 1):
+        cells = {'classId': i, 'volume': os.path.basename(volume), 'volumePath': volume,
+                 'dimensions': '', 'pixelSize': ''}
+        try:
+            path = _resolve_data_path(root, volume)
+            dims = _volume_dimensions(path)
+            cells['dimensions'] = (f'{dims[0]}³' if len(set(dims)) == 1
+                                   else ' × '.join(map(str, dims)))
+            if vs := _volume_voxel_size(path):
+                cells['pixelSize'] = round(vs[0], 3)
+        except Exception:
+            pass  # A missing map: its row without the header values
+        rows.append({'id': i, 'cells': cells, 'actions': [],
+                     'defaultAction': _table_view_action_payload(spec['default_action'])})
+
+    return {'title': f"{spec['title']} ({len(volumes)} maps)",
+            'columns': _table_view_column_actions(spec),
+            'rows': rows,
+            'gallery': spec['gallery']}
+
+
+def build_volumes_volume_pane_content(root, row_cells):
+    """VolumeViewer of a map of a list of volumes. """
+    volume = row_cells.get('volumePath')
+    if not volume:
+        raise Exception('Missing volume path')
+    title = f"Class {row_cells.get('classId')}: {row_cells.get('volume')}"
+    return build_volume_viewer_pane_content(
+        root, volume, title=title, slices=False, density='inline',
+        max_voxels=CLASS3D_MAX_VOXELS, viewer_config=MAP_VIEWER_CONFIG)
 
 
 def create_classes_subset(root, star_path, classes):

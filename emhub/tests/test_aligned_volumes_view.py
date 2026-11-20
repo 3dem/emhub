@@ -168,6 +168,28 @@ class TestAlignedVolumesView(unittest.TestCase):
         for k, v in stored.items():
             self.assertAlmostEqual(computed[k], v, places=3)
 
+    def test_volumes_output(self):
+        """ input_references.star is a Volumes output: a table of its maps. """
+        from emhub.blueprints.api_viewers_spa import (resolve_spa_table_view_type,
+                                                      build_spa_table, build_spa_pane_content)
+        star = os.path.join(self.root, JOB, 'input_references.star')
+        self.assertEqual(resolve_spa_table_view_type('Volumes', star), 'volumes')
+        # Only from the datatype, not from its tables
+        self.assertIsNone(resolve_spa_table_view_type('', star))
+        table = build_spa_table(star, 'volumes', root=self.root)
+        self.assertEqual(table['title'], 'Volumes (2 maps)')
+        rows = table['rows']
+        self.assertEqual([r['cells']['volume'] for r in rows],
+                         ['ref_class001_nucleosome.mrc', 'ref_class002_membrane.mrc'])
+        self.assertEqual((rows[0]['cells']['dimensions'], rows[0]['cells']['pixelSize']),
+                         ('32³', 8.0))
+        pane = build_spa_pane_content('volume', self.root, 'volumes', rows[1]['cells'])
+        self.assertEqual(pane['title'].split(' · ')[0], 'Class 2: ref_class002_membrane.mrc')
+        # A gallery as Classes3D: a card per map
+        self.assertEqual(table['gallery']['actionId'], 'gallery')
+        card = build_spa_pane_content('gallery', self.root, 'volumes', rows[1]['cells'])
+        self.assertEqual((card['title'], card['layout']), ('Class 2', 'volume'))
+        self.assertTrue(card['density']['shape'])
 
 
 if __name__ == '__main__':

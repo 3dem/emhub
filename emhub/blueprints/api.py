@@ -823,7 +823,7 @@ def get_table_view_data():
 
         # SPA outputs (Movies, Micrographs)
         if spa_key := resolve_spa_table_view_type(pointer_class, full_path):
-            return build_spa_table(full_path, spa_key)
+            return build_spa_table(full_path, spa_key, root=root)
 
         type_key = resolve_table_view_type(pointer_class, full_path)
         if type_key == 'tomocoordinates':

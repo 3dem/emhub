@@ -236,7 +236,9 @@ table: TableViewerData = {
   layout: "volume", title, density}` with `load_volume_preview` of
   `data/volume_density.py` (Fourier scaled to a longest side ≤ 96, uint8,
   no histogram or statistics, zlib; its own memory cache of 256 maps, apart
-  from the bigger densities).
+  from the bigger densities). The Volumes table sends `{title: "Class
+  {classId}", footer: "{volume} · {dimensions} px · {pixelSize} Å/px"}`
+  (the same builder, `build_class3d_gallery_pane_content`).
 
 - `initialAction`: when the table is shown, its row is selected and its
   action resolved as if clicked (once per table object): `actionId` is
