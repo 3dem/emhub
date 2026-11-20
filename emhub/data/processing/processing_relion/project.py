@@ -986,16 +986,18 @@ class RelionSessionData(SessionData):
                 formDef['sections'].append(sectionDef)
             Wizards.tag_form(formDef, jobForm)
 
+            def _compute_section():
+                """ Compute section of the form, added if missing. """
+                for sectionDef in formDef['sections']:
+                    if sectionDef['label'] == 'Compute':
+                        return sectionDef
+                computeSection = {'label': 'Compute', 'params': []}
+                formDef['sections'].append(computeSection)
+                return computeSection
+
             # Add queue parameters if defined in the config
             if queues := ProcessingConfig.get_queues():
-                computeSection = None
-                for sectionDef in jobForm['sections']:
-                    if sectionDef['label'] == 'Compute':
-                        computeSection = sectionDef
-                        break
-                if computeSection is None:
-                    computeSection = {'label': 'Compute', 'params': []}
-                    formDef['sections'].append(computeSection)
+                computeSection = _compute_section()
 
                 queueParam = {
                     "name": "queue.name",
@@ -1028,6 +1030,35 @@ class RelionSessionData(SessionData):
                         _register(param)
 
                 computeSection['params'].append(queueGroup)
+
+            # Resource usage profiling of the run (all job types), in the
+            # Launchers group of the Compute section (added if missing)
+            computeSection = _compute_section()
+            launchersGroup = next(
+                (p for p in computeSection['params']
+                 if p.get('paramClass') == 'Group' and p.get('label') == 'Launchers'),
+                None)
+            if launchersGroup is None:
+                launchersGroup = {'label': 'Launchers', 'paramClass': 'Group',
+                                  'help': 'Launchers to use for the different programs',
+                                  'collapsed': True, 'params': []}
+                computeSection['params'].append(launchersGroup)
+            launchersGroup.setdefault('params', [])
+            if not any(p.get('name') == 'profile' for p in launchersGroup['params']):
+                profileParam = {
+                    "name": "profile",
+                    "label": "Profile",
+                    "paramClass": "FloatParam",
+                    "allowsEmpty": True,
+                    "help": "Record the resource usage of the job (CPU, memory, "
+                            "I/O and GPUs) every this number of seconds into "
+                            "profile/runNN.csv in the job folder; 0 for no "
+                            "profiling. If empty, the EMWRAP_PROFILE variable "
+                            "of the job environment is used (no profiling if "
+                            "it is not set)."
+                }
+                launchersGroup['params'].append(profileParam)
+                _register(profileParam)
 
             if jobValues:
                 extraParams = []

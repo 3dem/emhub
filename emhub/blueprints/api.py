@@ -650,7 +650,8 @@ def get_session_run():
     """
     def _get_run(**attrs):
         pp, pm = get_project_manager(**attrs)
-        run = pp['run']
+        # No 'run' without run_id, e.g. the form of a job type (job_type)
+        run = pp.get('run')
         if run is None and not attrs.get('job_type'):
             raise Exception(f"Job not found: {attrs.get('run_id')}")
         jobtype = run.jobtype if run else attrs['job_type']
