@@ -198,18 +198,28 @@ def delete_user():
 def update_user_form():
     try:
         f = request.form
+        is_manager = app.user.is_manager
+
+        # Check before saving the profile image below, it would
+        # overwrite the image of another user
+        if not is_manager and f['user-id'] != str(app.user.id):
+            return send_error("Only 'managers' can update other users.")
 
         attrs = {'id': f['user-id'],
                  'name': f['user-name'],
-                 'phone': f['user-phone'],
-                 'status': f['user-status-select']
+                 'phone': f['user-phone']
                  }
 
+        # Status, roles and PI are only editable by managers (the fields
+        # are disabled for others, and disabled fields are not sent)
+        if 'user-status-select' in f and is_manager:
+            attrs['status'] = f['user-status-select']
+
         roles = [v.replace('role-', '') for v in f if v.startswith('role-')]
-        if roles:
+        if roles and is_manager:
             attrs['roles'] = roles
 
-        if 'user-pi-select' in f:
+        if 'user-pi-select' in f and is_manager:
             try:
                 pi_id = int(f['user-pi-select'])
             except:
@@ -222,7 +232,7 @@ def update_user_form():
 
         # Only managers can set the independent resources. An empty value
         # means that all of them were unselected
-        if 'user-indepent-resources' in f and app.user.is_manager:
+        if 'user-indepent-resources' in f and is_manager:
             def _val(v):
                 try:
                     return int(v)

@@ -319,6 +319,8 @@ class DataManager(DbManager):
         """ Update an existing user.
         The pi_id is only changed when provided (an empty value clears it).
         """
+        self.__check_user_update(attrs)
+
         if 'pi_id' in attrs:
             try:
                 attrs['pi_id'] = int(attrs['pi_id'])
@@ -339,6 +341,32 @@ class DataManager(DbManager):
                     raise Exception("Only 'admin' users can remove 'admin' role.")
 
         return self.__update_item(self.User, **attrs)
+
+    # Fields that a non-manager can change in their own user
+    USER_SELF_FIELDS = {'id', 'name', 'phone', 'password', 'profile_image',
+                        'extra', 'log_operation'}
+    # Keys in User.extra that only managers can change
+    USER_MANAGER_EXTRA = {'independent_resources', 'auth_local', 'reset_token',
+                          'invoice', 'university'}
+
+    def __check_user_update(self, attrs):
+        """ Non-managers can only update some fields of their own user. """
+        if self._user is None or self._user.is_manager:
+            return
+
+        try:
+            uid = int(attrs.get('id'))
+        except (TypeError, ValueError):
+            uid = None
+
+        if uid != self._user.id:
+            raise Exception("Only 'managers' can update other users.")
+
+        fields = set(attrs) - self.USER_SELF_FIELDS
+        fields |= set(attrs.get('extra') or {}) & self.USER_MANAGER_EXTRA
+        if fields:
+            raise Exception("Only 'managers' can update: %s"
+                            % ', '.join(sorted(fields)))
 
     def delete_user(self, **attrs):
         """ Delete a given user. """
