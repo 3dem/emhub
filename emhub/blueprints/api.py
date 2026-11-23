@@ -201,9 +201,13 @@ def update_user_form():
 
         attrs = {'id': f['user-id'],
                  'name': f['user-name'],
-                 'phone': f['user-phone'],
-                 'status': f['user-status-select']
+                 'phone': f['user-phone']
                  }
+
+        # The status select is disabled for non-managers, and a disabled
+        # field is not sent with the form
+        if 'user-status-select' in f:
+            attrs['status'] = f['user-status-select']
 
         roles = [v.replace('role-', '') for v in f if v.startswith('role-')]
         if roles:
