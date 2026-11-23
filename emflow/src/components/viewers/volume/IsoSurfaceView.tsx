@@ -11,13 +11,18 @@
 // Other maps on the same box (overlays) are drawn as iso-surfaces too; a
 // linked overlay follows the threshold of the density: it encloses the same
 // share of its voxels, so maps of other scales show at a comparable size.
+// With overlays the side panel lists the maps (`maps`, MapsList), each with
+// its threshold, instead of the threshold of the density; tiled (`layout`)
+// each shown map is drawn in its own cell, with its name over it.
 // When the density changes to another map of a series (the iterations of a
 // Relion map, `preload`ed in the background) the same share of voxels stays
 // enclosed and the view is not framed again, so the series plays smoothly.
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import styles from "../VolumeViewer.module.css";
 import { useDataLoader, useLoad } from "@/data/DataLoaderContext";
-import { IsoSurfaceScene, RESOLUTION_PALETTE, type IsoMask, type IsoOverlay, type IsoState, type MaskStyle } from "./IsoSurfaceScene";
+import { IsoSurfaceScene, RESOLUTION_PALETTE, TILE_CELLS_MAX, tileGrid, type IsoLayout, type IsoMask, type IsoOverlay, type IsoState,
+         type MaskStyle } from "./IsoSurfaceScene";
+import MapsList, { type MapItem, type MapPatch } from "./MapsList";
 import DensityPanel, { DETAILS, enclosedFraction, levelForFraction, type DensityOptions } from "./DensityPanel";
 import { densityValues, prepareDensity, removeDust } from "./densityGrid";
 import { isDensitySource, type DensitySource, type Vec3, type VolumeDensity } from "./volumeMath";
@@ -32,6 +37,22 @@ export type IsoMaskInput =
 /** An overlay of the view (decoded, see IsoSurfaceScene.IsoOverlay): its
  * threshold, or null to follow the density's (the same enclosed share). */
 export type IsoOverlayInput = Omit<IsoOverlay, "threshold" | "below"> & { threshold: number | null };
+
+/** The maps of the side panel (MapsList): the volume (its threshold, color
+ * and opacity are the view's) and the overlays, as the viewer keeps them. */
+export type IsoMapsInput = {
+  mainLabel: string;
+  mainDescription?: string;
+  /** The overlays (MapsList rows, in the order of the config). */
+  items: MapItem[];
+  linked: boolean;
+  onLinked: (linked: boolean) => void;
+  onShowMain: (show: boolean) => void;
+  /** index: of the overlay (in items). */
+  onChange: (index: number, patch: MapPatch) => void;
+  /** Most maps shown at a time (tiled). */
+  maxShown?: number;
+};
 
 /** Threshold of an overlay that encloses the same share of its voxels as
  * the density at `threshold` (the middle of its range without histograms). */
@@ -123,6 +144,10 @@ type Props = {
   onOverlayThresholds?: (thresholds: number[], below: boolean) => void;
   /** Called with the color of the surface when it changes. */
   onColor?: (color: string) => void;
+  /** The maps in the side panel, instead of the threshold of the density. */
+  maps?: IsoMapsInput | null;
+  /** The density and the overlays over each other (default) or tiled. */
+  layout?: IsoLayout;
 };
 
 /** A map that colors the surface (see Props.colorBy). */
@@ -462,6 +487,67 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     if (resolved.length) onOverlayThresholdsRef.current?.(resolved.map((o) => o.threshold), below);
   }, [resolved, below]);
 
+  /* ---------- layout (overlay or tiled) ---------- */
+  const layout = props.layout ?? "overlay";
+  useEffect(() => {
+    sceneRef.current?.setLayout(layout);
+    // The cells have another aspect: framed again (until the user moves it)
+    autoFit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, error]);
+  // The names over the cells (the scene draws the same grid: tileGrid)
+  const tileLabels = useMemo(() => {
+    if (layout !== "tile") return [];
+    const shown: { label: string; color: string }[] = [];
+    if (density && showDensity && opts) shown.push({ label: props.maps?.mainLabel ?? "Volume", color: opts.color });
+    resolved.forEach((o, k) => { if (o.show) shown.push({ label: o.label ?? `Map ${k + 1}`, color: o.color }); });
+    shown.splice(TILE_CELLS_MAX);
+    if (shown.length < 2) return [];
+    const cells = tileGrid(shown.length, width, height);
+    return shown.map((m, k) => ({ ...m, cell: cells[k] }));
+  }, [layout, density, showDensity, opts, resolved, width, height, props.maps?.mainLabel]);
+  // Another number of cells (a map shown or hidden): their aspect changed
+  useEffect(() => {
+    if (layout === "tile") autoFit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tileLabels.length]);
+
+  /* ---------- the maps of the side panel ---------- */
+  const maps = props.maps ?? null;
+  const onMapChange = (index: number, patch: MapPatch) => {
+    if (!maps) return;
+    const { show, threshold, ...style } = patch;
+    if (index === 0) {
+      if (show !== undefined) maps.onShowMain(show);
+      if (threshold !== undefined || Object.keys(style).length) {
+        onChange({ ...style, ...(threshold !== undefined ? { threshold } : {}) });
+      }
+      return;
+    }
+    const k = index - 1;
+    if (threshold !== undefined && maps.linked) {
+      // Linked: the volume takes the same enclosed share, and the others follow it
+      const h0 = density?.histogram, h1 = maps.items[k]?.density?.histogram;
+      if (h0 && h1) onChange({ threshold: levelForFraction(h0, enclosedFraction(h1, threshold, below), below) });
+    } else if (threshold !== undefined) {
+      maps.onChange(k, { threshold });
+    }
+    if (show !== undefined || Object.keys(style).length) {
+      maps.onChange(k, { ...style, ...(show !== undefined ? { show } : {}) });
+    }
+  };
+  const mapsPanel = maps && density && opts ? (
+    <MapsList
+      items={[{ label: maps.mainLabel, description: maps.mainDescription, show: showDensity, color: opts.color,
+                opacity: opts.opacity, density, status: null, current: opts.threshold }, ...maps.items]}
+      linked={maps.linked}
+      below={below}
+      onLinked={maps.onLinked}
+      onChange={onMapChange}
+      maxShown={maps.maxShown}
+    />
+  ) : null;
+
   /* ---------- color by a map (local resolution) ---------- */
   const colorBy = props.colorBy ?? null;
   // The range is given (fixed: it does not follow the threshold)
@@ -521,6 +607,14 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     <div className={styles.wrap3d} style={props.panelWidth !== undefined ? { flexDirection: "column" } : undefined}>
       <div className={styles.isoCol}>
         <div ref={host} className={styles.canvas3d} style={{ width, height }}>
+          {tileLabels.map((t, k) => (
+            <div key={k} className={styles.tileCell}
+                 style={{ left: t.cell.x, top: t.cell.y, width: t.cell.w, height: t.cell.h }}>
+              <span className={styles.tileLabel}>
+                <i style={{ background: t.color }} />{t.label}
+              </span>
+            </div>
+          ))}
           {density && colorBy && colorRange && (
             <ColorKey range={colorRange} title={colorBy.title ?? "Local resolution (Å)"} unit={colorBy.unit ?? "Å"} />
           )}
@@ -547,6 +641,7 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
           debug={props.debug}
           width={props.panelWidth}
           onHeight={props.onPanelHeight}
+          maps={mapsPanel}
         />
       )}
     </div>

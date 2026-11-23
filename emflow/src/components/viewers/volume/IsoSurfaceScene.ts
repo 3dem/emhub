@@ -20,6 +20,9 @@
 // each with its threshold, color and opacity; the depth of their surfaces
 // mixes them with the density (and with each other) where they cross. The
 // density itself can be hidden, to show only the overlays.
+// Tiled (setLayout("tile")), each shown map (the density first, then the
+// overlays) is drawn alone in a cell of a grid over the canvas (tileGrid),
+// all with the same camera: they turn, move and zoom together.
 // The world is the voxel space of the full volume with y flipped.
 import * as THREE from "three";
 import { Trackball } from "./trackball";
@@ -51,7 +54,41 @@ export type IsoOverlay = {
   /** 0-1. */
   opacity: number;
   show: boolean;
+  /** Short name (its cell label when tiled). */
+  label?: string;
 };
+
+/** How the density and the overlays are drawn: over each other, or each
+ * one in its cell of a grid (the same camera). */
+export type IsoLayout = "overlay" | "tile";
+
+/** A cell of the tiled view, in CSS px from the top left of the canvas. */
+export type TileCell = { x: number; y: number; w: number; h: number };
+
+/** Most cells of the tiled view (the viewer's TILE_MAX). */
+export const TILE_CELLS_MAX = 12;
+
+/** The grid of `n` cells over a width × height canvas with the largest
+ * square-ish cells (the maps are on the same box), in reading order. */
+export function tileGrid(n: number, width: number, height: number): TileCell[] {
+  if (n <= 0 || width <= 0 || height <= 0) return [];
+  let cols = 1, best = -1;
+  for (let c = 1; c <= n; c++) {
+    const r = Math.ceil(n / c);
+    const size = Math.min(width / c, height / r);
+    if (size > best + 1e-6) {
+      best = size;
+      cols = c;
+    }
+  }
+  const rows = Math.ceil(n / cols);
+  const w = Math.floor(width / cols), h = Math.floor(height / rows);
+  // The grid centered in the canvas
+  const x0 = Math.floor((width - w * cols) / 2), y0 = Math.floor((height - h * rows) / 2);
+  return Array.from({ length: n }, (_, i) => ({
+    x: x0 + (i % cols) * w, y: y0 + Math.floor(i / cols) * h, w, h,
+  }));
+}
 
 export type IsoState = {
   /** Threshold in the units of the map. */
@@ -342,6 +379,7 @@ export class IsoSurfaceScene {
   private overlays: IsoOverlay[] = [];
   private overlayMeshes: RayMesh[] = [];
   private showDensity = true;
+  private layout: IsoLayout = "overlay";
   private raf = 0;
   private fineTimer = 0;
   private coarse = false;
@@ -500,6 +538,34 @@ export class IsoSurfaceScene {
     this.syncOverlays();
   }
 
+  /** Draw the maps over each other or tiled (see tileGrid). */
+  setLayout(layout: IsoLayout) {
+    if (layout === this.layout) return;
+    this.layout = layout;
+    this.render();
+  }
+
+  /** The cells of the tiled view (one per shown map, the density first;
+   * empty when not tiled or with less than two maps shown). */
+  tiles(): TileCell[] {
+    if (this.layout !== "tile") return [];
+    const n = this.tiled().length;
+    if (n < 2) return [];
+    const size = this.renderer.getSize(new THREE.Vector2());
+    return tileGrid(n, size.x, size.y);
+  }
+
+  /** The meshes drawn tiled, in their order, with their density. */
+  private tiled(): { mesh: RayMesh; density: VolumeDensity; main: boolean }[] {
+    const list: { mesh: RayMesh; density: VolumeDensity; main: boolean }[] = [];
+    if (this.mesh && this.density && this.showDensity) list.push({ mesh: this.mesh, density: this.density, main: true });
+    this.overlayMeshes.forEach((m, i) => {
+      if (this.overlays[i]?.show) list.push({ mesh: m, density: this.overlays[i].density, main: false });
+    });
+    // The viewer shows at most TILE_MAX maps tiled
+    return list.slice(0, TILE_CELLS_MAX);
+  }
+
   /** Show or hide the density (the overlays stay). */
   setDensityVisible(show: boolean) {
     this.showDensity = show;
@@ -572,7 +638,9 @@ export class IsoSurfaceScene {
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
     const back = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
     const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * FIT_MARGIN;
-    const tanH = tanV * this.camera.aspect;
+    // Tiled: each map fits its cell
+    const cell = this.tiles()[0];
+    const tanH = tanV * (cell ? cell.w / cell.h : this.camera.aspect);
     // The nearest camera (along `back`) that sees every corner of the box
     let dist = 0;
     for (const cx of [box.min.x, box.max.x]) {
@@ -678,6 +746,11 @@ export class IsoSurfaceScene {
       if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio);
       this.ball.apply(this.camera);
       this.camera.updateMatrixWorld();
+      const tiles = this.tiles();
+      if (tiles.length) {
+        this.renderTiles(tiles);
+        return;
+      }
       if (this.mesh && this.density) this.updateRay(this.mesh, this.density);
       if (this.maskMesh && this.mask?.type === "map") this.updateRay(this.maskMesh as RayMesh, this.mask.density);
       this.overlayMeshes.forEach((m, i) => {
@@ -685,6 +758,45 @@ export class IsoSurfaceScene {
       });
       this.renderer.render(this.scene, this.camera);
     });
+  }
+
+  /** Each shown map alone in its cell (the mask with the density), with
+   * the camera at the aspect of the cells. */
+  private renderTiles(tiles: TileCell[]) {
+    const items = this.tiled();
+    const size = this.renderer.getSize(new THREE.Vector2());
+    const all = [...(this.mesh ? [this.mesh] : []), ...this.overlayMeshes];
+    const visible = all.map((m) => m.visible);
+    const maskVisible = this.maskMesh?.visible ?? false;
+    const r = this.renderer;
+    // The whole canvas cleared once (the room around the grid)
+    r.setScissorTest(false);
+    r.setViewport(0, 0, size.x, size.y);
+    r.clear();
+    r.setScissorTest(true);
+    const aspect = this.camera.aspect;
+    this.camera.aspect = tiles[0].w / tiles[0].h;
+    this.camera.updateProjectionMatrix();
+    items.forEach((item, k) => {
+      const c = tiles[k];
+      // WebGL counts y from the bottom
+      const y = size.y - c.y - c.h;
+      r.setViewport(c.x, y, c.w, c.h);
+      r.setScissor(c.x, y, c.w, c.h);
+      all.forEach((m) => { m.visible = m === item.mesh; });
+      if (this.maskMesh) this.maskMesh.visible = maskVisible && item.main;
+      this.updateRay(item.mesh, item.density);
+      if (item.main && this.maskMesh?.visible && this.mask?.type === "map") {
+        this.updateRay(this.maskMesh as RayMesh, this.mask.density);
+      }
+      r.render(this.scene, this.camera);
+    });
+    all.forEach((m, i) => { m.visible = visible[i]; });
+    if (this.maskMesh) this.maskMesh.visible = maskVisible;
+    this.camera.aspect = aspect;
+    this.camera.updateProjectionMatrix();
+    r.setScissorTest(false);
+    r.setViewport(0, 0, size.x, size.y);
   }
 
   /** Camera, light, step and projection of a ray-cast box. */

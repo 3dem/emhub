@@ -21,8 +21,10 @@
 // and the slices, with its options in a panel (volume/MaskPanel.tsx).
 // Optional `overlays` (other maps on the same box, e.g. the references of a
 // 3D classification over the map of their poses) are drawn as iso-surfaces
-// in the 3D volume tab, each one shown or hidden, with its color, in a panel
-// (volume/OverlaysPanel.tsx).
+// in the 3D volume tab, over each other or tiled (each map in its cell, the
+// same view: the Maps button, volume/OverlaysPanel.tsx); the side panel then
+// lists the maps, each one shown or hidden with its threshold, color and
+// opacity (volume/MapsList.tsx).
 // The slices are the host's images (`axes`) or, without them, drawn from the
 // density grid, so a small map is sent once for both tabs. The data is given
 // inline (`data`) or loaded with the DataLoader (`source`, e.g. EMhub's
@@ -78,7 +80,9 @@ import DenoisePanel from "./volume/DenoisePanel";
 import { DETAILS } from "./volume/DensityPanel";
 import IterationsBar from "./volume/IterationsBar";
 import MaskPanel, { type MaskOptions } from "./volume/MaskPanel";
-import OverlaysPanel, { type OverlayItem, type OverlayOptions } from "./volume/OverlaysPanel";
+import OverlaysPanel, { TILE_MAX } from "./volume/OverlaysPanel";
+import type { MapItem, OverlayOptions } from "./volume/MapsList";
+import type { IsoLayout } from "./volume/IsoSurfaceScene";
 import ResolutionPanel, { type ResolutionStats } from "./volume/ResolutionPanel";
 import IsoSurfaceView, {
   type DensityDebug,
@@ -259,6 +263,9 @@ export type VolumeViewerConfig = {
    * name (tooltip). */
   overlaysMainLabel?: string;
   overlaysMainDescription?: string;
+  /** The maps over each other ("overlay", default) or each one in its cell
+   * ("tile"), changed with the Maps button. */
+  overlaysLayout?: IsoLayout;
   /** Map that colors the 3D volume surface (local resolution), with a
    * toolbar button to turn it on and off and the color key over the view. */
   resolution?: VolumeResolutionMap | null;
@@ -696,10 +703,10 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         threshold: o.threshold ?? null,
       })));
     }, [overlaysCfg]);
-    const [linked, setLinked] = useState(true);
+    // Each map its own threshold (the link toggle of the maps list ties them)
+    const [linked, setLinked] = useState(false);
     const [showMain, setShowMain] = useState(true);
-    // The color of the volume's surface (its swatch in the maps panel)
-    const [mainColor, setMainColor] = useState<string | null>(null);
+    const [mapsLayout, setMapsLayout] = useState<IsoLayout>(props.overlaysLayout ?? "overlay");
     const [overlaysOpen, setOverlaysOpen] = useState(false);
     const overlaysPanelRef = useRef<HTMLDivElement>(null);
     // The overlays drawn (the loaded ones) and the index of each in the config
@@ -709,11 +716,12 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         const o = overlayOpts[i];
         if (!m.density || !o) return;
         list.push({ density: m.density, show: o.show, color: o.color, opacity: o.opacity,
-                    threshold: linked ? null : o.threshold });
+                    threshold: linked ? null : o.threshold,
+                    label: overlaysCfg?.[i]?.label ?? `Map ${i + 1}` });
         index.push(i);
       });
       return { isoOverlays: list, isoOverlayIndex: index };
-    }, [overlayMaps, overlayOpts, linked]);
+    }, [overlayMaps, overlayOpts, linked, overlaysCfg]);
     // The thresholds they take (linked or their own), by config index
     const [overlayThr, setOverlayThr] = useState<{ t: Record<number, number>; below: boolean }>({ t: {}, below: false });
     const onOverlayThresholds = useCallback((thresholds: number[], below: boolean) => {
@@ -721,8 +729,53 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       thresholds.forEach((v, k) => { t[isoOverlayIndex[k]] = v; });
       setOverlayThr({ t, below });
     }, [isoOverlayIndex]);
-    const setOverlay = (i: number, patch: Partial<OverlayOptions>) =>
+    // Tiled: at most TILE_MAX maps shown (the volume counts)
+    const tiled = mapsLayout === "tile";
+    const shownMaps = (showMain ? 1 : 0) + overlayOpts.filter((o) => o.show).length;
+    const setOverlay = (i: number, patch: Partial<OverlayOptions>) => {
+      if (patch.show && tiled && !overlayOpts[i]?.show && shownMaps >= TILE_MAX) return;
       setOverlayOpts((cur) => cur.map((o, j) => (j === i ? { ...o, ...patch } : o)));
+    };
+    const onShowMain = (show: boolean) => {
+      if (show && tiled && !showMain && shownMaps >= TILE_MAX) return;
+      setShowMain(show);
+    };
+    // Tiling: the first TILE_MAX shown maps stay, the others are hidden
+    const onMapsLayout = (layout: IsoLayout) => {
+      setMapsLayout(layout);
+      if (layout !== "tile") return;
+      setOverlayOpts((cur) => {
+        let n = showMain ? 1 : 0;
+        return cur.map((o) => {
+          if (!o.show) return o;
+          n += 1;
+          return n <= TILE_MAX ? o : { ...o, show: false };
+        });
+      });
+    };
+    // Unlinked, a map without its own threshold yet takes the one it got
+    // linked (the same share of voxels as the volume), then keeps it
+    useEffect(() => {
+      if (linked) return;
+      setOverlayOpts((cur) => {
+        let changed = false;
+        const next = cur.map((o, i) => {
+          const t = overlayThr.t[i];
+          if (o.threshold !== null || t === undefined) return o;
+          changed = true;
+          return { ...o, threshold: t };
+        });
+        return changed ? next : cur;
+      });
+    }, [overlayThr, linked]);
+    // Inverting the contrast moves the thresholds to the other tail: the
+    // maps take the volume's share again (then their own)
+    const invertedRef = useRef(inverted);
+    useEffect(() => {
+      if (invertedRef.current === inverted) return;
+      invertedRef.current = inverted;
+      setOverlayOpts((cur) => cur.map((o) => ({ ...o, threshold: null })));
+    }, [inverted]);
     // Unlinking keeps each map at the threshold it had
     const onLinked = (v: boolean) => {
       if (!v) setOverlayOpts((cur) => cur.map((o, i) => ({ ...o, threshold: overlayThr.t[i] ?? o.threshold })));
@@ -1351,39 +1404,44 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         )}
       </span>
     );
-    // The maps (volume and overlays) of the 3D volume, in its toolbar
+    // The display of the maps (volume and overlays) of the 3D volume, in its
+    // toolbar: over each other or tiled
     const overlaysButton = overlaysCfg && overlaysCfg.length > 0 && (
       <span className={styles.panelAnchor} data-overlays-button>
-        <ToolButton title="Maps: show or hide each one, color, threshold" active={overlaysOpen}
+        <ToolButton title="Maps: display them over each other or side by side (tile)" active={overlaysOpen}
                     onClick={() => setOverlaysOpen((v) => !v)}>
           <Layers size={16} />
         </ToolButton>
         {overlaysOpen && tab === "volume3d" && (
           <div ref={overlaysPanelRef}>
-            <OverlaysPanel
-              mainLabel={props.overlaysMainLabel ?? "Volume"}
-              mainDescription={props.overlaysMainDescription}
-              mainColor={mainColor ?? defaults.iso?.color ?? "#b2b2ff"}
-              maxHeight={sizeIso[1] > 0 ? Math.max(160, sizeIso[1] - 8) : undefined}
-              showMain={showMain}
-              items={overlaysCfg.map((o, i): OverlayItem => ({
-                ...(overlayOpts[i] ?? { show: true, color: OVERLAY_COLORS[0], opacity: 1, threshold: null }),
-                label: o.label ?? `Map ${i + 1}`,
-                description: o.description,
-                density: overlayMaps[i]?.density ?? null,
-                status: overlayMaps[i]?.status ?? null,
-                current: overlayThr.t[i] ?? null,
-              }))}
-              linked={linked}
-              below={overlayThr.below}
-              onShowMain={setShowMain}
-              onLinked={onLinked}
-              onChange={setOverlay}
-            />
+            <OverlaysPanel layout={mapsLayout} onLayout={onMapsLayout} />
           </div>
         )}
       </span>
     );
+    // The maps in the side panel of the 3D volume, each one with its threshold
+    const isoMaps = overlaysCfg && overlaysCfg.length > 0 ? {
+      mainLabel: props.overlaysMainLabel ?? "Volume",
+      mainDescription: props.overlaysMainDescription,
+      items: overlaysCfg.map((o, i): MapItem => {
+        const opts = overlayOpts[i] ?? { show: true, color: OVERLAY_COLORS[0], opacity: 1, threshold: null };
+        return {
+          label: o.label ?? `Map ${i + 1}`,
+          description: o.description,
+          show: opts.show,
+          color: opts.color,
+          opacity: opts.opacity,
+          density: overlayMaps[i]?.density ?? null,
+          status: overlayMaps[i]?.status ?? null,
+          current: overlayThr.t[i] ?? null,
+        };
+      }),
+      linked,
+      onLinked,
+      onShowMain,
+      onChange: setOverlay,
+      maxShown: tiled ? TILE_MAX : undefined,
+    } : null;
     const modeButton = (t: Exclude<Mode, null>, title: string, icon: ReactNode) =>
       toolsCfg[t] && <ToolButton title={title} active={mode === t} onClick={() => setTool(t)}>{icon}</ToolButton>;
 
@@ -1748,7 +1806,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                                 mask={isoMask} maskStyle={maskStyle} colorBy={isoColorBy}
                                 overlays={isoOverlays} showDensity={showMain}
                                 onOverlayThresholds={onOverlayThresholds}
-                                onColor={overlaysCfg?.length ? setMainColor : undefined} />
+                                maps={isoMaps} layout={mapsLayout} />
               )}
             </div>
           </div>
