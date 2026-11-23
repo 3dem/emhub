@@ -886,12 +886,15 @@ def build_classes3d_table(full_path):
                      'defaultAction': _table_view_action_payload(spec['default_action'])})
 
     if len(rows) > 1:
-        # First: all the classes, in the 3D volume tab over class 1 or tiled
+        # First: all the classes, in the 3D volume tab over class 1 or tiled.
+        # Not a class: in a table with a selection (the host's Selected
+        # column) its checkbox is the state of the others (selectAll)
         cells = {'classId': 'All', 'volume': f'{len(rows)} classes',
                  'particles': total, 'percent': 100 if total else 0, 'resolution': None,
                  'volumePaths': [r['cells']['volumePath'] for r in rows],
                  'volumeLabels': [f"Class {r['cells']['classId']}" for r in rows]}
         rows.insert(0, {'id': 'all', 'cells': cells, 'actions': [], 'gallery': False,
+                        'selectAll': True,
                         'defaultAction': _table_view_action_payload(_ACTION_ALL_MAPS)})
 
     title = (f"{spec['title']} — {_iteration_label(os.path.basename(full_path))} "

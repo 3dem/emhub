@@ -258,6 +258,9 @@ class TestAlignVolumesView(unittest.TestCase):
         self.assertEqual([r['id'] for r in rows], ['all', 1, 2])
         self.assertEqual(rows[0]['defaultAction']['id'], 'allmaps')
         self.assertFalse(rows[0]['gallery'])
+        # Not a class of a subset: its checkbox selects the others
+        self.assertTrue(rows[0]['selectAll'])
+        self.assertNotIn('selectAll', rows[1])
         self.assertIn('2 classes', table['title'])
         pane = build_spa_pane_content('allmaps', self.root, 'classes3d', rows[0]['cells'])
         config = pane['viewerConfig']

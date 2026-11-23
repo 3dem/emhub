@@ -281,6 +281,10 @@ export type TableViewerCellEdit = {
   /** Initial state of a checkbox in a cell holding another value (e.g. a
    * count), drawn next to it; without it, the cell value is the state. */
   checked?: boolean;
+  /** The checkbox of an All row: checked when the other rows of the table
+   * (with this edit, not disabled) all are, and clicking it checks or
+   * unchecks them all; it is never an edit itself. */
+  selectAll?: boolean;
 
   cascadeToChildren?: {
     childrenId: string;
