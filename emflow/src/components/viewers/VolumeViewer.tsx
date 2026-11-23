@@ -80,7 +80,7 @@ import DenoisePanel from "./volume/DenoisePanel";
 import { DETAILS } from "./volume/DensityPanel";
 import IterationsBar from "./volume/IterationsBar";
 import MaskPanel, { type MaskOptions } from "./volume/MaskPanel";
-import OverlaysPanel, { TILE_MAX } from "./volume/OverlaysPanel";
+import OverlaysPanel, { SliceMapPanel, TILE_MAX } from "./volume/OverlaysPanel";
 import type { MapItem, OverlayOptions } from "./volume/MapsList";
 import type { IsoLayout } from "./volume/IsoSurfaceScene";
 import ResolutionPanel, { type ResolutionStats } from "./volume/ResolutionPanel";
@@ -693,7 +693,12 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     // Overlays of the 3D volume and the maps panel
     const overlaysCfg = tabsCfg.volume3d ? props.overlays ?? null : null;
     const overlayGiven = useMemo(() => (overlaysCfg ?? []).map((o) => o.density), [overlaysCfg]);
-    const overlayMaps = useDensityGrids(overlayGiven, builtIso);
+    // The map of the Slices (0: the volume, k: overlay k - 1); the overlays
+    // are loaded for it too once another one is chosen
+    const [sliceMap, setSliceMap] = useState(0);
+    const [sliceMapsWanted, setSliceMapsWanted] = useState(false);
+    useEffect(() => setSliceMap(0), [overlaysCfg]);
+    const overlayMaps = useDensityGrids(overlayGiven, builtIso || sliceMapsWanted);
     const [overlayOpts, setOverlayOpts] = useState<OverlayOptions[]>([]);
     useEffect(() => {
       setOverlayOpts((overlaysCfg ?? []).map((o, i) => ({
@@ -706,6 +711,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     // Each map its own threshold (the link toggle of the maps list ties them)
     const [linked, setLinked] = useState(false);
     const [showMain, setShowMain] = useState(true);
+    // The color of the volume's surface (its swatch in the Slices maps panel)
+    const [mainColor, setMainColor] = useState<string | null>(null);
     const [mapsLayout, setMapsLayout] = useState<IsoLayout>(props.overlaysLayout ?? "overlay");
     const [overlaysOpen, setOverlaysOpen] = useState(false);
     const overlaysPanelRef = useRef<HTMLDivElement>(null);
@@ -942,7 +949,16 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gridSlices, iters, sliceIter]);
     const iterGrid = useDensityGrid(iterGridSrc, "the iteration");
-    const sliceGrid = (iterGridSrc && iterGrid.density) || gridSlices;
+    // Another map of the All row (an overlay on the same grid), else the
+    // iteration chosen, else the pane's map
+    const sliceOverlay = sliceMap > 0 ? overlayMaps[sliceMap - 1] ?? null : null;
+    const overlayGrid = sliceOverlay?.density && gridSlices
+      && sliceOverlay.density.shape.join() === gridSlices.shape.join() ? sliceOverlay.density : null;
+    const sliceMapStatus = sliceMap === 0 ? null
+      : overlayGrid ? null
+      : sliceOverlay?.density ? "This map is on another grid: its slices can not be shown."
+      : sliceOverlay?.status ?? "Loading the map…";
+    const sliceGrid = overlayGrid || (iterGridSrc && iterGrid.density) || gridSlices;
 
     /* ---------- images (decoded once, shared by both tabs) ---------- */
     const loader = useDataLoader();
@@ -1442,6 +1458,29 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       onChange: setOverlay,
       maxShown: tiled ? TILE_MAX : undefined,
     } : null;
+    // The map of the Slices, one at a time (the same button in its toolbar)
+    const sliceMapItems = overlaysCfg && overlaysCfg.length > 0 && gridSlices ? [
+      { label: props.overlaysMainLabel ?? "Volume", description: props.overlaysMainDescription,
+        color: mainColor ?? defaults.iso?.color ?? "#b2b2ff" },
+      ...overlaysCfg.map((o, i) => ({
+        label: o.label ?? `Map ${i + 1}`, description: o.description,
+        color: overlayOpts[i]?.color ?? OVERLAY_COLORS[i % OVERLAY_COLORS.length],
+      })),
+    ] : null;
+    const sliceMapButton = sliceMapItems && (
+      <span className={styles.panelAnchor} data-overlays-button>
+        <ToolButton title={`Maps: the one shown in the slices (${sliceMapItems[sliceMap]?.label})`}
+                    active={overlaysOpen} onClick={() => setOverlaysOpen((v) => !v)}>
+          <Layers size={16} />
+        </ToolButton>
+        {overlaysOpen && tab === "slices" && (
+          <div ref={overlaysPanelRef}>
+            <SliceMapPanel items={sliceMapItems} index={sliceMap} status={sliceMapStatus}
+                           onIndex={(i) => { if (i > 0) setSliceMapsWanted(true); setSliceMap(i); }} />
+          </div>
+        )}
+      </span>
+    );
     const modeButton = (t: Exclude<Mode, null>, title: string, icon: ReactNode) =>
       toolsCfg[t] && <ToolButton title={title} active={mode === t} onClick={() => setTool(t)}>{icon}</ToolButton>;
 
@@ -1471,6 +1510,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
             {iterGridSrc && !iterGrid.density && <span className={styles.iterLoaded}>{iterGrid.status ?? "Loading…"}</span>}
           </label>
         )}
+        {sliceMapButton}
         {particlesButton(false)}
         {maskButton("slices")}
         {resolutionButton("slices")}
@@ -1806,6 +1846,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                                 mask={isoMask} maskStyle={maskStyle} colorBy={isoColorBy}
                                 overlays={isoOverlays} showDensity={showMain}
                                 onOverlayThresholds={onOverlayThresholds}
+                                onColor={overlaysCfg?.length ? setMainColor : undefined}
                                 maps={isoMaps} layout={mapsLayout} />
               )}
             </div>

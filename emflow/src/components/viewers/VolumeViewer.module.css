@@ -491,6 +491,11 @@
   margin: 1px 0 0;
 }
 
+.displayOption .layersSwatch {
+  margin-top: 1px;
+  cursor: inherit;
+}
+
 .displayLabel {
   display: block;
   font-weight: 600;
@@ -502,6 +507,12 @@
   margin-top: 1px;
   color: var(--vv-muted);
   font-weight: 400;
+}
+
+.displayStatus {
+  margin: 4px 0 0;
+  color: var(--vv-muted);
+  font-size: 0.7rem;
 }
 
 /* Tiled 3D volume: a cell per map over the canvas, with its name */

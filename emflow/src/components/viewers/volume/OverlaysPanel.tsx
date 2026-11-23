@@ -10,6 +10,8 @@
 // to compare them side by side. Each map is shown or hidden, colored and
 // given its threshold in the side panel (MapsList). Tiled, at most
 // TILE_MAX maps are shown.
+// SliceMapPanel: the same button in the Slices toolbar chooses the map whose
+// sections are shown (one at a time).
 export const TILE_MAX = TILE_CELLS_MAX;
 
 import styles from "../VolumeViewer.module.css";
@@ -47,3 +49,29 @@ export default function OverlaysPanel({ layout, onLayout }: Props) {
   );
 }
 
+/** The maps of the Slices (one shown at a time). */
+export function SliceMapPanel({ items, index, status, onIndex }: {
+  items: { label: string; description?: string; color: string }[];
+  index: number;
+  /** Loading or error of the chosen map (null: shown). */
+  status: string | null;
+  onIndex: (index: number) => void;
+}) {
+  return (
+    <div className={`${styles.panel} ${styles.layers} ${styles.display}`} role="dialog" aria-label="Map of the slices">
+      <div className={styles.layersHead}>
+        <span className={styles.layersTitle}>Slices of</span>
+      </div>
+      <div role="radiogroup" aria-label="Map of the slices">
+        {items.map((m, i) => (
+          <label key={i} className={styles.displayOption} title={m.description ?? m.label}>
+            <input type="radio" name="vv-slices-map" checked={index === i} onChange={() => onIndex(i)} />
+            <span className={styles.layersSwatch} style={{ background: m.color }} />
+            <span className={styles.displayLabel}>{m.label}</span>
+          </label>
+        ))}
+      </div>
+      {status && <div className={styles.displayStatus}>{status}</div>}
+    </div>
+  );
+}
