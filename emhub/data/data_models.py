@@ -846,10 +846,11 @@ def create_data_models(dm):
                        self.start, self.end))
 
         def __getExtra(self, key, default):
-            return self.extra.get(key, default)
+            # Old bookings might have been stored with extra = null
+            return (self.extra or {}).get(key, default)
 
         def __setExtra(self, key, value):
-            extra = dict(self.extra)
+            extra = dict(self.extra or {})
             extra[key] = value
             self.extra = extra
 
