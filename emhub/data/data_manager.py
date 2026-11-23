@@ -348,6 +348,8 @@ class DataManager(DbManager):
     # Keys in User.extra that only managers can change
     USER_MANAGER_EXTRA = {'independent_resources', 'auth_local', 'reset_token',
                           'invoice', 'university'}
+    # Keys of USER_MANAGER_EXTRA that a PI can also change in their own user
+    USER_PI_EXTRA = {'invoice', 'university'}
 
     def __check_user_update(self, attrs):
         """ Non-managers can only update some fields of their own user. """
@@ -362,8 +364,12 @@ class DataManager(DbManager):
         if uid != self._user.id:
             raise Exception("Only 'managers' can update other users.")
 
+        manager_extra = self.USER_MANAGER_EXTRA
+        if self._user.is_pi:
+            manager_extra = manager_extra - self.USER_PI_EXTRA
+
         fields = set(attrs) - self.USER_SELF_FIELDS
-        fields |= set(attrs.get('extra') or {}) & self.USER_MANAGER_EXTRA
+        fields |= set(attrs.get('extra') or {}) & manager_extra
         if fields:
             raise Exception("Only 'managers' can update: %s"
                             % ', '.join(sorted(fields)))

@@ -82,6 +82,14 @@ class TestUpdateUserPermissions(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "Only 'admin'"):
             self._update(id=self.other.id, roles=['user', 'admin'])
 
+    def test_pi_updates_own_invoice(self):
+        self._login(self.pi)
+        self._update(id=self.pi.id, extra={'invoice': {'reference': 'x'},
+                                           'university': 'x'})
+        pi = self.dm.get_user_by(id=self.pi.id)
+        self.assertEqual(pi.extra['invoice'], {'reference': 'x'})
+        self.assertEqual(pi.extra['university'], 'x')
+
 
 if __name__ == '__main__':
     unittest.main()
