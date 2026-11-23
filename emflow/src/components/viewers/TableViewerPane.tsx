@@ -328,13 +328,17 @@ export default function TableViewerPane({
 
         const sign = sortState.direction === "asc" ? 1 : -1;
 
-        return [...rows].sort((a, b) =>
-            compareCellValues(
-                a.cells[sortColumn.id],
-                b.cells[sortColumn.id],
-                sign,
+        // Pinned rows (All, Overall) first, out of the sort
+        return [
+            ...rows.filter((row) => row.pinned),
+            ...rows.filter((row) => !row.pinned).sort((a, b) =>
+                compareCellValues(
+                    a.cells[sortColumn.id],
+                    b.cells[sortColumn.id],
+                    sign,
+                ),
             ),
-        );
+        ];
     }, [searchValue, sortState, table.columns, table.rows]);
 
     const hasRowActions = useMemo(

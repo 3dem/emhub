@@ -190,16 +190,16 @@ def build_align_volumes_table(data, title):
     rows = []
     if data.aligned:
         rows.append({'id': OVERALL_ROW, 'cells': {'cls': 'Overall'}, 'actions': [],
-                     'defaultAction': dict(ACTION_OVERALL),
+                     'pinned': True, 'defaultAction': dict(ACTION_OVERALL),
                      'cellContexts': {SHOW_COLUMN: {'actions': [dict(ACTION_OVERALL)]}}})
     # Aligned: the matrix is in the Overall row, beside the CC plot
     if not data.aligned and has_similarity(data):
         rows.append({'id': SIMILARITY_ROW, 'cells': {'cls': 'Similarity'}, 'actions': [],
-                     'defaultAction': dict(ACTION_SIMILARITY),
+                     'pinned': True, 'defaultAction': dict(ACTION_SIMILARITY),
                      'cellContexts': {SHOW_COLUMN: {'actions': [dict(ACTION_SIMILARITY)]}}})
     if len(data.references) > 1 or data.aligned:
         rows.append({'id': ALL_ROW, 'cells': {'cls': 'All references'}, 'actions': [],
-                     'defaultAction': dict(ACTION_ALL),
+                     'pinned': True, 'defaultAction': dict(ACTION_ALL),
                      'cellContexts': {SHOW_COLUMN: {'actions': [dict(ACTION_ALL)]}}})
     for r in data.references:
         k = r.get('rlnClassNumber')

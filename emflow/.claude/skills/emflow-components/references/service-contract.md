@@ -217,7 +217,7 @@ table: TableViewerData = {
   title?, columns: [{id, label, align?, width?, sortable?, actions?}],   // action: {id, label, icon?, disabled?}
   rows: [{id, cells: {colId: value}, data?, actions?, defaultAction?,
           cellContexts?: {colId: {edit?: {type: "boolean", field, checked?, selectAll?}, actions?, children?}},
-          children?, gallery?}],   // gallery: false, no card (only in the table)
+          children?, gallery?, pinned?}],   // gallery: false, no card (only in the table); pinned: first, out of the sort
   actions?, editActions?: [{id, label, requiresChanges?}], page?,
   initialAction?: {rowId, actionId?, columnId?},
   variants?: {label, value, options: [{id, label}]},   // other versions, e.g. iterations

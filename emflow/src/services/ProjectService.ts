@@ -328,6 +328,9 @@ export type TableViewerRow = {
   /** false: no card in the gallery (only in the table), e.g. a row of all
    * the volumes of a table. */
   gallery?: boolean;
+  /** Kept first, in their order, when the table is sorted (a row of all
+   * the others, e.g. All or Overall). */
+  pinned?: boolean;
 };
 
 export type TableViewerChildrenRequest = {

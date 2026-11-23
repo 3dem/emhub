@@ -89,6 +89,8 @@ class TestAlignVolumesView(unittest.TestCase):
                          ['overall', 'all', 'class1', 'class2'])
         self.assertEqual(table['initialAction'], {'rowId': 'overall', 'actionId': 'overall'})
         self.assertEqual(rows[1]['defaultAction']['id'], 'all')
+        # Overall and All first also when the table is sorted
+        self.assertEqual([r.get('pinned', False) for r in rows], [True, True, False, False])
         c1, c2 = rows[2]['cells'], rows[3]['cells']
         self.assertEqual((c1['cls'], c1['name'], c1['status']), (1, 'nucleosome', 'kept'))
         self.assertEqual((c2['name'], c2['source']), ('membrane', self.volumes[1]))
@@ -259,7 +261,7 @@ class TestAlignVolumesView(unittest.TestCase):
         self.assertEqual(rows[0]['defaultAction']['id'], 'allmaps')
         self.assertFalse(rows[0]['gallery'])
         # Not a class of a subset: its checkbox selects the others
-        self.assertTrue(rows[0]['selectAll'])
+        self.assertTrue(rows[0]['selectAll'] and rows[0]['pinned'])
         self.assertNotIn('selectAll', rows[1])
         self.assertIn('2 classes', table['title'])
         pane = build_spa_pane_content('allmaps', self.root, 'classes3d', rows[0]['cells'])

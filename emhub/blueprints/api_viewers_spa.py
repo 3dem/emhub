@@ -894,7 +894,7 @@ def build_classes3d_table(full_path):
                  'volumePaths': [r['cells']['volumePath'] for r in rows],
                  'volumeLabels': [f"Class {r['cells']['classId']}" for r in rows]}
         rows.insert(0, {'id': 'all', 'cells': cells, 'actions': [], 'gallery': False,
-                        'selectAll': True,
+                        'selectAll': True, 'pinned': True,
                         'defaultAction': _table_view_action_payload(_ACTION_ALL_MAPS)})
 
     title = (f"{spec['title']} — {_iteration_label(os.path.basename(full_path))} "
@@ -975,6 +975,7 @@ def build_volumes_table(full_path, root):
         cells = {'classId': 'All', 'volume': f'{len(rows)} maps', 'dimensions': '', 'pixelSize': '',
                  'volumePaths': volumes}
         rows.insert(0, {'id': 'all', 'cells': cells, 'actions': [], 'gallery': False,
+                        'pinned': True,
                         'defaultAction': _table_view_action_payload(_ACTION_ALL_MAPS)})
     return {'title': f"{spec['title']} ({len(volumes)} maps)",
             'columns': _table_view_column_actions(spec),
