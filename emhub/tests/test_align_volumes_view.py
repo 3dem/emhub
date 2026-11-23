@@ -86,18 +86,17 @@ class TestAlignVolumesView(unittest.TestCase):
         self.assertEqual([c['id'] for c in table['columns']][-1], 'show')
         rows = table['rows']
         self.assertEqual([r['id'] for r in rows],
-                         ['overall', 'similarity', 'all', 'class1', 'class2'])
+                         ['overall', 'all', 'class1', 'class2'])
         self.assertEqual(table['initialAction'], {'rowId': 'overall', 'actionId': 'overall'})
-        self.assertEqual(rows[1]['defaultAction']['id'], 'similarity')
-        self.assertEqual(rows[2]['defaultAction']['id'], 'all')
-        c1, c2 = rows[3]['cells'], rows[4]['cells']
+        self.assertEqual(rows[1]['defaultAction']['id'], 'all')
+        c1, c2 = rows[2]['cells'], rows[3]['cells']
         self.assertEqual((c1['cls'], c1['name'], c1['status']), (1, 'nucleosome', 'kept'))
         self.assertEqual((c2['name'], c2['source']), ('membrane', self.volumes[1]))
         self.assertTrue(c2['status'].startswith('aligned'), c2['status'])
         self.assertGreater(c2['ccAfter'], c2['ccBefore'])
         self.assertGreater(c2['rotation'], 0)
-        self.assertEqual(rows[4]['defaultAction']['id'], 'volumes')
-        self.assertEqual(rows[4]['cellContexts']['show']['actions'][0]['id'], 'volumes')
+        self.assertEqual(rows[3]['defaultAction']['id'], 'volumes')
+        self.assertEqual(rows[3]['cellContexts']['show']['actions'][0]['id'], 'volumes')
 
     def test_all_references(self):
         """ The map of the poses with every reference over it (overlays). """
@@ -131,7 +130,11 @@ class TestAlignVolumesView(unittest.TestCase):
         self.assertIn('low-pass 20 Å', pane['title'])
 
     def test_overall(self):
+        # The CC plot and the similarity matrix beside it
         pane = build_job_view_pane(self.root, self.value, 'overall', {'cls': 'Overall'})
+        self.assertEqual((pane['kind'], pane['layout']), ('grid', 'cols'))
+        self.assertEqual(pane['cells']['right']['figure']['data'][0]['type'], 'heatmap')
+        pane = pane['cells']['left']
         self.assertEqual(pane['kind'], 'plotly')
         traces = pane['figure']['data']
         self.assertEqual([t['name'] for t in traces], ['Before', 'After', 'Next solution'])

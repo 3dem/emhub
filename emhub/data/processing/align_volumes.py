@@ -21,9 +21,10 @@ emflow's table viewer, from the job's alignment.star:
   - Overall: the cross-correlation (CC) of each reference with the map
     before and after the alignment, and of the next best solution (the best
     fit in another orientation, more than twice the angular step away: if
-    its CC is close, the fit is ambiguous).
+    its CC is close, the fit is ambiguous); beside it, the similarity matrix.
   - Similarity: the CC of every pair of references (and with the map of
-    the poses), how similar the classes are. Jobs before the 'similarity'
+    the poses), how similar the classes are; its own row only when the
+    volumes were not aligned (no Overall row). Jobs before the 'similarity'
     table: computed here from the written references (needs emwrap).
   - All references: the map of the poses (or the first reference) in the 3D
     volume viewer with every reference drawn over it, each one shown or
@@ -191,7 +192,8 @@ def build_align_volumes_table(data, title):
         rows.append({'id': OVERALL_ROW, 'cells': {'cls': 'Overall'}, 'actions': [],
                      'defaultAction': dict(ACTION_OVERALL),
                      'cellContexts': {SHOW_COLUMN: {'actions': [dict(ACTION_OVERALL)]}}})
-    if len(data.references) > 1 and (data.similarity or can_compute_similarity()):
+    # Aligned: the matrix is in the Overall row, beside the CC plot
+    if not data.aligned and has_similarity(data):
         rows.append({'id': SIMILARITY_ROW, 'cells': {'cls': 'Similarity'}, 'actions': [],
                      'defaultAction': dict(ACTION_SIMILARITY),
                      'cellContexts': {SHOW_COLUMN: {'actions': [dict(ACTION_SIMILARITY)]}}})
@@ -300,9 +302,11 @@ def build_similarity_pane(data):
         'colorbar': {'title': {'text': 'CC'}, 'thickness': 12},
         'hovertemplate': '%{text}<br>CC %{z:.3f}<extra></extra>',
     }
+    # automargin: the labels ('Class 1 (ref)') fit also in a grid cell,
+    # where the viewer sets a narrow margin
     layout = {'margin': {'l': 110, 'r': 24, 't': 24, 'b': 64},
-              'xaxis': {'side': 'bottom'},
-              'yaxis': {'autorange': 'reversed', 'scaleanchor': 'x'}}
+              'xaxis': {'side': 'bottom', 'automargin': True},
+              'yaxis': {'autorange': 'reversed', 'scaleanchor': 'x', 'automargin': True}}
     g = data.general
     title = 'CC of the references with each other'
     if (lowpass := _float(g.get('emwLowpass'))) and (d := _float(g.get('emwMaskDiameter'))):
@@ -377,9 +381,30 @@ def build_all_references_pane(root, data):
     return build_overlays_pane_content(root, main, refs, title=title, main_label=main_label)
 
 
+def has_similarity(data):
+    """ True if the similarity matrix of the references can be shown. """
+    return len(data.references) > 1 and bool(data.similarity or can_compute_similarity())
+
+
+def build_overall_grid_pane(root, data):
+    """ The CC plot and, with more than one reference, the similarity
+    matrix beside it (as the Overall plots of a Relion job, in a grid). """
+    overall = build_overall_pane(data)
+    if not has_similarity(data):
+        return overall
+    try:
+        compute_similarity(root, data)
+        similarity = build_similarity_pane(data)
+    except Exception as e:
+        similarity = {'kind': 'empty', 'title': 'Similarity of the references',
+                      'message': str(e)}
+    return {'kind': 'grid', 'title': f'Overall — {len(data.references)} references',
+            'layout': 'cols', 'cells': {'left': overall, 'right': similarity}}
+
+
 def build_align_volumes_pane(root, data, action_id, row_cells):
     if action_id == ACTION_OVERALL['id']:
-        return build_overall_pane(data)
+        return build_overall_grid_pane(root, data)
     if action_id == ACTION_SIMILARITY['id']:
         compute_similarity(root, data)
         return build_similarity_pane(data)
