@@ -628,6 +628,10 @@ class DataManager(DbManager):
             for attr, value in attrs.items():
                 if attr != 'id':
                     setattr(b, attr, value)
+            # Never store extra as null (it might come as null from clients
+            # or from old bookings), code using booking.extra expects a dict
+            if b.extra is None:
+                b.extra = {}
             if repeater:
                 repeater.move()  # move start, end for repeating bookings
 
@@ -1637,6 +1641,10 @@ class DataManager(DbManager):
             attrs['type'] = 'booking'
 
         b = self.Booking(**attrs)
+        # Column default only applies if extra is not passed, so also
+        # avoid storing an explicit null
+        if b.extra is None:
+            b.extra = {}
 
         def _set_user(key):
             keyid = key + '_id'
