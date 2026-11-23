@@ -168,7 +168,7 @@ SPA_TABLE_VIEW_SPECS = {
             {'id': 'percent', 'label': '% Particles', 'align': 'right', 'sortable': True},
             {'id': 'resolution', 'label': 'Resolution (Å)', 'align': 'right', 'sortable': True},
         ],
-        'actions': [_ACTION_VOLUME],
+        'actions': [_ACTION_VOLUME, _ACTION_ALL_MAPS],
         # Show the volume when clicking on a class row
         'default_action': _ACTION_VOLUME,
         # A card per class (TableViewerData.gallery), {cell id} templates
@@ -339,7 +339,8 @@ def build_spa_pane_content(action_id, root, type_key, row_cells, output_path=Non
     if action_id == 'particles':
         return build_particles_grid_pane_content(root, row_cells, output_path)
     # The All maps row: its volume cell (column action 'volume') too
-    if action_id == 'allmaps' or (type_key == 'volumes' and row_cells.get('volumePaths')):
+    if action_id == 'allmaps' or (type_key in ('volumes', 'classes3d')
+                                  and row_cells.get('volumePaths')):
         return build_volumes_all_pane_content(root, row_cells)
     if action_id == 'volume' and type_key == 'volumes':
         return build_volumes_volume_pane_content(root, row_cells)
@@ -884,8 +885,17 @@ def build_classes3d_table(full_path):
         rows.append({'id': class_id, 'cells': cells, 'actions': [],
                      'defaultAction': _table_view_action_payload(spec['default_action'])})
 
+    if len(rows) > 1:
+        # First: all the classes, in the 3D volume tab over class 1 or tiled
+        cells = {'classId': 'All', 'volume': f'{len(rows)} classes',
+                 'particles': total, 'percent': 100 if total else 0, 'resolution': None,
+                 'volumePaths': [r['cells']['volumePath'] for r in rows],
+                 'volumeLabels': [f"Class {r['cells']['classId']}" for r in rows]}
+        rows.insert(0, {'id': 'all', 'cells': cells, 'actions': [], 'gallery': False,
+                        'defaultAction': _table_view_action_payload(_ACTION_ALL_MAPS)})
+
     title = (f"{spec['title']} — {_iteration_label(os.path.basename(full_path))} "
-             f"({len(rows)} classes, {total} particles, {float(ps):0.3f} Å/px)")
+             f"({len(classes)} classes, {total} particles, {float(ps):0.3f} Å/px)")
     return {'title': title,
             'columns': _table_view_column_actions(spec),
             'rows': rows,
@@ -970,15 +980,17 @@ def build_volumes_table(full_path, root):
 
 
 def build_volumes_all_pane_content(root, row_cells):
-    """VolumeViewer of the first map of a list of volumes with the others
-    drawn over it (shown or hidden in its Maps panel). """
+    """VolumeViewer of the first map of a list of volumes (or of the 3D
+    classes of an iteration) with the others drawn over it, or tiled (the
+    display of its Maps button); volumeLabels: their short names. """
     volumes = row_cells.get('volumePaths') or []
     if not volumes:
         raise Exception('Missing volume paths')
-    labels = [f'Class {i}' for i in range(1, len(volumes) + 1)]
+    labels = (row_cells.get('volumeLabels')
+              or [f'Class {i}' for i in range(1, len(volumes) + 1)])
     return build_overlays_pane_content(
         root, volumes[0], list(zip(labels[1:], volumes[1:])),
-        title=f'{len(volumes)} maps over class 1 ({os.path.basename(volumes[0])})',
+        title=f'{len(volumes)} maps over {labels[0].lower()} ({os.path.basename(volumes[0])})',
         main_label=labels[0])
 
 

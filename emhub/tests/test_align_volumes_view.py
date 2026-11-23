@@ -236,6 +236,37 @@ class TestAlignVolumesView(unittest.TestCase):
         self.assertEqual(config['overlaysMainLabel'], 'Class 1')
         self.assertEqual([o['label'] for o in config['overlays']], ['Class 2'])
 
+    def test_classes3d_all(self):
+        """ The 3D classes of an iteration: an All row first, every class
+        in the 3D volume tab (over class 1, or tiled). """
+        from emhub.blueprints.api_viewers_spa import build_classes3d_table, build_spa_pane_content
+
+        job = os.path.join(self.root, 'Class3D/job040')
+        os.makedirs(job, exist_ok=True)
+        for k in (1, 2):
+            shutil.copy(os.path.join(self.root, 'Refine3D/job010/run_class001.mrc'),
+                    os.path.join(job, f'run_it025_class00{k}.mrc'))
+        with open(os.path.join(job, 'run_it025_model.star'), 'w') as f:
+            f.write('data_model_general\n\n_rlnPixelSize 8.0\n\n'
+                    'data_model_classes\n\nloop_\n_rlnReferenceImage #1\n_rlnEstimatedResolution #2\n'
+                    'Class3D/job040/run_it025_class001.mrc 20.0\n'
+                    'Class3D/job040/run_it025_class002.mrc 25.0\n\n')
+        optimiser = os.path.join(job, 'run_it025_optimiser.star')
+        open(optimiser, 'w').close()
+        table = build_classes3d_table(optimiser)
+        rows = table['rows']
+        self.assertEqual([r['id'] for r in rows], ['all', 1, 2])
+        self.assertEqual(rows[0]['defaultAction']['id'], 'allmaps')
+        self.assertFalse(rows[0]['gallery'])
+        self.assertIn('2 classes', table['title'])
+        pane = build_spa_pane_content('allmaps', self.root, 'classes3d', rows[0]['cells'])
+        config = pane['viewerConfig']
+        self.assertEqual(config['overlaysMainLabel'], 'Class 1')
+        self.assertEqual([o['label'] for o in config['overlays']], ['Class 2'])
+        # Its volume cell too
+        pane = build_spa_pane_content('volume', self.root, 'classes3d', rows[0]['cells'])
+        self.assertIn('overlays', pane['viewerConfig'])
+
 
 if __name__ == '__main__':
     unittest.main()
