@@ -108,7 +108,8 @@ function getBookingParams(includeEmpty) {
 
     booking.start = getDateAndTime('booking-start');
     booking.end = getDateAndTime('booking-end');
-    booking.experiment = last_experiment;
+    if (last_experiment)
+        booking.experiment = last_experiment;
 
     if (booking.type == 'slot') {
         booking.slot_auth = {
@@ -143,7 +144,7 @@ function onOkButtonClick(is_new) {
 
     try {
         booking = getBookingParams(!is_new);
-        booking.extra = booking_extra;
+        booking.extra = booking_extra || {};
 
         if (experiment_mode === 'embedded'){
             last_experiment = getFormAsJson('dynamic-form');
