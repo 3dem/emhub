@@ -214,13 +214,6 @@ class TestData:
 
     def _populatePucks(self, dm):
         self._action('Populating Pucks')
-        # Dewars and canes layout is read from config:dewars, create it
-        # from the 'dewars' data unless the form is already defined
-        dewars = self.json_data.get('dewars', [])
-        if dewars and not dm.get_form_by_name('config:dewars'):
-            dm.create_form(name='config:dewars',
-                           definition={'dewars': dewars})
-
         for puck in self.json_data.get('pucks', []):
             dm.create_puck(**puck)
 

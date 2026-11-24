@@ -779,7 +779,32 @@
             }
         ]
     }
+    },
+  {
+    "name": "config:dewars",
+    "definition": {
+    "dewars": [
+        {
+            "id": 1,
+            "label": "Dewar 1",
+            "canes": [
+                {"id": 1, "color": "Black", "label": "10-01"},
+                {"id": 2, "color": "Green", "label": "10-02"},
+                {"id": 3, "color": "HotPink", "label": "10-03"},
+                {"id": 4, "color": "Red", "label": "10-04"}
+            ]
+        },
+        {
+            "id": 2,
+            "label": "Dewar 2",
+            "canes": [
+                {"id": 5, "color": "Plum", "label": "10-05"},
+                {"id": 6, "color": "LightSteelBlue", "label": "10-06"}
+            ]
+        }
+    ]
     }
+  }
 ],
   
   "templates": [
@@ -1497,26 +1522,6 @@
 	   {"id": 331, "start": "2023-05-31T02:52:51.680946+00:00", "status": "active", "data_path": "20230530_Arctica01_S00331_OTF", "acquisition": {"voltage": 200, "magnification": 79000, "pixel_size": 1.044, "dose": 1.063, "cs": 2.7}, "resource_id": 3, "booking_id": 488, "operator_id": 48, "extra": {"tasks": [], "raw": {"frames": "~/.emhub/frames/20230530_Arctica01_S00331", "path": "~/.emhub/raw/20230530_Arctica01_S00331", "size": 47243976, "sizeH": "45.1 MB", "files": {".jpg": {"count": 1, "size": 60232}, ".tiff": {"count": 1, "size": 47172785}, ".xml": {"count": 1, "size": 10959}}}, "project_id": "67", "otf": {"workflow": "default", "host": "default", "path": "~/.emhub/otf/20230530_Arctica01_S00331_OTF", "status": "created"}, "updated": "2023-05-30 21:59:15"}},
 	   {"id": 332, "start": "2023-05-31T02:59:39.667315+00:00", "status": "active", "data_path": "20230530_Arctica01_S00332_OTF", "acquisition": {"voltage": 200, "magnification": 79000, "pixel_size": 1.044, "dose": 1.063, "cs": 2.7}, "resource_id": 3, "booking_id": 488, "operator_id": 48, "extra": {"tasks": [], "raw": {"frames": "~/.emhub/frames/20230530_Arctica01_S00332", "path": "~/.emhub/raw/20230530_Arctica01_S00332", "size": 647715045691, "sizeH": "603.23 GB", "files": {".jpg": {"count": 2454, "size": 204588119}, ".tiff": {"count": 4725, "size": 647472439807}, ".xml": {"count": 2454, "size": 27314508}, ".dm": {"count": 524, "size": 10703257}}, "movies": 2268, "first_movie": "Images-Disc1/GridSquare_31808618/Data/FoilHole_31811501_Data_31811944_31811946_20230530_222435_fractions.tiff", "first_movie_creation": 1685503294.711306, "last_movie": "Images-Disc1/GridSquare_31808488/Data/FoilHole_31816494_Data_31811944_31811946_20230531_083725_fractions.tiff", "last_movie_creation": 1685540061.72743, "duration": "10.21 hours"}, "project_id": "67", "otf": {"workflow": "default", "host": "default", "path": "~/.emhub/otf/20230530_Arctica01_S00332_OTF", "status": "launched"}, "updated": "2023-05-31 08:40:03"}}
 ],
-"dewars": [        
-        {
-            "id": 1,
-            "label": "Dewar 1",
-            "canes": [
-                {"id": 1, "color": "Black", "label": "10-01"},
-                {"id": 2, "color": "Green", "label": "10-02"},
-                {"id": 3, "color": "HotPink", "label": "10-03"},
-                {"id": 4, "color": "Red", "label": "10-04"}
-            ]
-        },
-        {
-            "id": 2,
-            "label": "Dewar 2",
-            "canes": [
-                {"id": 5, "color": "Plum", "label": "10-05"},
-                {"id": 6, "color": "LightSteelBlue", "label": "10-06"}
-            ]
-        }
-    ],
   "pucks":  [
   {"id": 201, "label": "Puck_0201", "color": "Red", "dewar": 1, "cane": 1, "position": 1},
   {"id": 202, "label": "Puck_0202", "color": "Orange", "dewar": 1, "cane": 1, "position": 2},
