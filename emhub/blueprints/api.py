@@ -1075,7 +1075,15 @@ def _table_view_tomo_coordinates(attrs, root, type_key, row_cells, row_label):
     if not output_path:
         raise Exception('Missing optimisation_set.star output path')
     tomo_name = row_cells.get('tomoName') or row_label
-    return load_tomogram_card_coordinates(root, output_path, tomo_name)
+    # The output of an emw-apply-mask job: all the particles of its input,
+    # kept and removed
+    if (coordinates := apply_mask_coordinates(root, output_path, tomo_name)) is not None:
+        return coordinates
+    coordinates = load_tomogram_card_coordinates(root, output_path, tomo_name)
+    if mask := row_tomo_mask(root, row_cells):
+        # In / outside of the tomogram's selection mask (emw-apply-mask)
+        coordinates = coordinates_mask_sets(root, coordinates, mask)
+    return coordinates
 
 
 @api_bp.route('/resolve_table_view_pane', methods=['POST'])
@@ -1135,7 +1143,8 @@ def resolve_table_view_pane():
                 return build_tomogram_volume_slider_pane_content(
                     root, tomo_rel, title=f'Tomogram — {row_label}',
                     coordinates=_table_view_tomo_coordinates(
-                        attrs, root, type_key, row_cells, row_label))
+                        attrs, root, type_key, row_cells, row_label),
+                    mask=row_tomo_mask(root, row_cells))
             return build_tilt_series_grid_pane_content(
                 root, row_cells, resolve_row_star_path(attrs, row_cells), row_label)
 
@@ -1170,6 +1179,7 @@ def resolve_table_view_pane():
                 title=tomo_rel,
                 coordinates=_table_view_tomo_coordinates(
                     attrs, root, type_key, row_cells, row_label),
+                mask=row_tomo_mask(root, row_cells),
             )
 
         star_rel = resolve_row_star_path(attrs, row_cells, column_id)
@@ -1316,6 +1326,28 @@ def create_remove_duplicates():
             raise Exception(f"Job folder not found: {attrs['job']}")
         return remove_duplicates(root, attrs['job'], attrs.get('distance'),
                                  attrs.get('edge'))
+
+    return _handle_item(_handle, 'subsetResult')
+
+
+@api_bp.route('/create_apply_mask', methods=['POST'])
+@flask_login.login_required
+def create_apply_mask():
+    """ Launch an emw-apply-mask job keeping the particles of a
+    TomoCoordinates / TomoParticles set in the masks of their tomograms (or
+    outside of them), if the current user may change the project (see
+    _check_can_edit_processing). attrs: root, starPath (the
+    optimisation_set.star) and invert. """
+    def _handle(**attrs):
+        from emhub.blueprints.api_viewers import create_apply_mask as _create
+
+        root = resolve_project_root(attrs['root'])
+        _check_can_edit_processing(root, attrs.get('entry_id'), attrs.get('session_id'))
+        star_path = attrs.get('starPath') or attrs.get('outputPath') or ''
+        if not os.path.exists(project_file_path(root, star_path)):
+            raise Exception(f'Set not found: {star_path}')
+        return _create(root, star_path, invert=str(attrs.get('invert', '')).lower()
+                       in ('1', 'true', 'yes'))
 
     return _handle_item(_handle, 'subsetResult')
 

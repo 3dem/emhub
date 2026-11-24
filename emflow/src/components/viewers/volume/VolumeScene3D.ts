@@ -10,7 +10,8 @@
 import * as THREE from "three";
 import { templateMesh, type ParticleTemplate } from "./templateSurface";
 import { Trackball } from "./trackball";
-import { densityValues, gaussianImage, removeDust, smoothGrid } from "./densityGrid";
+import { densityValues, gaussianImage, maskSlice, removeDust, smoothGrid } from "./densityGrid";
+import type { SliceMask } from "./VolumeSlices";
 import {
   AXES,
   clampVox,
@@ -64,6 +65,9 @@ export type SceneState = {
   volTolerance: number;
   /** Denoise of the plane images: Gaussian sigma in voxels (0: none). */
   filterSigma: number;
+  /** The mask over the planes, as over the sections of the Slices tab
+   * (null: none or hidden). */
+  mask?: SliceMask | null;
   /** Active tool: "pan" drags move the volume; "select" clicks pick. */
   mode: string | null;
 };
@@ -175,6 +179,9 @@ export class VolumeScene3D {
   private marginBox: THREE.LineSegments<THREE.EdgesGeometry, THREE.LineBasicMaterial> | null = null;
   private marginBoxSize = "";
   private readonly tex = new Map<string, THREE.Texture>();
+  /** Ids of the mask densities (texVariant). */
+  private readonly maskIds = new WeakMap<object, number>();
+  private maskCount = 0;
   private readonly pending = new Set<string>();
   private readonly ray = new THREE.Raycaster();
   private readonly ball: Trackball;
@@ -366,6 +373,7 @@ export class VolumeScene3D {
       g.fillRect(0, 0, c.width, c.height);
       src = c;
     }
+    if (this.state.mask) src = this.withMask(src, a, key, this.state.mask);
     const tx = new THREE.Texture(src);
     tx.colorSpace = THREE.SRGBColorSpace;
     tx.minFilter = THREE.LinearFilter;
@@ -373,6 +381,34 @@ export class VolumeScene3D {
     tx.needsUpdate = true;
     this.tex.set(id, tx);
     return tx;
+  }
+
+  /** The plane image with the mask drawn over it (translucent), laid out
+   * as in the Slices tab: the map section scaled to the whole image, or the
+   * circle where the plane cuts the sphere. */
+  private withMask(src: SliceImage, a: Axis, key: number, m: SliceMask): HTMLCanvasElement {
+    const [w, h] = imageSize(src);
+    const c = document.createElement("canvas");
+    [c.width, c.height] = [w, h];
+    const g = c.getContext("2d")!;
+    g.drawImage(src, 0, 0);
+    g.globalAlpha = m.opacity;
+    if (m.type === "map") {
+      g.drawImage(maskSlice(m.density, a, key, m.level, m.color), 0, 0, w, h);
+    } else {
+      // Section axes (horizontal, vertical) of each plane, as the images
+      const [ha, va]: [Axis, Axis] = a === "z" ? ["x", "y"] : a === "y" ? ["x", "z"] : ["z", "y"];
+      const [sw, sh] = sectionSize(this.o.dim)[a];
+      const R = m.diameter / 2, d = key + 0.5 - m.center[a];
+      if (Math.abs(d) < R) {
+        const r = Math.sqrt(R * R - d * d);
+        g.beginPath();
+        g.ellipse(m.center[ha] * w / sw, m.center[va] * h / sh, r * w / sw, r * h / sh, 0, 0, 2 * Math.PI);
+        g.fillStyle = m.color;
+        g.fill();
+      }
+    }
+    return c;
   }
 
   /** Frees the plane images of another invert or denoise setting that no
@@ -393,9 +429,25 @@ export class VolumeScene3D {
     if (done) this.texDropped = variant;
   }
 
-  /** The part of a texture id after `axis:key`: invert and denoise. */
+  /** The part of a texture id after `axis:key`: invert, denoise and mask. */
   private texVariant() {
-    return `${this.state.inverted ? ":inv" : ""}:${this.state.filterSigma}`;
+    return `${this.state.inverted ? ":inv" : ""}:${this.state.filterSigma}${this.maskVariant()}`;
+  }
+
+  /** Id of the mask drawn over the planes ('' without it): its options and
+   * which density (a new one is a new id). */
+  private maskVariant() {
+    const m = this.state.mask;
+    if (!m) return "";
+    let shape: string;
+    if (m.type === "map") {
+      let id = this.maskIds.get(m.density);
+      if (id === undefined) this.maskIds.set(m.density, id = ++this.maskCount);
+      shape = `map${id}:${m.level}`;
+    } else {
+      shape = `sphere:${m.center.x},${m.center.y},${m.center.z}:${m.diameter}`;
+    }
+    return `:mask:${shape}:${m.color}:${m.opacity}`;
   }
 
   private queueSync() {

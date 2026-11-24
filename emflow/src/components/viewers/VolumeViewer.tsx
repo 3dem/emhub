@@ -1441,6 +1441,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         {modeButton("pan", "Move the volume: drag it in any direction (or right-drag / shift+drag)", <Move size={16} />)}
         {denoiseButton("view3d")}
         {particlesButton(true)}
+        {maskButton("view3d")}
         <ToolButton title="Reset the 3D view" onClick={() => sceneRef.current?.reset()}>
           <RefreshCw size={16} />
         </ToolButton>
@@ -1457,6 +1458,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance,
       filterSigma: shownSigma, mode, nearOnly: near3d, tolerance, templateLevel, particleColor,
       particleSet, setColors: colorSets, setShown: shownSets, margin: boxMargin,
+      // The same mask (and Mask button options) as over the Slices
+      mask: sliceMask,
     };
     const sceneStateRef = useRef(sceneState);
     sceneStateRef.current = sceneState;
@@ -1503,7 +1506,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, volShare, volDark, volNear, volTolerance, shownSigma,
         mode, near3d, tolerance, templateLevel, particleColor, particleSet, colorSets?.join(), shownSets?.join(),
-        boxMargin]);
+        boxMargin, sliceMask]);
     useEffect(() => {
       sceneRef.current?.setDensity(volGrid.density);
     }, [volGrid.density, built3d, sceneError]);

@@ -191,6 +191,11 @@ export default function TableViewerPane({
     // Another version of the table (e.g. an iteration), loaded by the host
     const variants = onVariant ? table.variants : undefined;
     const [variantLoading, setVariantLoading] = useState<string | null>(null);
+    // The open menu of an edit action with options (its button)
+    const [editMenu, setEditMenu] = useState<{
+        anchor: HTMLElement;
+        action: TableViewerEditAction;
+    } | null>(null);
     const chooseVariant = async (id: string) => {
         if (!variants || id === variants.value) return;
         setVariantLoading(id);
@@ -1838,7 +1843,14 @@ export default function TableViewerPane({
                         (action) => {
                             const busy =
                                 editActionBusyId ===
-                                action.id;
+                                action.id ||
+                                Boolean(
+                                    action.options?.some(
+                                        (o) =>
+                                            o.id ===
+                                            editActionBusyId,
+                                    ),
+                                );
 
                             const disabled =
                                 Boolean(
@@ -1864,10 +1876,19 @@ export default function TableViewerPane({
                                     disabled={
                                         disabled
                                     }
-                                    onClick={() =>
-                                        void handleEditAction(
-                                            action,
-                                        )
+                                    title={
+                                        action.title
+                                    }
+                                    onClick={(event) =>
+                                        action.options
+                                            ?.length
+                                            ? setEditMenu({
+                                                anchor: event.currentTarget,
+                                                action,
+                                            })
+                                            : void handleEditAction(
+                                                action,
+                                            )
                                     }
                                     sx={{
                                         height: 32,
@@ -1904,6 +1925,15 @@ export default function TableViewerPane({
                                         <CircularProgress
                                             size={14}
                                         />
+                                    ) : action.options
+                                          ?.length ? (
+                                        <>
+                                            {action.label}
+                                            <ChevronDown
+                                                size={14}
+                                                style={{ marginLeft: 4 }}
+                                            />
+                                        </>
                                     ) : (
                                         action.label
                                     )}
@@ -1911,6 +1941,33 @@ export default function TableViewerPane({
                             );
                         },
                     )}
+
+                    {/* The options of an action with a menu */}
+                    <Menu
+                        anchorEl={editMenu?.anchor}
+                        open={Boolean(editMenu)}
+                        onClose={() => setEditMenu(null)}
+                    >
+                        {(editMenu?.action.options ?? []).map((option) => (
+                            <MenuItem
+                                key={option.id}
+                                title={option.title}
+                                sx={{ fontSize: "0.76rem" }}
+                                onClick={() => {
+                                    const action = editMenu!.action;
+                                    setEditMenu(null);
+                                    void handleEditAction({
+                                        ...action,
+                                        id: option.id,
+                                        label: option.label,
+                                        options: undefined,
+                                    });
+                                }}
+                            >
+                                {option.label}
+                            </MenuItem>
+                        ))}
+                    </Menu>
 
                 </Box>
 

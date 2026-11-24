@@ -339,6 +339,12 @@ var TABLE_SUBSET_ACTION = 'create-subset';
 var TABLE_REMOVE_DUPLICATES_ACTION = 'remove-duplicates';
 // and of two sets: an emw-merge-sets job without their overlaps
 var TABLE_MERGE_SETS_ACTION = 'merge-sets';
+// Edit actions of a TomoCoordinates table whose tomograms have selection masks
+// (emw-apply-mask, api_viewers.APPLY_MASK_ACTIONS, the options of its 'Apply
+// masks' menu): an emw-apply-mask job with the particles in the masks, or
+// outside of them
+var TABLE_APPLY_MASK_ACTION = 'apply-mask';
+var TABLE_APPLY_MASK_INVERT_ACTION = 'apply-mask-invert';
 
 // emflow handles the 'metadata' action id itself (Scipion metadata viewer),
 // the server one (STAR file metadata) is renamed for the viewer
@@ -378,9 +384,10 @@ function adaptTableViewData(tableViewData, outputPath, pointerClass) {
   if (withSubset) {
     table.columns = [{ id: TABLE_INCLUDE_COL, label: 'Selected', align: 'center', width: 70 }]
         .concat(columns);
-    table.editActions = [{
+    // After the actions of the table itself (e.g. the Apply mask ones)
+    table.editActions = (tableViewData.editActions || []).concat([{
       id: TABLE_SUBSET_ACTION, label: 'Create subset', requiresChanges: true
-    }];
+    }]);
     tableViewRowIds[outputPath] = rows.map(function (row) { return String(row.id); });
     tableViewRowParticles[outputPath] = {};
     rows.forEach(function (row) {
@@ -447,6 +454,30 @@ async function createFromCoordinatesCompare(context, request) {
   return { ...subsetResult,
            clearEdits: Boolean(subsetResult.success),
            refreshProject: Boolean(subsetResult.success) };
+}
+
+// Launch an emw-apply-mask job with the particles of a TomoCoordinates /
+// TomoParticles set (context.outputPath) in the masks of their tomograms, or
+// outside of them (TABLE_APPLY_MASK_INVERT_ACTION)
+async function createApplyMask(context, request) {
+  var subsetResult = null;
+  await handleRequestData(
+    Api.urls.create_apply_mask,
+    {
+      root: project_details.path,
+      entry_id: project_details.id,   // whose project the user must be able to edit
+      starPath: context.outputPath || context.starPath || '',
+      invert: request.actionId === TABLE_APPLY_MASK_INVERT_ACTION,
+    },
+    function (data) {
+      subsetResult = data.subsetResult;
+    },
+  );
+  if (!subsetResult)
+    return { success: false, message: 'Could not apply the masks.' };
+  if (subsetResult.success)
+    cache.invalidate();
+  return { ...subsetResult, refreshProject: Boolean(subsetResult.success) };
 }
 
 // Launch an emw-subset-classes job with the particles of the selected classes
@@ -1101,6 +1132,9 @@ var svc = {
     if (request.actionId === TABLE_REMOVE_DUPLICATES_ACTION
         || request.actionId === TABLE_MERGE_SETS_ACTION)
       return await createFromCoordinatesCompare(context, request);
+    if (request.actionId === TABLE_APPLY_MASK_ACTION
+        || request.actionId === TABLE_APPLY_MASK_INVERT_ACTION)
+      return await createApplyMask(context, request);
     if (request.actionId !== TABLE_SUBSET_ACTION)
       return { success: false, message: 'Unknown action: ' + request.actionId };
 

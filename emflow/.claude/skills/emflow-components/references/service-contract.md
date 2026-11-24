@@ -218,12 +218,18 @@ table: TableViewerData = {
   rows: [{id, cells: {colId: value}, data?, actions?, defaultAction?,
           cellContexts?: {colId: {edit?: {type: "boolean", field, checked?}, actions?, children?}},
           children?, gallery?}],   // gallery: false, no card (only in the table)
-  actions?, editActions?: [{id, label, requiresChanges?}], page?,
+  actions?, editActions?: [{id, label, requiresChanges?, title?, options?: [{id, label, title?}]}], page?,
   initialAction?: {rowId, actionId?, columnId?},
   variants?: {label, value, options: [{id, label}]},   // other versions, e.g. iterations
   gallery?: {actionId, title, footer?, default?} }      // a card per row (TableViewerGallery)
 ```
 
+- `editActions`: buttons of the table toolbar; `executeTableViewerEditAction`
+  gets `{actionId, edits}`. An action with `options` is one button with a menu
+  (chevron): each option runs as its own action id (EMhub: "Apply masks" of a
+  TomoCoordinates table whose tomograms have selection masks, options
+  `apply-mask` / `apply-mask-invert`, see `createApplyMask` in
+  `project_widget_svc.html`; the table's own actions come before "Create subset").
 - `gallery`: the table can be shown as a gallery (`TableViewerGallery.tsx`,
   a Table / Gallery toggle in the toolbar; `default: true` shows it first).
   Each card resolves `actionId` for its row (`resolveTableViewerAction`

@@ -61,6 +61,12 @@ _TILT_SERIES_GLOBAL_CELL_FIELDS = {
 _TS_PIXEL_SIZE_FIELD = {'tsPixelSize': 'rlnTomoTiltSeriesPixelSize'}
 _ALIGNED_STACK_FIELD = {'alignedStack': 'rlnTiltSeriesAligned'}
 _TOMOGRAM_FIELD = {'tomogram': 'rlnTomoReconstructedTomogram'}
+# The selection mask of the tomogram (emwrap's emw-apply-mask), not a column:
+# the tomogram viewer shows it (Mask button)
+TOMO_MASK_COLUMN = 'emwTomoMask'
+_TOMO_MASK_FIELD = {'tomoMask': TOMO_MASK_COLUMN}
+# Longest side of its grid (finer than the tomogram density, for its edges)
+TOMO_MASK_MAX_SIZE = 256
 
 _ACTION_METADATA = {'id': 'metadata', 'label': 'metadata', 'column': 'starFile'}
 _ACTION_TILT_ANGLES = {'id': 'tilt-angles', 'label': 'tilt angles'}
@@ -148,6 +154,7 @@ def _tilt_series_table_spec(
     if with_tomogram:
         columns.append(_TOMOGRAM_COL)
         cell_fields.update(_TOMOGRAM_FIELD)
+        cell_fields.update(_TOMO_MASK_FIELD)
         actions.append(_ACTION_VOLUME_SLICES)
 
     if with_aligned_stack:
@@ -484,11 +491,115 @@ def build_tomocoordinates_table(optimisation_set_path, root=None):
             rows.append(_table_view_row(spec, type_key, tomo_name or idx,
                                         row_cells, root))
 
-        return {
+        table = {
             'title': f"{spec['title']} ({len(rows)} items)",
             'columns': columns,
             'rows': rows,
         }
+        if any(row_tomo_mask(root, r['cells']) for r in rows):
+            # Subsets of the particles by the masks of their tomograms (the
+            # host launches emw-apply-mask, see create_apply_mask)
+            table['editActions'] = [dict(a) for a in APPLY_MASK_ACTIONS]
+        return table
+
+
+# Edit actions of a TomoCoordinates table whose tomograms have masks: one
+# button with a menu (the host launches emw-apply-mask with each option id)
+APPLY_MASK_ACTIONS = [{
+    'id': 'apply-mask-menu',
+    'label': 'Apply masks',
+    'title': 'A new set with the particles in the masks of their tomograms, '
+             'or outside of them (an emw-apply-mask job)',
+    'options': [
+        {'id': 'apply-mask', 'label': 'Keep particles in masks'},
+        {'id': 'apply-mask-invert', 'label': 'Keep particles outside masks'},
+    ],
+}]
+
+# The particles of the input of an emw-apply-mask job, by what the job did
+APPLY_MASK_SETS = [
+    {'id': 'kept', 'label': 'Kept', 'color': '#4cd964'},
+    {'id': 'removed', 'label': 'Removed by the mask', 'color': '#ff3b30'},
+]
+
+
+def apply_mask_job_input(root, output_path):
+    """ The input set (optimisation_set.star) of the emw-apply-mask job that
+    wrote output_path, None if it is not the output of one. """
+    job_dir = os.path.dirname(output_path or '')
+    job_star = project_file_path(root, os.path.join(job_dir, 'job.star'))
+    if not job_dir or not os.path.exists(job_star):
+        return None
+    try:
+        job = StarFile.getTableFromFile('job', job_star, guessType=False)
+        if not job or job[0].rlnJobTypeLabel != 'emw-apply-mask':
+            return None
+        input_set = RelionStar.read_jobstar(job_star).get('input_set') or ''
+    except Exception:
+        return None
+    full = project_file_path(root, input_set)
+    return input_set if input_set and RelionStar.isTomoOptimisationSet(full) else None
+
+
+def _particle_keys(root, star_path, tomo_name):
+    """ The particles of a tomogram of a set as hashable rows (all their
+    values), in the order of the viewer coordinates. """
+    from emhub.data import coords3d
+    paths = coords3d.resolve_coords_set(root, star_path)
+    table = coords3d._load_particles_table(paths['particles_star'])
+    return [tuple(str(v) for v in row) for row in
+            coords3d._iter_particles_for_tomo(table, tomo_name)]
+
+
+def apply_mask_coordinates(root, output_path, tomo_name):
+    """ For the output of an emw-apply-mask job: the coordinates of the
+    tomogram in the job's input, in two sets: kept (in the output) and
+    removed by the mask. None if output_path is not of such a job. """
+    from collections import Counter
+    from emhub.data.coords3d import load_tomogram_card_coordinates
+    input_set = apply_mask_job_input(root, output_path)
+    if not input_set:
+        return None
+    coords = load_tomogram_card_coordinates(root, input_set, tomo_name)
+    if not coords.get('x'):
+        return coords
+    kept = Counter(_particle_keys(root, output_path, tomo_name))
+    keys = _particle_keys(root, input_set, tomo_name)
+    if len(keys) != len(coords['x']):
+        return None
+    sets = []
+    for k in keys:
+        if kept[k] > 0:
+            kept[k] -= 1
+            sets.append(0)
+        else:
+            sets.append(1)
+    return dict(coords, set=sets, sets=APPLY_MASK_SETS)
+
+
+
+def create_apply_mask(root, star_path, invert=False):
+    """ Launch an emw-apply-mask job with the TomoCoordinates (or
+    TomoParticles) set star_path and the masks of its tomograms (its
+    'The masks of the input set's tomograms' source): the particles in the
+    masks, or outside of them (invert). """
+    if not RelionStar.isTomoOptimisationSet(project_file_path(root, star_path)):
+        raise Exception(f'{star_path} is not a set of coordinates (optimisation_set.star)')
+    params = {
+        'input_set': star_path,
+        'mask_source': '2',
+        'invert': bool(invert),
+        'write_masks': False,
+    }
+    pm = processing_project_manager(root)
+    job = pm.runJob('emw-apply-mask', params)
+    where = 'outside of' if invert else 'in'
+    return {
+        'success': True,
+        'jobId': job.id,
+        'sourceFile': star_path,
+        'message': f'Launched {job.id} job to keep the particles {where} the masks',
+    }
 
 
 def _collect_series_points_by_tilt(full_path, value_columns):
@@ -1405,14 +1516,63 @@ def build_tomogram_volume_slider_pane_content(
     title=None,
     *,
     coordinates=None,
+    mask=None,
 ):
     """ VolumeViewer pane of a reconstructed tomogram: its slices and 3D
     planes, without the 3D volume tab. The density request (block means,
     loaded when the volume is shown in the 3D planes) is sent: the slice
-    images are too few and too noisy to draw the volume from. """
+    images are too few and too noisy to draw the volume from.
+
+    mask: a mask on the tomogram grid (e.g. its selection mask of
+    emw-apply-mask, row_tomo_mask), drawn over the slices; the Mask button
+    of the toolbar hides it, or changes its color and opacity. """
+    config = TOMOGRAM_VIEWER_CONFIG
+    if mask:
+        # The same grid as the density of the tomogram (same box and size)
+        config = dict(config, mask={
+            'type': 'map', 'label': os.path.basename(mask), 'show': True,
+            'threshold': 0.5,
+            'density': volume_density_source(root, mask, TOMO_MASK_MAX_SIZE)})
     return build_volume_viewer_pane_content(
         root, tomo_rel, title=title, density='lazy',
-        viewer_config=TOMOGRAM_VIEWER_CONFIG, coordinates=coordinates)
+        viewer_config=config, coordinates=coordinates)
+
+
+def row_tomo_mask(root, row_cells):
+    """ The selection mask of a table row's tomogram (TOMO_MASK_COLUMN,
+    project relative) if it exists, else None. """
+    mask = (row_cells or {}).get('tomoMask') or ''
+    if not mask or mask == 'None':
+        return None
+    return mask if os.path.exists(project_file_path(root, mask)) else None
+
+
+# The sets of the coordinates of a tomogram with a selection mask
+MASK_SETS = [
+    {'id': 'inside', 'label': 'In mask', 'color': '#4cd964'},
+    {'id': 'outside', 'label': 'Outside mask', 'color': '#ff3b30'},
+]
+
+
+def coordinates_mask_sets(root, coordinates, mask, threshold=0.5):
+    """ The coordinates (VolumeViewer, in tomogram voxels) with their set:
+    in the mask (on the tomogram grid, >= threshold) or outside of it. The
+    coordinates outside of the mask box are in the mask (emw-apply-mask
+    keeps them). """
+    import mrcfile
+    import numpy as np
+    if not coordinates or not coordinates.get('x'):
+        return coordinates
+    with mrcfile.mmap(project_file_path(root, mask), mode='r', permissive=True) as mrc:
+        data = mrc.data
+        vox = np.rint(np.stack([np.asarray(coordinates[k], dtype=float)
+                                for k in 'xyz'], axis=1)).astype(np.int64)
+        dims = np.array(data.shape[::-1])
+        inside = np.ones(len(vox), bool)
+        covered = ((vox >= 0) & (vox < dims)).all(axis=1)
+        v = vox[covered]
+        inside[covered] = np.asarray(data[v[:, 2], v[:, 1], v[:, 0]]) >= threshold
+    return dict(coordinates, set=np.where(inside, 0, 1).tolist(), sets=MASK_SETS)
 
 
 # Longest side of the density grids of the overlays of a map (other maps

@@ -228,6 +228,11 @@ export type TableViewerEditAction = {
   icon?: string;
   disabled?: boolean;
   requiresChanges?: boolean;
+  /** Tooltip of the button. */
+  title?: string;
+  /** A button with a menu: each option is run as its own action (its id),
+   * e.g. "Apply masks" with keep in / keep outside. */
+  options?: { id: string; label: string; title?: string }[];
 };
 
 export type TableViewerEdit = {
