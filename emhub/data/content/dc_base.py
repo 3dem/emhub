@@ -47,6 +47,16 @@ from emtools.utils import Pretty, Timer
 from emtools.image import Thumbnail
 from emtools.metadata import Bins, TsBins, EPU
 
+# Colors for non-regular booking types (shown in calendar and dashboard)
+BOOKING_TYPES_COLORS = {
+    'downtime': 'rgba(181,4,0,1.0)',
+    'cryo-cycle': 'rgb(255,213,128,1.0)',
+    'maintenance': 'rgba(255,107,53,1.0)',
+    'repair': 'rgba(255,75,51,1.0)',
+    'training': '#702963',
+    'special': 'rgba(98,50,45,1.0)'
+}
+
 
 class DataContent:
     """ This class acts as an intermediary between the DataManager and
@@ -234,14 +244,7 @@ class DataContent:
 
         application_label = 'None'
 
-        types_colors = {
-            'downtime': 'rgba(181,4,0,1.0)',
-            'cryo-cycle': 'rgb(255,213,128,1.0)',
-            'maintenance': 'rgba(255,107,53,1.0)',
-            'repair': 'rgba(255,75,51,1.0)',
-            'training': '#702963',
-            'special': 'rgba(98,50,45,1.0)'
-        }
+        types_colors = BOOKING_TYPES_COLORS
 
         if booking.type in types_colors:
             color = types_colors[booking.type]
@@ -1659,7 +1662,8 @@ def register_content(dc):
         dataDict.update({'bookings': bookings,
                          'resource_bookings': resource_bookings,
                          'resource_create_session': resource_create_session,
-                         'local_resources': local_scopes
+                         'local_resources': local_scopes,
+                         'types_colors': BOOKING_TYPES_COLORS
                          })
         dataDict.update(dc.get_news(**kwargs))
         return dataDict
