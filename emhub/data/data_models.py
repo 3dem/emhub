@@ -1530,9 +1530,9 @@ def create_data_models(dm):
 
             self._locDict = OrderedDict()
             self._idDict = OrderedDict()
-            self._dewars = {d['id']: d for d in self._config['dewars']}
+            self._dewars = {d['id']: d for d in self._config.get('dewars', [])}
             for dewar in self._dewars.values():
-                dewar['canes_dict'] = {c['id']: c for c in dewar['canes']}
+                dewar['canes_dict'] = {c['id']: c for c in dewar.get('canes', [])}
 
             def _locKey(p):
                 return p.dewar * 10000 + p.cane * 100 + p.position
