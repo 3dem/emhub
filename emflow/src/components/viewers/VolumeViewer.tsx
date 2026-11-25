@@ -2,7 +2,10 @@
 //
 // Config-driven volume viewer (tomograms, maps) with up to three tabs:
 //   - Slices: linked X/Y/Z sections (volume/VolumeSlices.tsx) with select,
-//     ruler, zoom and pan tools, contrast, crosshair and particles; zoomed,
+//     ruler, zoom and pan tools, contrast, crosshair and particles (and, with
+//     a host `onDrawing`, the mask drawing tools: contours on Z sections,
+//     lamella borders as lines on Y / X sections and moving the whole
+//     drawing, e.g. MaskDrawWizard); zoomed,
 //     the host's full-resolution crop of the view (`crop`) is drawn over the
 //     slice image.
 //   - 3D planes: three orthogonal planes in a rotatable scene, at most two
@@ -67,6 +70,7 @@ import VolumeSlices, {
   type HistoryEntry,
   type Mode,
   type SliceColorBy,
+  type SliceDrawing,
   type SliceMask,
   type VolumeSlicesHandle,
 } from "./volume/VolumeSlices";
@@ -78,6 +82,7 @@ import DenoisePanel from "./volume/DenoisePanel";
 import { DETAILS } from "./volume/DensityPanel";
 import IterationsBar from "./volume/IterationsBar";
 import MaskPanel, { type MaskOptions } from "./volume/MaskPanel";
+import DrawPanel from "./volume/DrawPanel";
 import OverlaysPanel, { type OverlayItem, type OverlayOptions } from "./volume/OverlaysPanel";
 import ResolutionPanel, { type ResolutionStats } from "./volume/ResolutionPanel";
 import IsoSurfaceView, {
@@ -120,6 +125,7 @@ import {
 } from "./volume/volumeMath";
 
 export type { VolumeData, VolumeDensity } from "./volume/volumeMath";
+export type { SliceBorder, SliceContour, SliceDrawing } from "./volume/VolumeSlices";
 
 export type VolumeViewerTab = "slices" | "view3d" | "volume3d";
 
@@ -286,6 +292,12 @@ export type VolumeViewerProps = VolumeViewerConfig & {
   onSelect?: (p: Vec3) => void;
   /** Called with the mask options when they change (and once at first). */
   onMaskChange?: (mask: VolumeMaskState) => void;
+  /** Contours and lamella borders drawn in the Slices tab (see
+   * SliceDrawing). With onDrawing, the contour and border tools are in its
+   * toolbar and the new drawing is sent on every change (the host keeps it
+   * and gives it back). */
+  drawing?: SliceDrawing | null;
+  onDrawing?: (d: SliceDrawing) => void;
 };
 
 /** The mask options chosen by the user. */
@@ -301,7 +313,7 @@ export type VolumeViewerHandle = {
   setTool: (tool: Mode) => void;
 };
 
-const MODES: Exclude<Mode, null>[] = ["select", "ruler", "zoom", "pan"];
+const MODES: Exclude<Mode, null>[] = ["select", "ruler", "zoom", "pan", "contour", "border", "move"];
 // Volume of the 3D planes: opacity and share of the voxels start in the
 // middle of their sliders (5-100%, 1-40%)
 const VOL_OPACITY = 0.52;
@@ -538,6 +550,10 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const toolsCfg = {
       select: true, ruler: true, zoom: true, pan: true, particles: "auto" as boolean | "auto",
       volume: true, invert: true, lines: true, crosshair: true, ...props.tools,
+      // Only for a host that keeps the drawing
+      contour: Boolean(props.onDrawing),
+      border: Boolean(props.onDrawing),
+      move: Boolean(props.onDrawing),
     };
     if (!toolsCfg.crosshair) toolsCfg.lines = false;
     const defaults = props.defaults ?? {};
@@ -1023,7 +1039,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       history.current.push({ type: "lines" });
       setHideLines((v) => !v);
     };
-    /* Every zoom, ruler and contrast change is one step; each click goes back
+    /* Every zoom, ruler, contrast and drawing change is one step; each click goes back
        one step. With nothing left to undo it only deactivates the tool. */
     const clean = () => {
       const h = history.current.pop();
@@ -1039,8 +1055,16 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         toggleInvert(true);
       } else if (h.type === "lines") {
         setHideLines((v) => !v);
+      } else if (h.type === "drawing") {
+        slicesRef.current?.clearPending();
+        props.onDrawing?.(h.prev ?? { contours: [], borders: [] });
       }
     };
+    // Each change of the drawing is an undo step
+    const onDrawing = props.onDrawing ? (d: SliceDrawing) => {
+      history.current.push({ type: "drawing", prev: props.drawing ?? null });
+      props.onDrawing!(d);
+    } : undefined;
 
     /* ---------- size ---------- */
     // room: the height the viewer may take (its content box): the container
@@ -1269,7 +1293,18 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     // The shown mask's name (e.g. the mask file), after the position
     const maskNote = maskCfg?.label && maskOpts.show
       ? <> &nbsp;·&nbsp; <b>Mask</b> {maskCfg.label}</> : null;
-    if (mode === "ruler") {
+    // The mask drawing tools: what is drawn, and the hints (smaller, on one line)
+    const hint = (text: string) => <span className={styles.outHint}>{text}</span>;
+    if (mode === "contour" && props.onDrawing) {
+      readout = <><b>Contours</b> {props.drawing?.contours.length ?? 0} · {hint(
+        "Z: click points, click the first to close · drag a point · right-click removes it")}</>;
+    } else if (mode === "border" && props.onDrawing) {
+      const n = (side: string) => props.drawing?.borders.filter((b) => b.side === side).length ?? 0;
+      readout = <><b>Borders</b> lower {n("low")}, upper {n("high")} · {hint(
+        "Y / X: click the start and the end · drag an end · right-click removes a line")}</>;
+    } else if (mode === "move" && props.onDrawing) {
+      readout = <><b>Move</b> · {hint("drag on any slice to move all the contours and borders")}</>;
+    } else if (mode === "ruler") {
       const meas = AXES.filter((a) => rulers[a]).map((a) => rulerLength(vs, a, rulers[a]!));
       readout = meas.length ? <><b>Length</b> {meas[meas.length - 1]}</> : "Ruler: click two points to measure";
     } else if (sel >= 0 && P) {
@@ -1463,6 +1498,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       particleSet, setColors: colorSets, setShown: shownSets, margin: boxMargin,
       // The same mask (and Mask button options) as over the Slices
       mask: sliceMask,
+      // and the region of the mask drawing tools
+      drawing: props.drawing ?? null,
     };
     const sceneStateRef = useRef(sceneState);
     sceneStateRef.current = sceneState;
@@ -1607,7 +1644,11 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               mask={sliceMask}
               margin={boxMargin}
               colorBy={sliceColorBy}
-              corner={sliceKey}
+              drawing={props.drawing ?? null}
+              onDrawing={onDrawing}
+              corner={props.onDrawing
+                ? <><DrawPanel mode={mode} drawing={props.drawing ?? null} onTool={setTool} />{sliceKey}</>
+                : sliceKey}
               voxelSize={vs}
               getImage={getImage}
               loadImage={loadImage}

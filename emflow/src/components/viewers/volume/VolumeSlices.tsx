@@ -17,9 +17,18 @@
 // low-pass filter (filterSigma) is applied by the host to the crops and here
 // to the slice images (same Gaussian and contrast), so a view that needs no
 // crop (e.g. a whole X section, strided in the file) reads nothing more.
+// With a `drawing` (e.g. the masks of MaskDrawWizard, see maskDrawing.ts),
+// the contour tool (mode "contour") draws closed contours on the Z sections
+// and the border tool (mode "border") the lower and upper borders of the
+// lamella as straight lines on the Y and X sections; the other sections keep
+// the select behaviour (a click moves the position there).
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, type ReactNode } from "react";
 import styles from "../VolumeViewer.module.css";
 import { gaussianImage, maskSlice, resolutionSlice } from "./densityGrid";
+import {
+  addBorder, borderPlanes, crossings, isBorderAxis, planeZ, regionImage, segmentDistance, translateDrawing,
+  type SliceBorder, type SliceContour, type SliceDrawing,
+} from "./maskDrawing";
 import {
   HV,
   nearest,
@@ -39,14 +48,16 @@ import {
 } from "./volumeMath";
 
 export type ZoomWindow = { x0: number; y0: number; w: number; h: number };
-export type Mode = "select" | "ruler" | "zoom" | "pan" | null;
+export type Mode = "select" | "ruler" | "zoom" | "pan" | "contour" | "border" | "move" | null;
 
 /** Undo steps of the Slices tab (the viewer adds "invert" and "lines"). */
 export type HistoryEntry =
   | { type: "zoom"; a: Axis; win: ZoomWindow }
   | { type: "ruler"; a: Axis; prev: Ruler | null }
   | { type: "invert" }
-  | { type: "lines" };
+  | { type: "lines" }
+  // A change of the drawing of the mask tools (the one before it)
+  | { type: "drawing"; prev: SliceDrawing | null };
 
 /** Mask drawn over the sections: a sphere (voxels) or a map, whose voxels
  * above `level` (0-255 of its grid) are inside. */
@@ -54,6 +65,18 @@ export type SliceMask = (
   | { type: "sphere"; center: Vec3; diameter: number }
   | { type: "map"; density: VolumeDensity; level: number }
 ) & { color: string; opacity: number };
+
+// Contour tool, on a Z section: click to add points, click the first one
+// (or double-click) to close the contour (it replaces the one of that
+// slice), drag a point to move it, click on an edge to add a point there,
+// right-click a point to remove it (right-click while drawing: the last
+// point). Border tool, on a Y or X section: click the start and the end of
+// a line (two per section at most: the lower one is the lower border, a
+// third one replaces the nearest), drag an end to move it, right-click a
+// line to remove it (while drawing: cancel). Move tool, on any section:
+// drag to move the whole drawing (contours and borders). The planes of the borders are
+// shown dashed on every Y and X section, and shade the Z sections outside.
+export type { SliceBorder, SliceContour, SliceDrawing } from "./maskDrawing";
 
 /** A map (local resolution) drawn over the sections in RESOLUTION_PALETTE
  * over `range` (map units), translucent; no value (<= 0) is transparent. */
@@ -92,6 +115,10 @@ type Props = {
   margin?: BoxMargin | null;
   /** Map that colors the sections (null: none or off). */
   colorBy?: SliceColorBy | null;
+  /** Contours and borders of the drawing tools (null: none); with onDrawing,
+   * called with the new drawing when the user changes it. */
+  drawing?: SliceDrawing | null;
+  onDrawing?: (d: SliceDrawing) => void;
   /** In the free cell right of the Y section (e.g. the color key). */
   corner?: ReactNode;
   voxelSize: VoxelSize | null;
@@ -120,6 +147,18 @@ type View = {
 
 type Drag = { a: Axis; type: "zoom" | "pan"; x0: number; y0: number; x: number; y: number };
 
+// Contour and border tools: the contour point or border end being dragged,
+// and whether it moved (then the click that ends it does nothing)
+type DrawDrag = { a: Axis; type: "point"; index: number; moved: boolean }
+  | { a: Axis; type: "end"; border: number; end: 0 | 1; moved: boolean }
+  // The move tool: the drawing and the voxel where the drag started
+  | { a: Axis; type: "move"; base: SliceDrawing; start: [number, number]; moved: boolean };
+
+/** Distance (px) of a pointer to a point, line or edge to pick it. */
+const PICK_PX = 7;
+const CONTOUR_COLOR = "#ff9f1c";
+const BORDER_COLORS = { low: "#4dabf7", high: "#f783ac" };
+
 // IMOD-like order of the grid cells
 const VIEW_ORDER: Axis[] = ["y", "z", "x"];
 
@@ -135,6 +174,13 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   const pend = useRef<Record<Axis, [number, number] | null>>({ x: null, y: null, z: null });
   const drag = useRef<Drag | null>(null);
   const wins = useRef<Partial<Record<Axis, ZoomWindow>>>({});
+  // Contour and border tools: the contour being drawn (on the Z slice `z`),
+  // the start of the border line being drawn, the dragged point or end, and
+  // the drawing while dragging (sent on release)
+  const pendContour = useRef<{ z: number; points: [number, number][] } | null>(null);
+  const pendBorder = useRef<{ a: "x" | "y"; index: number; start: [number, number] } | null>(null);
+  const drawDrag = useRef<DrawDrag | null>(null);
+  const draft = useRef<SliceDrawing | null>(null);
   // Colored sections of a map mask, by axis, slice, color and level
   const maskImages = useRef<{ density: VolumeDensity | null; images: Map<string, HTMLCanvasElement> }>(
     { density: null, images: new Map() });
@@ -253,6 +299,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     drawColorBy(a, v);
     drawMask(a, v);
     drawMargin(a, v);
+    drawContours(a, v);
     // Crosshair lines of the other two sections
     if (!hideLines) {
       const c = toPx(v, pos[ha] + 0.5, pos[va] + 0.5);
@@ -398,6 +445,122 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     ctx.restore();
   };
 
+  /* ---------- contour and border tools: drawing ---------- */
+  const shownDrawing = (): SliceDrawing | null => draft.current ?? p.current.drawing ?? null;
+
+  // The contours (the one of the shown Z slice with its points, the others
+  // faint; dots where they cross the Y and X sections), the border lines of
+  // the shown Y / X slice, the planes of the borders (dashed on the Y and X
+  // sections, shading the sections outside them)
+  const drawContours = (a: Axis, v: View) => {
+    const d = shownDrawing(), pc = pendContour.current, pb = pendBorder.current;
+    if (!d && !pc && !pb) return;
+    const { pos, dim, mode, onDrawing } = p.current;
+    const contourTool = mode === "contour" && Boolean(onDrawing);
+    const borderTool = mode === "border" && Boolean(onDrawing);
+    const contours = d?.contours ?? [], borders = d?.borders ?? [];
+    const planes = borderPlanes(borders);
+    const ctx = v.ov, key = currentKey(a);
+    const path = (pts: [number, number][], close: boolean) => {
+      ctx.beginPath();
+      pts.forEach((q, i) => {
+        const [x, y] = toPx(v, q[0], q[1]);
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      });
+      if (close) ctx.closePath();
+    };
+    const handles = (pts: [number, number][], color: string, first = false) => pts.forEach((q, i) => {
+      const [x, y] = toPx(v, q[0], q[1]);
+      ctx.beginPath();
+      ctx.arc(x, y, first && i === 0 ? 5 : 3, 0, 2 * Math.PI);
+      ctx.fillStyle = first && i === 0 ? "#fff" : color;
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(0,0,0,.7)";
+      ctx.stroke();
+    });
+    const pending = (start: [number, number], color: string) => {
+      if (!v.hover) return;
+      path([start, toVox(v, v.hover[0], v.hover[1])], false);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    };
+    ctx.save();
+    // The region: the fill of the contours, the shade outside the borders
+    const region = d ? regionImage(d, a, key, p.current.size) : null;
+    if (region) {
+      const [W, H] = p.current.size[a], [A, B] = [toPx(v, 0, 0), toPx(v, W, H)];
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(region, A[0], A[1], B[0] - A[0], B[1] - A[1]);
+    }
+    if (a === "z") {
+      ctx.setLineDash([4, 3]);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(255,159,28,.5)";
+      for (const c of contours) {
+        if (c.z === key) continue;
+        path(c.points, true);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      const cur = contours.find((c) => c.z === key);
+      if (cur) {
+        path(cur.points, true);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = CONTOUR_COLOR;
+        ctx.stroke();
+        if (contourTool) handles(cur.points, CONTOUR_COLOR);
+      }
+      if (pc && pc.z === key) {
+        path(pc.points, false);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#fff";
+        ctx.stroke();
+        pending(pc.points[pc.points.length - 1], "#fff");
+        handles(pc.points, CONTOUR_COLOR, true);
+      }
+    } else {
+      // Y section: x across, z down; X section: z across, y down
+      const across = a === "y" ? pos.y + 0.5 : pos.x + 0.5;
+      ctx.fillStyle = CONTOUR_COLOR;
+      for (const c of contours) {
+        for (const u of crossings(c.points, across, a === "y" ? 0 : 1)) {
+          const [x, y] = a === "y" ? toPx(v, u, c.z + 0.5) : toPx(v, c.z + 0.5, u);
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 1.5;
+      for (const side of ["low", "high"] as const) {
+        const pl = planes[side];
+        if (!pl) continue;
+        const ends: [number, number][] = a === "y"
+          ? [[0, planeZ(pl, 0, across)], [dim.x, planeZ(pl, dim.x, across)]]
+          : [[planeZ(pl, across, 0), 0], [planeZ(pl, across, dim.y), dim.y]];
+        path(ends, false);
+        ctx.strokeStyle = BORDER_COLORS[side];
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      for (const b of borders) {
+        if (b.axis !== a || b.index !== key) continue;
+        path(b.points, false);
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = BORDER_COLORS[b.side];
+        ctx.stroke();
+        if (borderTool) handles(b.points, BORDER_COLORS[b.side]);
+      }
+      if (pb && pb.a === a && pb.index === key) {
+        pending(pb.start, "#fff");
+        handles([pb.start], "#fff");
+      }
+    }
+    ctx.restore();
+  };
+
   const drawAll = useCallback(() => {
     for (const a of VIEW_ORDER) {
       drawImage(a);
@@ -432,7 +595,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     drawAll();
   }, [props.pos, props.sel, props.mode, props.partsOn, props.hideLines, props.rulers, props.tolerance,
       props.particleColor, props.particleSet, props.setColors?.join(), props.setShown?.join(),
-      props.mask, props.margin, props.filterSigma, props.colorBy, drawAll]);
+      props.mask, props.margin, props.filterSigma, props.colorBy, props.drawing, drawAll]);
   // New slice images (e.g. another iteration of a map) or crop source:
   // forget the crops and filtered images and draw again
   useEffect(() => {
@@ -458,9 +621,214 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     clearPending() {
       pend.current = { x: null, y: null, z: null };
       drag.current = null;
+      pendContour.current = null;
+      pendBorder.current = null;
+      drawDrag.current = null;
+      draft.current = null;
       VIEW_ORDER.forEach(drawOverlay);
     },
   }), [drawImage, drawOverlay]);
+
+  /* ---------- contour and border tools: editing ---------- */
+  // The click that ends the drag of a point or end does nothing
+  const skipClick = useRef(false);
+  const redrawAll = () => VIEW_ORDER.forEach(drawOverlay);
+  const emitDrawing = (d: SliceDrawing) => {
+    draft.current = null;
+    p.current.onDrawing?.(d);
+    redrawAll();
+  };
+  const current = (): SliceDrawing => shownDrawing() ?? { contours: [], borders: [] };
+  /** The drawing with the contour of slice z replaced (null: removed). */
+  const withContour = (d: SliceDrawing, z: number, c: SliceContour | null): SliceDrawing => ({
+    ...d,
+    contours: [...d.contours.filter((k) => k.z !== z), ...(c ? [c] : [])].sort((x, y) => x.z - y.z),
+  });
+  /** The contour of the shown Z slice and its point under (cx, cy), or -1. */
+  const pickPoint = (v: View, cx: number, cy: number) => {
+    const c = current().contours.find((k) => k.z === currentKey("z")) ?? null;
+    let index = -1, best = PICK_PX;
+    c?.points.forEach((q, i) => {
+      const [x, y] = toPx(v, q[0], q[1]);
+      const dd = Math.hypot(x - cx, y - cy);
+      if (dd < best) { best = dd; index = i; }
+    });
+    return { c, index };
+  };
+  /** The border lines of the shown slice of a (indices in the borders). */
+  const sliceBorders = (a: Axis) => current().borders
+    .map((b, i) => [b, i] as [SliceBorder, number])
+    .filter(([b]) => b.axis === a && b.index === currentKey(a));
+  /** The border end under (cx, cy) of section a, or null. */
+  const pickEnd = (a: Axis, v: View, cx: number, cy: number) => {
+    let best = PICK_PX, hit: { border: number; end: 0 | 1 } | null = null;
+    for (const [b, i] of sliceBorders(a)) {
+      b.points.forEach((q, e) => {
+        const [x, y] = toPx(v, q[0], q[1]);
+        const dd = Math.hypot(x - cx, y - cy);
+        if (dd < best) { best = dd; hit = { border: i, end: e as 0 | 1 }; }
+      });
+    }
+    return hit as { border: number; end: 0 | 1 } | null;
+  };
+  /** The border line under (cx, cy) of section a (its index), or -1. */
+  const pickLine = (a: Axis, v: View, cx: number, cy: number) => {
+    let best = PICK_PX, hit = -1;
+    for (const [b, i] of sliceBorders(a)) {
+      const [dd] = segmentDistance([cx, cy], toPx(v, b.points[0][0], b.points[0][1]),
+                                   toPx(v, b.points[1][0], b.points[1][1]));
+      if (dd < best) { best = dd; hit = i; }
+    }
+    return hit;
+  };
+  const closePending = () => {
+    const pc = pendContour.current;
+    pendContour.current = null;
+    if (pc && pc.points.length >= 3) emitDrawing(withContour(current(), pc.z, { z: pc.z, points: pc.points }));
+    else redrawAll();
+  };
+  /** Whether the tool draws on section a: contours on Z, borders on Y and X,
+   * move on all; the other sections keep the select behaviour. */
+  const toolOn = (a: Axis) => Boolean(p.current.onDrawing)
+    && ((p.current.mode === "contour" && a === "z") || (p.current.mode === "border" && a !== "z")
+        || p.current.mode === "move");
+
+  const drawDown = (a: Axis, e: React.MouseEvent) => {
+    const v = views.current[a]!, [cx, cy] = local(a, e);
+    skipClick.current = false;
+    if (p.current.mode === "move") {
+      drawDrag.current = { a, type: "move", base: current(), start: toVox(v, cx, cy), moved: false };
+    } else if (a === "z") {
+      if (pendContour.current) return;
+      const { index } = pickPoint(v, cx, cy);
+      if (index >= 0) drawDrag.current = { a, type: "point", index, moved: false };
+    } else {
+      if (pendBorder.current) return;
+      const hit = pickEnd(a, v, cx, cy);
+      if (hit) drawDrag.current = { a, type: "end", ...hit, moved: false };
+    }
+    if (drawDrag.current) e.preventDefault();
+  };
+  const drawMove = (a: Axis, v: View) => {
+    const dd = drawDrag.current;
+    if (!dd || dd.a !== a || !v.hover) return false;
+    const [h, vv] = toVox(v, v.hover[0], v.hover[1]);
+    const [W, H] = p.current.size[a];
+    const q: [number, number] = [Math.max(0, Math.min(W, h)), Math.max(0, Math.min(H, vv))];
+    dd.moved = true;
+    const d = current();
+    if (dd.type === "move") {
+      // The drag in voxels of the section, along its two axes
+      const [ha, va] = HV[a], delta: Vec3 = { x: 0, y: 0, z: 0 };
+      delta[ha] = h - dd.start[0];
+      delta[va] = vv - dd.start[1];
+      draft.current = translateDrawing(dd.base, delta, p.current.dim);
+    } else if (dd.type === "point") {
+      const key = currentKey("z");
+      const c = d.contours.find((k) => k.z === key);
+      if (!c) return true;
+      draft.current = withContour(d, key, { z: key, points: c.points.map((o, i) => (i === dd.index ? q : o)) });
+    } else {
+      draft.current = { ...d, borders: d.borders.map((b, i) => (i !== dd.border ? b : {
+        ...b, points: (dd.end === 0 ? [q, b.points[1]] : [b.points[0], q]) as SliceBorder["points"] })) };
+    }
+    redrawAll();
+    return true;
+  };
+  const drawClick = (a: Axis, v: View, cx: number, cy: number) => {
+    if (skipClick.current) {
+      skipClick.current = false;
+      return;
+    }
+    if (p.current.mode === "move") return;
+    const [h, vv] = toVox(v, cx, cy);
+    const key = currentKey(a);
+    if (isBorderAxis(a)) {
+      let pb = pendBorder.current;
+      if (pb && (pb.a !== a || pb.index !== key)) pb = pendBorder.current = null;
+      if (pb) {
+        pendBorder.current = null;
+        const A = toPx(v, pb.start[0], pb.start[1]);
+        // A click on the start again: no line
+        if (Math.hypot(A[0] - cx, A[1] - cy) <= PICK_PX) redrawAll();
+        else emitDrawing({ ...current(), borders: addBorder(current().borders,
+          { axis: a, index: key, points: [pb.start, [h, vv]] }, p.current.dim.z) });
+        return;
+      }
+      if (pickEnd(a, v, cx, cy)) return;
+      pendBorder.current = { a, index: key, start: [h, vv] };
+      redrawAll();
+      return;
+    }
+    let pc = pendContour.current;
+    if (pc && pc.z !== key) pc = pendContour.current = null;
+    if (pc) {
+      const f = toPx(v, pc.points[0][0], pc.points[0][1]);
+      if (pc.points.length >= 3 && Math.hypot(f[0] - cx, f[1] - cy) <= PICK_PX) closePending();
+      else {
+        pc.points.push([h, vv]);
+        redrawAll();
+      }
+      return;
+    }
+    const { c, index } = pickPoint(v, cx, cy);
+    if (index >= 0) return;
+    if (c) {
+      // On an edge of the contour: a new point there
+      let edge = -1, best = PICK_PX;
+      c.points.forEach((q, i) => {
+        const r = c.points[(i + 1) % c.points.length];
+        const [dd] = segmentDistance([cx, cy], toPx(v, q[0], q[1]), toPx(v, r[0], r[1]));
+        if (dd < best) { best = dd; edge = i; }
+      });
+      if (edge >= 0) {
+        const points = [...c.points];
+        points.splice(edge + 1, 0, [h, vv]);
+        emitDrawing(withContour(current(), key, { z: key, points }));
+        return;
+      }
+    }
+    pendContour.current = { z: key, points: [[h, vv]] };
+    redrawAll();
+  };
+  const drawDoubleClick = (a: Axis) => {
+    const pc = pendContour.current;
+    if (a !== "z" || !pc) return;
+    // The clicks of the double-click added the same point twice
+    const v = views.current.z!, px = (q: [number, number]) => toPx(v, q[0], q[1]);
+    while (pc.points.length > 1) {
+      const n = pc.points.length, A = px(pc.points[n - 1]), B = px(pc.points[n - 2]);
+      if (Math.hypot(A[0] - B[0], A[1] - B[1]) > PICK_PX) break;
+      pc.points.pop();
+    }
+    closePending();
+  };
+  const drawContextMenu = (a: Axis, e: React.MouseEvent) => {
+    if (p.current.mode === "move") return;
+    e.preventDefault();
+    const v = views.current[a]!, [cx, cy] = local(a, e);
+    if (a !== "z") {
+      if (pendBorder.current) {
+        pendBorder.current = null;
+        redrawAll();
+        return;
+      }
+      const i = pickLine(a, v, cx, cy);
+      if (i >= 0) emitDrawing({ ...current(), borders: current().borders.filter((_b, j) => j !== i) });
+      return;
+    }
+    const pc = pendContour.current;
+    if (pc) {
+      pc.points.pop();
+      if (!pc.points.length) pendContour.current = null;
+      redrawAll();
+      return;
+    }
+    const { c, index } = pickPoint(v, cx, cy);
+    if (!c || index < 0) return;
+    const points = c.points.filter((_q, i) => i !== index);
+    emitDrawing(withContour(current(), c.z, points.length >= 3 ? { z: c.z, points } : null));
+  };
 
   /* ---------- zoom and pan ---------- */
   // Zoom to the dragged rectangle, widened to the aspect ratio of the view
@@ -495,6 +863,12 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
 
   useEffect(() => {
     const endDrag = () => {
+      const dd = drawDrag.current;
+      if (dd) {
+        drawDrag.current = null;
+        skipClick.current = dd.moved;
+        if (dd.moved && draft.current) emitDrawing(draft.current);
+      }
       const d = drag.current;
       drag.current = null;
       if (!d) return;
@@ -525,12 +899,18 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
         d.x0 = d.x;
         d.y0 = d.y;
       } else drawOverlay(a);
+    } else if (toolOn(a)) {
+      if (!drawMove(a, v) && (pendContour.current || pendBorder.current)) drawOverlay(a);
     } else if (pend.current[a]) drawOverlay(a);
   };
 
   const onMouseDown = (a: Axis, e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const mode = p.current.mode;
+    if (toolOn(a)) {
+      drawDown(a, e);
+      return;
+    }
     if (mode === "zoom" || mode === "pan") {
       const [x, y] = local(a, e);
       drag.current = { a, type: mode, x0: x, y0: y, x, y };
@@ -543,9 +923,15 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     if (!v) return;
     const { mode, partsOn, particles: P, pos, tolerance, dim: d, rulers, particleSet: S, setShown } = p.current;
     const [cx, cy] = local(a, e);
+    if (toolOn(a)) {
+      drawClick(a, v, cx, cy);
+      return;
+    }
     const [h, vv] = toVox(v, cx, cy);
     const [ha, va] = HV[a];
-    if (P && partsOn && (mode === "select" || mode === null)) {
+    // The drawing tools select on the sections they do not draw on
+    const selecting = mode === "select" || ((mode === "contour" || mode === "border") && Boolean(p.current.onDrawing));
+    if (P && partsOn && (selecting || mode === null)) {
       let best = -1, bd = 10;
       for (let i = 0; i < P.x.length; i++) {
         if (Math.abs(P[a][i] - pos[a]) > tolerance) continue;
@@ -559,7 +945,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
         return;
       }
     }
-    if (mode === "select") {
+    if (selecting) {
       p.current.onPosition({ [ha]: clampVox(d, ha, h), [va]: clampVox(d, va, vv) });
     } else if (mode === "ruler") {
       const pa = pend.current[a];
@@ -575,7 +961,8 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     }
   };
 
-  const cursor = props.mode === "pan" ? "grab" : props.mode ? "crosshair" : "default";
+  const cursor = props.mode === "pan" || (props.mode === "move" && props.onDrawing) ? "grab"
+    : props.mode ? "crosshair" : "default";
 
   const figure = (a: Axis) => (
     <figure className={styles.fig} style={{ width: size[a][0] * scale, height: size[a][1] * scale }}>
@@ -596,6 +983,8 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
         }}
         onMouseDown={(e) => onMouseDown(a, e)}
         onClick={(e) => onClick(a, e)}
+        onDoubleClick={() => { if (toolOn(a)) drawDoubleClick(a); }}
+        onContextMenu={(e) => { if (toolOn(a)) drawContextMenu(a, e); }}
       />
     </figure>
   );

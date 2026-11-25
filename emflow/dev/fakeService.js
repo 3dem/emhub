@@ -170,9 +170,68 @@ const geometryErrors = (shapes) => shapes.length ? shapes.flatMap((s, i) =>
   !SIZES[s.shape] ? [`Shape ${i + 1}: unknown shape '${s.shape}'.`]
     : SIZES[s.shape].filter((k) => !(s[k] > 0)).map((k) => `Shape ${i + 1} (${s.shape}): '${k}' should be a positive number.`))
   : ["Add at least one shape to the mask."];
+// The mask drawing wizard of emw-mask-draw (MaskDrawWizard): 5 tomograms
+// (TS_01 and TS_03 with an input mask, TS_03 flagged), each one's pane from
+// the fake DataLoader (FAKE_TOMO_PANE_PATH); OK returns the table rows
+const MASK_DRAW_PROTOCOL = "emw-mask-draw";
+const MASK_DRAW_FORM = {
+  name: MASK_DRAW_PROTOCOL,
+  label: "EMwrap Mask Draw",
+  wizards: [{ id: "mask_draw", label: "Draw tomogram masks", params: ["drawings"] }],
+  sections: [{
+    label: "Input",
+    params: [
+      { name: "input_tomograms", label: "Input tomograms:", paramClass: "PathParam", default: "EMwrap/job030/tomograms.star" },
+      { name: "keep_others", label: "Keep the masks of the tomograms not drawn?", paramClass: "BooleanParam", default: true },
+      { label: "Drawings", paramClass: "Group", params: [
+        { name: "drawings", label: "Drawings", paramClass: "TableParam", wizard: "mask_draw",
+          params: ["tomo", "mode", "borders", "contours"].map((n) => ({
+            name: n, label: n, paramClass: "StringParam" })) }] },
+    ],
+  }],
+};
+const FAKE_TOMO_PANE_PATH = "/fake/tomogram_pane";
+const FAKE_DRAW_DIMS = [256, 180, 64];
+const FAKE_DRAW_BINNING = 4;
+const fakeDrawTomograms = () => ["TS_01", "TS_02", "TS_03", "TS_04", "TS_05"].map((name, i) => {
+  const mask = i === 0 || i === 2 ? `EMwrap/job030/masks/${name}.mrc` : null;
+  return { kind: "tomogram", name, path: `Tomograms/${name}.mrc`, mask, dimensions: FAKE_DRAW_DIMS, angpix: 13.48,
+           flag: i === 2 ? true : null,
+           confidence: i === 2 ? { tomo: name, flag: true, fraction: 0.08, uncertain_ratio: 0.62, disagreement: 1.3 } : null,
+           pane: { path: FAKE_TOMO_PANE_PATH, payload: { name, mask } } };
+});
+// A 0-1 grid (as fakeGrid) on a box of dims binned by b, from f(x, y, z) in voxels of the box
+function fakeBoxGrid(dims, b, f) {
+  const [nx, ny, nz] = dims.map((n) => Math.ceil(n / b));
+  const u8 = new Uint8Array(nx * ny * nz);
+  for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+    u8[(z * ny + y) * nx + x] = f((x + 0.5) * b, (y + 0.5) * b, (z + 0.5) * b) ? 255 : 0;
+  }
+  let bin = "";
+  for (let i = 0; i < u8.length; i += 8192) bin += String.fromCharCode(...u8.subarray(i, i + 8192));
+  return { shape: [nz, ny, nx], binning: b, data: btoa(bin), valueRange: [0, 1] };
+}
+// The input mask of the fake tomograms: an ellipse in the middle of the lamella
+const fakeBaseMask = (x, y, z) => ((x - 120) / 80) ** 2 + ((y - 90) / 55) ** 2 <= 1 && z >= 12 && z < 52;
+function fakeDrawPane(name, mask) {
+  const axis = (count, label, w, h) => ({ sliderPrefix: `${label}: `, slices: fakeSlices(count, `${name} ${label}`, w, h) });
+  return {
+    kind: "imageSlider", title: `Tomogram — ${name}`, layout: "volume",
+    dimensions: FAKE_DRAW_DIMS, voxelSize: 13.48,
+    axes: { x: axis(256, "X", 180, 64), y: axis(180, "Y", 256, 64), z: axis(64, "Z", 256, 180) },
+    viewerConfig: { tabs: { volume3d: false },
+                    ...(mask ? { mask: { type: "map", label: `${name}.mrc`, show: true, threshold: 0.5,
+                                         density: fakeBoxGrid(FAKE_DRAW_DIMS, FAKE_DRAW_BINNING, fakeBaseMask) } } : {}) },
+  };
+}
+const fakePoints = (pts) => pts.map((q) => q.map((v) => Math.round(v * 10) / 10).join(",")).join(" ");
+const fakeDrawErrors = (outputs) => Object.entries(outputs.drawings ?? {}).flatMap(([name, d]) =>
+  ["draw", "add", "subtract"].includes(d.mode) && !(d.contours ?? []).length
+    ? [`${name}: draw at least one contour (mode '${d.mode}')`] : []);
+
 const DEV_FORMS = { [WIZARD_PROTOCOL]: WIZARD_FORM, [MASK_PROTOCOL]: MASK_FORM,
                     [MASK_CREATE_PROTOCOL]: MASK_CREATE_FORM, [PYTOM_PROTOCOL]: PYTOM_FORM,
-                    [GEOMETRY_PROTOCOL]: GEOMETRY_FORM };
+                    [GEOMETRY_PROTOCOL]: GEOMETRY_FORM, [MASK_DRAW_PROTOCOL]: MASK_DRAW_FORM };
 const wizardMenu = {
   Wizards: { text: "Wizards (dev)", value: null, icon: null, tag: null, openItem: true, visible: true,
     childs: [{ text: "Warp - Export Particles", value: WIZARD_PROTOCOL, icon: null, tag: "protocol",
@@ -184,6 +243,8 @@ const wizardMenu = {
              { text: "PyTom Create Template", value: PYTOM_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] },
              { text: "Geometry Mask", value: GEOMETRY_PROTOCOL, icon: null, tag: "protocol",
+               openItem: true, visible: true, childs: [] },
+             { text: "Mask Draw", value: MASK_DRAW_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] }] },
 };
 const FAKE_MAP_ANGPIX = 2;
@@ -434,6 +495,10 @@ function fakeComparePane(name, distance, edge = distance) {
 /** DataLoader transport of the dev page: the fake requests, else a POST of
  * the payload (as the default transport). */
 export async function fakeDataRequest(path, payload, init) {
+  if (path === FAKE_TOMO_PANE_PATH) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return { paneContent: fakeDrawPane(payload.name, payload.mask) };
+  }
   if (path === FAKE_SETS_PATH) {
     await new Promise((resolve) => setTimeout(resolve, 300));
     if (!(payload.distance > 0)) throw new Error(`Invalid distance: ${payload.distance}`);
@@ -1091,6 +1156,11 @@ export function createFakeService() {
     // VolumeMaskWizard with the Relion Class3D one
     openWizard: async (projectId, protocolId, cls, wizardId, params) => {
       log("openWizard", { protocolId, cls, wizardId, params });
+      if (wizardId === "mask_draw") {
+        if (!params.input_tomograms) return { errors: ["Select the input tomograms before opening the wizard."] };
+        return { id: wizardId, label: "Draw tomogram masks", ui: "MaskDrawWizard", inputs: { drawings: {} },
+                 data: { tomograms: fakeDrawTomograms() }, warnings: [] };
+      }
       if (wizardId === "geometry_mask") {
         const n = 64, dims = [n, n, n];
         let shapes = [];
@@ -1187,6 +1257,16 @@ export function createFakeService() {
     },
     applyWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
       log("applyWizard", { wizardId, params, outputs });
+      if (wizardId === "mask_draw") {
+        const errors = fakeDrawErrors(outputs);
+        if (errors.length) return { errors };
+        const rows = Object.entries(outputs.drawings ?? {}).map(([tomo, d]) => ({
+          tomo, mode: d.mode,
+          borders: (d.borders ?? []).map((b) => `${b.side} ${b.axis}${b.index}: ${fakePoints(b.points)}`).join("; "),
+          contours: (d.contours ?? []).map((c) => `${c.axis}${c.index}: ${fakePoints(c.points)}`).join("; "),
+        }));
+        return { params: { drawings: rows }, warnings: rows.length ? [] : ["No tomogram was drawn."] };
+      }
       if (wizardId === "geometry_mask") {
         const errors = geometryErrors(outputs.shapes ?? []);
         if (errors.length) return { errors };

@@ -1541,6 +1541,23 @@ def build_tomogram_volume_slider_pane_content(
         viewer_config=config, coordinates=coordinates)
 
 
+def tomogram_pane_source(root, tomo_rel, mask=None, title=None):
+    """ Request of the VolumeViewer pane of a tomogram
+    (build_tomogram_volume_slider_pane_content, with its mask), that emflow
+    loads when it shows it: e.g. the tomograms of a wizard, built one at a
+    time. """
+    try:
+        url = flask.url_for('api.fetch_tomogram_pane')
+    except RuntimeError:  # outside a request
+        url = '/api/fetch_tomogram_pane'
+    payload = {'root': root, 'path': tomo_rel, 'mask': mask or '',
+               'title': title or tomo_rel,
+               'version': _file_version(root, tomo_rel)}
+    if mask:
+        payload['maskVersion'] = _file_version(root, mask)
+    return {'path': url, 'payload': payload}
+
+
 def row_tomo_mask(root, row_cells):
     """ The selection mask of a table row's tomogram (TOMO_MASK_COLUMN,
     project relative) if it exists, else None. """

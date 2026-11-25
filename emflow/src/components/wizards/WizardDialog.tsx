@@ -20,6 +20,7 @@ import VolumeMaskWizard from "./VolumeMaskWizard";
 import MaskCreateWizard from "./MaskCreateWizard";
 import PyTomTemplateWizard from "./PyTomTemplateWizard";
 import GeometryMaskWizard from "./GeometryMaskWizard";
+import MaskDrawWizard from "./MaskDrawWizard";
 
 export type WizardComponentProps = {
   inputs: Record<string, any>;
@@ -37,10 +38,11 @@ const WIZARD_COMPONENTS: Record<string, (props: WizardComponentProps) => JSX.Ele
   MaskCreateWizard,
   PyTomTemplateWizard,
   GeometryMaskWizard,
+  MaskDrawWizard,
 };
 // Wider dialogs (md by default)
 const WIZARD_WIDTHS: Record<string, "md" | "lg" | "xl"> = { VolumeMaskWizard: "lg", MaskCreateWizard: "xl", PyTomTemplateWizard: "xl",
-                                                         GeometryMaskWizard: "xl" };
+                                                         GeometryMaskWizard: "xl", MaskDrawWizard: "xl" };
 
 type WizardDialogProps = {
   wizard: WizardOpenResult | null;

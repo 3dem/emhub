@@ -17,6 +17,7 @@ from emhub.blueprints.api_viewers import (
     APPLY_MASK_ACTIONS, APPLY_MASK_SETS, MASK_SETS, apply_mask_coordinates,
     apply_mask_job_input, build_global_tilt_series_table,
     build_tomocoordinates_table, build_tomogram_volume_slider_pane_content,
+    tomogram_pane_source,
     coordinates_mask_sets, create_apply_mask, row_tomo_mask)
 
 # Tomograms of 20 x 20 x 10 voxels of 10 A; TS_02 has no mask
@@ -125,6 +126,15 @@ class TestApplyMaskView(unittest.TestCase):
         self.assertFalse(pane['viewerConfig']['tabs']['volume3d'])
         pane = build_tomogram_volume_slider_pane_content(self.root, 'Job/TS_01.mrc')
         self.assertNotIn('mask', pane['viewerConfig'])
+
+    def test_pane_source(self):
+        # The request of a tomogram pane (e.g. of MaskDrawWizard), with its mask
+        src = tomogram_pane_source(self.root, 'Job/TS_01.mrc', 'Job/masks/TS_01.mrc', 'TS_01')
+        self.assertEqual(src['path'], '/api/fetch_tomogram_pane')
+        self.assertEqual((src['payload']['path'], src['payload']['mask'], src['payload']['title']),
+                         ('Job/TS_01.mrc', 'Job/masks/TS_01.mrc', 'TS_01'))
+        self.assertIn('maskVersion', src['payload'])
+        self.assertNotIn('maskVersion', tomogram_pane_source(self.root, 'Job/TS_01.mrc')['payload'])
 
     def test_coordinates_sets(self):
         coords = {'x': [5.0, 15.0, 30.0], 'y': [10.0, 10.0, 10.0], 'z': [5.0, 5.0, 5.0]}

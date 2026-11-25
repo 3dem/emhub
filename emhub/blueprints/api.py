@@ -1285,6 +1285,23 @@ def fetch_volume_density():
     return _handle_item(_handle, 'density')
 
 
+@api_bp.route('/fetch_tomogram_pane', methods=['POST'])
+@flask_login.login_required
+def fetch_tomogram_pane():
+    """ The VolumeViewer pane of a tomogram of a project, with its mask
+    (optional) over the slices: the request of tomogram_pane_source, e.g.
+    for the tomograms of a wizard. attrs: root, path, mask, title. """
+    def _handle(**attrs):
+        root = resolve_project_root(attrs['root'])
+        mask = attrs.get('mask') or None
+        if mask and not os.path.exists(project_file_path(root, mask)):
+            mask = None
+        return build_tomogram_volume_slider_pane_content(
+            root, attrs['path'], title=attrs.get('title') or attrs['path'], mask=mask)
+
+    return _handle_item(_handle, 'paneContent')
+
+
 @api_bp.route('/fetch_coordinates_compare_sets', methods=['POST'])
 @flask_login.login_required
 def fetch_coordinates_compare_sets():
@@ -2013,10 +2030,16 @@ def wizard_open():
         pp, pm = get_project_manager(**attrs)
         result = Wizards.open(pm, _wizard_job_type(pp, attrs),
                               attrs['wizard_id'], attrs.get('params') or {})
-        # Volumes shown by the wizard: the viewer loads their density
+        # Volumes shown by the wizard: the viewer loads their density; and
+        # tomograms (in lists, e.g. MaskDrawWizard): their viewer pane
         for item in result['data'].values():
             if isinstance(item, dict) and item.get('kind') == 'volume':
                 item['density'] = volume_density_source(pm.path, item['path'])
+            elif isinstance(item, list):
+                for t in item:
+                    if isinstance(t, dict) and t.get('kind') == 'tomogram':
+                        t['pane'] = tomogram_pane_source(pm.path, t['path'], t.get('mask'),
+                                                         t.get('name'))
         return result
 
     return _handle_item(_wizard_open, 'wizard')

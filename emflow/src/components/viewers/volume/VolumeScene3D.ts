@@ -12,6 +12,7 @@ import { templateMesh, type ParticleTemplate } from "./templateSurface";
 import { Trackball } from "./trackball";
 import { densityValues, gaussianImage, maskSlice, removeDust, smoothGrid } from "./densityGrid";
 import type { SliceMask } from "./VolumeSlices";
+import { regionImage, type SliceDrawing } from "./maskDrawing";
 import {
   AXES,
   clampVox,
@@ -68,6 +69,9 @@ export type SceneState = {
   /** The mask over the planes, as over the sections of the Slices tab
    * (null: none or hidden). */
   mask?: SliceMask | null;
+  /** The drawing of the mask tools of the Slices tab (e.g. MaskDrawWizard):
+   * its region painted over the planes as over the sections (null: none). */
+  drawing?: SliceDrawing | null;
   /** Active tool: "pan" drags move the volume; "select" clicks pick. */
   mode: string | null;
 };
@@ -181,6 +185,9 @@ export class VolumeScene3D {
   private readonly tex = new Map<string, THREE.Texture>();
   /** Ids of the mask densities (texVariant). */
   private readonly maskIds = new WeakMap<object, number>();
+  /** Ids of the drawings (texVariant). */
+  private readonly drawingIds = new WeakMap<object, number>();
+  private drawingCount = 0;
   private maskCount = 0;
   private readonly pending = new Set<string>();
   private readonly ray = new THREE.Raycaster();
@@ -374,6 +381,7 @@ export class VolumeScene3D {
       src = c;
     }
     if (this.state.mask) src = this.withMask(src, a, key, this.state.mask);
+    if (this.state.drawing) src = this.withDrawing(src, a, key, this.state.drawing);
     const tx = new THREE.Texture(src);
     tx.colorSpace = THREE.SRGBColorSpace;
     tx.minFilter = THREE.LinearFilter;
@@ -411,6 +419,21 @@ export class VolumeScene3D {
     return c;
   }
 
+  /** The plane image with the region of the drawing over it (the fill of
+   * its contours and the shade outside its borders), as in the Slices tab. */
+  private withDrawing(src: SliceImage, a: Axis, key: number, d: SliceDrawing): SliceImage {
+    const region = regionImage(d, a, key, sectionSize(this.o.dim));
+    if (!region) return src;
+    const [w, h] = imageSize(src);
+    const c = document.createElement("canvas");
+    [c.width, c.height] = [w, h];
+    const g = c.getContext("2d")!;
+    g.drawImage(src, 0, 0);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(region, 0, 0, w, h);
+    return c;
+  }
+
   /** Frees the plane images of another invert or denoise setting that no
    * plane shows; done again until every plane shows the current setting. */
   private dropOtherTextures() {
@@ -431,7 +454,7 @@ export class VolumeScene3D {
 
   /** The part of a texture id after `axis:key`: invert, denoise and mask. */
   private texVariant() {
-    return `${this.state.inverted ? ":inv" : ""}:${this.state.filterSigma}${this.maskVariant()}`;
+    return `${this.state.inverted ? ":inv" : ""}:${this.state.filterSigma}${this.maskVariant()}${this.drawingVariant()}`;
   }
 
   /** Id of the mask drawn over the planes ('' without it): its options and
@@ -448,6 +471,15 @@ export class VolumeScene3D {
       shape = `sphere:${m.center.x},${m.center.y},${m.center.z}:${m.diameter}`;
     }
     return `:mask:${shape}:${m.color}:${m.opacity}`;
+  }
+
+  /** Id of the drawing painted over the planes ('' without it). */
+  private drawingVariant() {
+    const d = this.state.drawing;
+    if (!d) return "";
+    let id = this.drawingIds.get(d);
+    if (id === undefined) this.drawingIds.set(d, id = ++this.drawingCount);
+    return `:draw${id}`;
   }
 
   private queueSync() {
