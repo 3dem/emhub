@@ -1,0 +1,24 @@
+{# Custom param: several boolean values shown as inline checkboxes #}
+{# placed in the field column, right after the param label. #}
+{# Each option is stored as a separate boolean under its own id. #}
+
+{# PARAMS:  #}
+{#     param: the param dict, with the list of 'options' #}
+{#            (each one {'id', 'label'} and optionally 'default'). #}
+{#            The option values are loaded by DataContent.set_form_values #}
+{#     help: optional text displayed above the checkboxes #}
+
+{# Example definition: #}
+{#     {"id": "sample_state", "label": "Sample state", "type": "custom", #}
+{#      "template": "param_checkboxes.html", "layout": "wide", #}
+{#      "options": [{"id": "state_live", "label": "Live"}, #}
+{#                  {"id": "state_fixed", "label": "Chemically fixed"}]} #}
+
+<div class="param-checkboxes pt-1">
+    {% if help %}<small class="text-muted d-block mb-1">{{ help }}</small>{% endif %}
+    {% for opt in param.get('options', []) %}
+        <label class="custom-control custom-checkbox custom-control-inline mb-1" style="white-space: normal;">
+            <input type="checkbox" class="custom-control-input" {{ 'checked' if opt.get('value') else '' }} data-key="{{ opt['id'] }}"><span class="custom-control-label">{{ opt['label'] }}</span>
+        </label>
+    {% endfor %}
+</div>

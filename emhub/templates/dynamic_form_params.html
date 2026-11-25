@@ -17,9 +17,22 @@
                 {% include 'dynamic_table.html' %}
             </div>
 
+        {# Optional param 'layout': #}
+        {#   'wide': field takes all the space right of the label #}
+        {#   'full': label on top and field taking the whole row #}
+        {% elif param.get('layout') == 'full' %}
+            {% if param['label'] %}
+                <label class="col-12 font-weight-bold mb-1" style="white-space: normal;">{{ param['label'] }} </label>
+            {% endif %}
+            <div class="col-12">
+                {% set selectpicker = True %}
+                {% include "dynamic_param.html" %}
+            </div>
+
         {% else %}
-            <label class="col-12 col-sm-3 text-sm-right">{{ param['label'] }} </label>
-            <div class="col-12 col-sm-9 col-lg-6">
+            {% set field_class = 'col-12 col-sm-9' if param.get('layout') == 'wide' else 'col-12 col-sm-9 col-lg-6' %}
+            <label class="col-12 col-sm-3 text-sm-right" style="white-space: normal;">{{ param['label'] }} </label>
+            <div class="{{ field_class }}">
                 {% set selectpicker = True %}
                 {% include "dynamic_param.html" %}
             </div>

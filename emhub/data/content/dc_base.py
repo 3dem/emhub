@@ -116,6 +116,11 @@ class DataContent:
             if 'id' not in p:
                 return
             p['value'] = values.get(p['id'], p.get('default', ''))
+            # Checkbox widgets (e.g. param_checkboxes.html) store each
+            # option as a separate boolean value under the option id
+            for o in p.get('options', []):
+                if 'id' in o:
+                    o['value'] = bool(values.get(o['id'], o.get('default', False)))
 
         if 'params' in definition:
             for p in definition['params']:
