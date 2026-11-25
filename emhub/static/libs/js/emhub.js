@@ -951,6 +951,106 @@ function filebrowser_onDownload(fileUpload, entry_id){
     ajaxContent.fail(ajax_request_failed);
 }
 
+//------------------------- Modal dialogs with tabs -------------------------
+
+/**
+ * Keep a modal dialog with tabs at the same height whatever tab is selected,
+ * and always inside the browser window (with its buttons visible).
+ *
+ * Each tab content takes the height of its tallest pane.  If the dialog
+ * would then be taller than the window, the outermost tab content gets
+ * shorter by that much and scrolls inside instead.
+ * Done when a dialog is shown, when one of its tabs is shown (content
+ * may have been loaded since) and when the window is resized.
+ * A dialog that sizes itself opts out with data-tab-fit="off".
+ */
+function fitModalTabs(modal) {
+    var $modal = $(modal);
+    if (!$modal.hasClass('show') ||
+        $modal.find('[data-tab-fit="off"]').addBack('[data-tab-fit="off"]').length)
+        return;
+
+    var tabContents = $modal.find('.tab-content').get();
+    if (!tabContents.length)
+        return;
+
+    var content = $modal.find('.modal-content')[0];
+    var dialog = $modal.find('.modal-dialog')[0];
+    if (!content || !dialog)
+        return;
+
+    var depth = function (el) { return $(el).parentsUntil($modal, '.tab-content').length; };
+    var extra = function (el) {  // padding and borders (box-sizing: border-box)
+        var cs = getComputedStyle(el);
+        return ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+            .reduce(function (sum, k) { return sum + (parseFloat(cs[k]) || 0); }, 0);
+    };
+
+    // Back to the natural layout, with every pane shown to measure them
+    tabContents.forEach(function (tc) {
+        tc.style.height = tc.style.minHeight = tc.style.overflowY = '';
+    });
+    var $panes = $(tabContents).children('.tab-pane');
+    var displays = $panes.map(function () { return this.style.display; }).get();
+    $panes.each(function () { this.style.display = 'block'; });
+
+    // Innermost first: an outer pane is then measured with its inner
+    // tab contents already at the height of their tallest pane
+    tabContents.sort(function (a, b) { return depth(b) - depth(a); });
+    var heights = tabContents.map(function (tc) {
+        var h = 0;
+        $(tc).children('.tab-pane').each(function () {
+            h = Math.max(h, $(this).outerHeight(true));
+        });
+        h = Math.ceil(h + extra(tc));
+        tc.style.height = h + 'px';
+        return h;
+    });
+
+    $panes.each(function (i) { this.style.display = displays[i]; });
+
+    // How much taller than the window is the dialog (its margins included)
+    var cs = getComputedStyle(dialog);
+    var over = content.getBoundingClientRect().height + parseFloat(cs.marginTop) +
+        parseFloat(cs.marginBottom) - window.innerHeight;
+
+    tabContents.forEach(function (tc, i) {
+        var h = heights[i];
+        tc.style.height = '';
+        if (over > 0 && depth(tc) === 0) {
+            var fit = Math.max(150, h - over);
+            over -= h - fit;
+            tc.style.height = fit + 'px';
+            tc.style.overflowY = 'auto';
+        } else {
+            tc.style.minHeight = h + 'px';
+        }
+    });
+}
+
+$(document).on('shown.bs.modal', '.modal', function () {
+    fitModalTabs(this);
+});
+
+$(document).on('shown.bs.tab', '.modal', function (e) {
+    // Keep where the other tab contents are scrolled, start the new tab at the top
+    var pane = $($(e.target).attr('href'))[0];
+    var $tcs = $(this).find('.tab-content');
+    var scrolls = $tcs.map(function () { return this.scrollTop; }).get();
+    fitModalTabs(this);
+    $tcs.each(function (i) {
+        this.scrollTop = (pane && pane.parentElement === this) ? 0 : scrolls[i];
+    });
+});
+
+$(window).on('resize', function () {
+    window.clearTimeout(window.fitModalTabsTimer);
+    window.fitModalTabsTimer = window.setTimeout(function () {
+        $('.modal.show').each(function () { fitModalTabs(this); });
+    }, 150);
+});
+
+
 //----------------------------- Utils functions --------------------------
 
 /** Make all elements of the same height. Input can be a list of id's or a pattern. */
