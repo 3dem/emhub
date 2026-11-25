@@ -101,13 +101,19 @@
                 {# All other entries #}
                 {% else %}
                     <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
-                        <div class="col-8 align-items-center justify-content-start"> <h3>{{ entry_config['label'] }} (id={{ entry.id}}) </h3></div>
+                        {% set entry_locked = entry.id in locked_entries %}
+                        <div class="col-8 align-items-center justify-content-start"> <h3>{{ entry_config['label'] }} (id={{ entry.id}})
+                            {% if entry_locked %}<i class="fas fa-lock ml-2" style="font-size: 0.8em; color: gray" title="Final: only managers can modify or delete it"></i>{% endif %}</h3></div>
                         {# Only manager can edit any entry....and only the last entry (reversed) can be edited by users #}
-                        {% set can_edit_entry = is_manager or user_can_edit_entry or (current_user == entry.creation_user and loop.index == 1) %}
+                        {# Locked entries can only be edited by managers #}
+                        {% set can_edit_entry = is_manager or (not entry_locked and (user_can_edit_entry or (current_user == entry.creation_user and loop.index == 1))) %}
                         {% if can_edit %}
                             {% if can_edit_entry %}
                                 <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-edit"></i>   </a></div>
                                 <div class="col-1"><a href="javascript:deleteEntry({{ entry.id }}, '{{ entry.title }}')"><i class="fas fa-trash-alt"></i></a></div>
+                            {% elif entry_locked %}
+                                <div class="col-1"></div>
+                                <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-eye"></i>   </a></div>
                             {% endif %}
                             <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }}, null, true)"><i class="fas fa-copy"></i>   </a></div>
                         {% else %}

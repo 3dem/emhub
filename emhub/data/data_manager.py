@@ -1353,6 +1353,36 @@ class DataManager(DbManager):
         _add_from_dict(data)
         return files
 
+    def get_entry_lock(self, entry_type):
+        """ Return the 'lock' rule from the config of the entry form, e.g.
+        {"param": "status", "value": "Ready"}, or None if there is none.
+        """
+        form = self.get_form_by(name=f'entry_form:{entry_type}')
+        config = form.definition.get('config', {}) if form else {}
+        return config.get('lock', None)
+
+    def is_entry_locked(self, entry, lock=None):
+        """ An entry is locked when its form data matches the 'lock' rule
+        of the form config. Locked entries can only be modified or deleted
+        by managers.
+        """
+        lock = lock or self.get_entry_lock(entry.type)
+        if not lock:
+            return False
+        data = (entry.extra or {}).get('data', None) or {}
+        return data.get(lock['param'], None) == lock['value']
+
+    def check_entry_lock(self, entry_id, action='modified'):
+        """ Raise an exception if the entry is locked and the current
+        user is not a manager. """
+        entry = self.get_entry_by(id=entry_id)
+        user = self._user
+        if (entry is not None and user is not None and not user.is_manager
+                and self.is_entry_locked(entry)):
+            lock = self.get_entry_lock(entry.type)
+            raise Exception(f"This entry is '{lock['value']}' and can not be "
+                            f"{action} anymore, only managers can do it")
+
     def update_entry_extra(self, **attrs):
         """ Update only certain elements from the extra property. """
         entry = self.get_entry_by(id=attrs['id'])

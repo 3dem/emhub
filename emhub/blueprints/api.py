@@ -2471,6 +2471,7 @@ def update_entry():
         if validate:
             load_validate_func(attrs)
         fix_dates(attrs, 'date', 'creation_date', 'last_update_date')
+        app.dm.check_entry_lock(attrs['id'], 'modified')
         entry = app.dm.get_entry_by(id=attrs['id'])
         old_files = set(app.dm.get_entry_files(entry))
         save_entry_files(entry, attrs['extra']['data'])
@@ -2488,6 +2489,7 @@ def update_entry():
 @flask_login.login_required
 def update_entry_extra():
     def handle(**attrs):
+        app.dm.check_entry_lock(attrs['id'], 'modified')
         return app.dm.update_entry_extra(**attrs).json()
 
     return _handle_item(handle, 'entry')
@@ -2497,6 +2499,7 @@ def update_entry_extra():
 @flask_login.login_required
 def delete_entry():
     def handle(**attrs):
+        app.dm.check_entry_lock(attrs['id'], 'deleted')
         entry = app.dm.get_entry_by(id=attrs['id'])
         old_files = set(app.dm.get_entry_files(entry))
         entry = app.dm.delete_entry(**attrs)

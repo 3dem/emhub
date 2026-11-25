@@ -113,6 +113,12 @@ def register_content(dc):
 
         entries = [_update(e) for e in project.entries]
 
+        # Entries locked by their form config (e.g. a Sample Description
+        # with status 'Ready'), only managers can modify or delete them
+        locks = {t: dm.get_entry_lock(t) for t in {e.type for e in entries}}
+        locked_entries = {e.id for e in entries
+                          if locks[e.type] and dm.is_entry_locked(e, locks[e.type])}
+
         # Find all sessions related to this project and their bookings
         bookings = set()
 
@@ -133,7 +139,8 @@ def register_content(dc):
             'project': project,
             'entries': entries,
             'config': config,
-            'user_can_edit_entry': project_perms.get('user_can_edit_entry', False)
+            'user_can_edit_entry': project_perms.get('user_can_edit_entry', False),
+            'locked_entries': locked_entries
         }
 
     @dc.content
@@ -169,6 +176,12 @@ def register_content(dc):
                              extra={})
 
         project = entry.project
+
+        # Locked entries (e.g. Sample Description 'Ready') are read-only
+        # for non-managers
+        if (entry.id and not dc.app.user.is_manager
+                and dm.is_entry_locked(entry)):
+            read_only = True
 
         entry_config = dm.get_entry_config(entry.type)
         form_id = "entry_form:%s" % entry.type
