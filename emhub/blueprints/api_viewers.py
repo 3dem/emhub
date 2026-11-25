@@ -554,7 +554,8 @@ def _particle_keys(root, star_path, tomo_name):
 def apply_mask_coordinates(root, output_path, tomo_name):
     """ For the output of an emw-apply-mask job: the coordinates of the
     tomogram in the job's input, in two sets: kept (in the output) and
-    removed by the mask. None if output_path is not of such a job. """
+    removed by the mask (no sets if none was removed). None if output_path
+    is not of such a job. """
     from collections import Counter
     from emhub.data.coords3d import load_tomogram_card_coordinates
     input_set = apply_mask_job_input(root, output_path)
@@ -574,6 +575,8 @@ def apply_mask_coordinates(root, output_path, tomo_name):
             sets.append(0)
         else:
             sets.append(1)
+    if not any(sets):
+        return coords
     return dict(coords, set=sets, sets=APPLY_MASK_SETS)
 
 
@@ -1558,7 +1561,8 @@ def coordinates_mask_sets(root, coordinates, mask, threshold=0.5):
     """ The coordinates (VolumeViewer, in tomogram voxels) with their set:
     in the mask (on the tomogram grid, >= threshold) or outside of it. The
     coordinates outside of the mask box are in the mask (emw-apply-mask
-    keeps them). """
+    keeps them). Without coordinates outside of the mask (e.g. picked only
+    in it), no sets: the In / Outside buttons would mean nothing. """
     import mrcfile
     import numpy as np
     if not coordinates or not coordinates.get('x'):
@@ -1572,6 +1576,8 @@ def coordinates_mask_sets(root, coordinates, mask, threshold=0.5):
         covered = ((vox >= 0) & (vox < dims)).all(axis=1)
         v = vox[covered]
         inside[covered] = np.asarray(data[v[:, 2], v[:, 1], v[:, 0]]) >= threshold
+    if inside.all():
+        return coordinates
     return dict(coordinates, set=np.where(inside, 0, 1).tolist(), sets=MASK_SETS)
 
 

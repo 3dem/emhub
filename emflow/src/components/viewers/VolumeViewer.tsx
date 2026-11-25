@@ -1266,6 +1266,9 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     /* ---------- readout ---------- */
     // One thing at a time, depending on the active tool
     let readout: ReactNode;
+    // The shown mask's name (e.g. the mask file), after the position
+    const maskNote = maskCfg?.label && maskOpts.show
+      ? <> &nbsp;·&nbsp; <b>Mask</b> {maskCfg.label}</> : null;
     if (mode === "ruler") {
       const meas = AXES.filter((a) => rulers[a]).map((a) => rulerLength(vs, a, rulers[a]!));
       readout = meas.length ? <><b>Length</b> {meas[meas.length - 1]}</> : "Ruler: click two points to measure";
@@ -1273,9 +1276,9 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       const setLabel = sets ? sets.sets[sets.set[sel]]?.label : null;
       readout = <><b>Particle {sel + 1}/{nPart}</b> ({P.x[sel]}, {P.y[sel]}, {P.z[sel]}){setLabel ? <> · {setLabel}</> : null}</>;
     } else if (mode === "select") {
-      readout = <><b>X</b> {pos.x} <b>Y</b> {pos.y} <b>Z</b> {pos.z} &nbsp;·&nbsp; {scaleText(vs)}</>;
+      readout = <><b>X</b> {pos.x} <b>Y</b> {pos.y} <b>Z</b> {pos.z} &nbsp;·&nbsp; {scaleText(vs)}{maskNote}</>;
     } else {
-      readout = scaleText(vs);
+      readout = <>{scaleText(vs)}{maskNote}</>;
     }
 
     /* ---------- toolbars ---------- */
@@ -1771,7 +1774,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               {resStatus}
             </span>
           ) : tab === "volume3d"
-            ? <>Drag to rotate, right-drag or shift+drag to move, wheel to zoom &nbsp;·&nbsp; {scaleText(vs)}</>
+            ? <>Drag to rotate, right-drag or shift+drag to move, wheel to zoom &nbsp;·&nbsp; {scaleText(vs)}{maskNote}</>
             : readout}
         </div>
       </div>

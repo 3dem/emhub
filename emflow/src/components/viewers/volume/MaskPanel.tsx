@@ -2,7 +2,8 @@
 //
 // The mask options of VolumeViewer's 3D volume tab, in a panel opened by the
 // Mask button of its toolbar: show/hide, color, opacity and, for a sphere,
-// its diameter in voxels (px) and in Å.
+// its diameter in voxels (px) and in Å. The name of a map mask is not shown
+// here (long file names), but in the viewer's readout line and as a tooltip.
 import { useState } from "react";
 import styles from "../VolumeViewer.module.css";
 
@@ -43,9 +44,9 @@ export default function MaskPanel(props: Props) {
 
   return (
     <div className={styles.panel} role="dialog" aria-label="Mask">
-      <label className={styles.panelRow}>
+      <label className={styles.panelRow} title={props.label || undefined}>
         <input type="checkbox" checked={show} onChange={(e) => onChange({ show: e.target.checked })} />
-        Show mask{props.label ? ` (${props.label})` : props.kind === "sphere" ? " (sphere)" : ""}
+        Show mask{props.kind === "sphere" && !props.label ? " (sphere)" : ""}
         <input type="color" className={styles.panelColor} value={color} disabled={!show}
                title="Color of the mask" onChange={(e) => onChange({ color: e.target.value })} />
       </label>

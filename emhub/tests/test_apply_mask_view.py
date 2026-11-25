@@ -133,6 +133,11 @@ class TestApplyMaskView(unittest.TestCase):
         self.assertEqual(result['set'], [0, 1, 0])
         self.assertEqual(result['sets'], MASK_SETS)
         self.assertEqual(result['x'], coords['x'])
+        # All in the mask (e.g. picked only in it): no sets
+        coords = {'x': [5.0, 30.0], 'y': [10.0, 10.0], 'z': [5.0, 5.0]}
+        result = coordinates_mask_sets(self.root, coords, 'Job/masks/TS_01.mrc')
+        self.assertNotIn('sets', result)
+        self.assertEqual(result['x'], coords['x'])
 
     def test_coordinates_table(self):
         table = build_tomocoordinates_table('Job/optimisation_set.star', root=self.root)
