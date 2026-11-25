@@ -281,6 +281,10 @@ export type TableViewerCellEdit = {
   /** Initial state of a checkbox in a cell holding another value (e.g. a
    * count), drawn next to it; without it, the cell value is the state. */
   checked?: boolean;
+  /** The checkbox of an All row: checked when the other rows of the table
+   * (with this edit, not disabled) all are, and clicking it checks or
+   * unchecks them all; it is never an edit itself. */
+  selectAll?: boolean;
 
   cascadeToChildren?: {
     childrenId: string;
@@ -324,6 +328,9 @@ export type TableViewerRow = {
   /** false: no card in the gallery (only in the table), e.g. a row of all
    * the volumes of a table. */
   gallery?: boolean;
+  /** Kept first, in their order, when the table is sorted (a row of all
+   * the others, e.g. All or Overall). */
+  pinned?: boolean;
 };
 
 export type TableViewerChildrenRequest = {

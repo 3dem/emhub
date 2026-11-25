@@ -328,13 +328,17 @@ export default function TableViewerPane({
 
         const sign = sortState.direction === "asc" ? 1 : -1;
 
-        return [...rows].sort((a, b) =>
-            compareCellValues(
-                a.cells[sortColumn.id],
-                b.cells[sortColumn.id],
-                sign,
+        // Pinned rows (All, Overall) first, out of the sort
+        return [
+            ...rows.filter((row) => row.pinned),
+            ...rows.filter((row) => !row.pinned).sort((a, b) =>
+                compareCellValues(
+                    a.cells[sortColumn.id],
+                    b.cells[sortColumn.id],
+                    sign,
+                ),
             ),
-        );
+        ];
     }, [searchValue, sortState, table.columns, table.rows]);
 
     const hasRowActions = useMemo(
@@ -933,6 +937,68 @@ export default function TableViewerPane({
         return undefined;
     };
 
+    // The checkbox of an All row (edit.selectAll) and the rows it sets: the
+    // other rows with a boolean edit in the column, not disabled
+    const isSelectAll = (row: TableViewerRow, columnId: string): boolean =>
+        Boolean(row.cellContexts?.[columnId]?.edit?.selectAll);
+
+    const selectAllTargets = (columnId: string): TableViewerRow[] =>
+        table.rows.filter((row) => {
+            const cellEdit = row.cellContexts?.[columnId]?.edit;
+            return cellEdit?.type === "boolean" && !cellEdit.disabled
+                && !cellEdit.selectAll;
+        });
+
+    // Sets the column of these rows as draft edits (a value equal to the
+    // original one removes the edit); All rows are skipped (derived)
+    const setRowsSelection = (
+        rows: TableViewerRow[],
+        columnId: string,
+        valueOf: (current: boolean) => boolean,
+    ) => {
+        setDraftEdits((prev) => {
+            const next = { ...prev };
+
+            for (const row of rows) {
+                const cellEdit = row.cellContexts?.[columnId]?.edit;
+
+                if (
+                    cellEdit?.type !== "boolean" ||
+                    cellEdit.disabled ||
+                    cellEdit.selectAll
+                ) {
+                    continue;
+                }
+
+                const editKey = buildEditKey(row, columnId);
+                const originalValue = getOriginalBooleanValue(
+                    row,
+                    columnId,
+                );
+                const currentValue =
+                    next[editKey] !== undefined
+                        ? Boolean(next[editKey].value)
+                        : originalValue;
+                const nextValue = valueOf(currentValue);
+
+                if (nextValue === originalValue) {
+                    delete next[editKey];
+                    continue;
+                }
+
+                next[editKey] = {
+                    rowId: row.id,
+                    columnId,
+                    field: cellEdit.field,
+                    value: nextValue,
+                    rowData: row.data,
+                };
+            }
+
+            return next;
+        });
+    };
+
     const getEditableBooleanValue = (
         row: TableViewerRow,
         columnId: string,
@@ -950,6 +1016,14 @@ export default function TableViewerPane({
             cascadeValue !== undefined
         ) {
             return cascadeValue;
+        }
+
+        // An All row: checked when all the others are
+        if (!parentRow && isSelectAll(row, columnId)) {
+            const others = selectAllTargets(columnId);
+            return others.length > 0 && others.every(
+                (other) => getEditableBooleanValue(other, columnId),
+            );
         }
 
         const editKey = buildEditKey(
@@ -1056,6 +1130,16 @@ export default function TableViewerPane({
         const nextValue =
             !currentValue;
 
+        // An All row checks or unchecks all the others
+        if (!parentRow && cellEdit.selectAll) {
+            setRowsSelection(
+                selectAllTargets(columnId),
+                columnId,
+                () => nextValue,
+            );
+            return;
+        }
+
         setDraftEdits((prev) => {
             const next = {
                 ...prev,
@@ -1116,49 +1200,14 @@ export default function TableViewerPane({
                     ? filteredRows.slice(Math.max(clickedIndex, 0))
                     : filteredRows;
 
-        setDraftEdits((prev) => {
-            const next = { ...prev };
-
-            for (const row of targetRows) {
-                const cellEdit = row.cellContexts?.[columnId]?.edit;
-
-                if (
-                    cellEdit?.type !== "boolean" ||
-                    cellEdit.disabled
-                ) {
-                    continue;
-                }
-
-                const editKey = buildEditKey(row, columnId);
-                const originalValue = getOriginalBooleanValue(
-                    row,
-                    columnId,
-                );
-                const currentValue =
-                    next[editKey] !== undefined
-                        ? Boolean(next[editKey].value)
-                        : originalValue;
-                const nextValue =
-                    action === "invert"
-                        ? !currentValue
-                        : action === "select";
-
-                if (nextValue === originalValue) {
-                    delete next[editKey];
-                    continue;
-                }
-
-                next[editKey] = {
-                    rowId: row.id,
-                    columnId,
-                    field: cellEdit.field,
-                    value: nextValue,
-                    rowData: row.data,
-                };
-            }
-
-            return next;
-        });
+        setRowsSelection(
+            targetRows,
+            columnId,
+            (current) =>
+                action === "invert"
+                    ? !current
+                    : action === "select",
+        );
     };
 
     // Actions naming a known icon are drawn as icon buttons, the others as text

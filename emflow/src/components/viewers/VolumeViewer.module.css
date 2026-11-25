@@ -453,6 +453,98 @@
   color: var(--primary, #2a78d6);
 }
 
+/* The maps in the side panel of the 3D volume (volume/MapsList.tsx) */
+.mapsList {
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.mapsPct {
+  flex: none;
+  min-width: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The display of the maps (volume/OverlaysPanel.tsx): a radio per option,
+   its name and a note under it */
+.display {
+  width: 200px;
+}
+
+.displayOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 3px 0;
+  /* Not the host's label style (larger and bold in EMhub's pages) */
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.displayOption input[type="radio"] {
+  flex: none;
+  margin: 1px 0 0;
+}
+
+.displayOption .layersSwatch {
+  margin-top: 1px;
+  cursor: inherit;
+}
+
+.displayLabel {
+  display: block;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.displayNote {
+  display: block;
+  margin-top: 1px;
+  color: var(--vv-muted);
+  font-weight: 400;
+}
+
+.displayStatus {
+  margin: 4px 0 0;
+  color: var(--vv-muted);
+  font-size: 0.7rem;
+}
+
+/* Tiled 3D volume: a cell per map over the canvas, with its name */
+.tileCell {
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.tileLabel {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #e8ecf0;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.tileLabel i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
 /* Mask panel (volume/MaskPanel.tsx): diameter in px and Å */
 .panelDiameter {
   display: flex;

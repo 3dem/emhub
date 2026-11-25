@@ -216,14 +216,20 @@ context: TableViewerContext = { projectId, protocolId, outputName, pointerClass?
 table: TableViewerData = {
   title?, columns: [{id, label, align?, width?, sortable?, actions?}],   // action: {id, label, icon?, disabled?}
   rows: [{id, cells: {colId: value}, data?, actions?, defaultAction?,
-          cellContexts?: {colId: {edit?: {type: "boolean", field, checked?}, actions?, children?}},
-          children?, gallery?}],   // gallery: false, no card (only in the table)
+          cellContexts?: {colId: {edit?: {type: "boolean", field, checked?, selectAll?}, actions?, children?}},
+          children?, gallery?, pinned?}],   // gallery: false, no card (only in the table); pinned: first, out of the sort
   actions?, editActions?: [{id, label, requiresChanges?}], page?,
   initialAction?: {rowId, actionId?, columnId?},
   variants?: {label, value, options: [{id, label}]},   // other versions, e.g. iterations
   gallery?: {actionId, title, footer?, default?} }      // a card per row (TableViewerGallery)
 ```
 
+- `selectAll` (boolean edit of an All row, e.g. the first row of the
+  Classes3D table in EMhub's Selected column): its checkbox is checked
+  when every other row with that edit (not disabled) is, and clicking it
+  checks or unchecks them all; it is derived, never a draft edit, and the
+  right-click selection commands skip it. EMhub's host sets it from the
+  server row's `selectAll` and leaves that row out of the subset items.
 - `gallery`: the table can be shown as a gallery (`TableViewerGallery.tsx`,
   a Table / Gallery toggle in the toolbar; `default: true` shows it first).
   Each card resolves `actionId` for its row (`resolveTableViewerAction`

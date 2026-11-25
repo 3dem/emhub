@@ -7,7 +7,10 @@
 // (threshold; surface options) are stacked; below it (`width`) they are two
 // columns, so the panel is about half as high. The dark density (enclose the
 // values below the threshold) is the Invert button of the viewer toolbar.
-import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
+// With several maps (`maps`, the volume and its overlays: MapsList) the list
+// of the maps, each one with its threshold, color and opacity, replaces the
+// histogram, threshold, color and opacity of the volume.
+import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import styles from "../VolumeViewer.module.css";
 import type { VolumeDensity } from "./volumeMath";
 
@@ -149,6 +152,8 @@ type Props = DensityOptions & {
   width?: number;
   /** The height the panel needs to show without scrolling. */
   onHeight?: (height: number) => void;
+  /** The maps (MapsList), instead of the threshold group and the opacity. */
+  maps?: ReactNode;
 };
 
 export default function DensityPanel(props: Props) {
@@ -172,7 +177,7 @@ export default function DensityPanel(props: Props) {
   return (
     <div ref={root} className={cols ? `${styles.isoPanel} ${styles.isoCols}` : styles.isoPanel}
          style={{ maxHeight: props.maxHeight, width: props.width }}>
-      <div className={styles.isoGroup}>
+      {props.maps ? <div className={styles.isoGroup}>{props.maps}</div> : <div className={styles.isoGroup}>
         {h ? (
           <>
             <HistogramPlot h={h} binned={d.binning > 1} threshold={threshold} below={below} color={color}
@@ -210,7 +215,7 @@ export default function DensityPanel(props: Props) {
         {frac !== null && (
           <div className={styles.isoNote}>encloses {(frac * 100).toPrecision(2)}% of the voxels</div>
         )}
-      </div>
+      </div>}
 
       <div className={styles.isoGroup}>
         {/* One line, as the opacity: None (the first position) or the
@@ -230,12 +235,12 @@ export default function DensityPanel(props: Props) {
           <span className={styles.isoValue}>{props.dust > 0 ? `${props.dust} vx` : "None"}</span>
         </label>
 
-        <label className={styles.panelSelect}>
+        {!props.maps && <label className={styles.panelSelect}>
           <span>Opacity</span>
           <input type="range" min={5} max={100} step={1} value={Math.round(opacity * 100)} style={{ flex: 1, minWidth: 0 }}
                  onChange={(e) => onChange({ opacity: Number(e.target.value) / 100 })} />
           <span className={styles.isoValue}>{Math.round(opacity * 100)}%</span>
-        </label>
+        </label>}
 
         {props.onDetail && (
           <label className={styles.panelSelect}>

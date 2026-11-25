@@ -366,10 +366,12 @@ function adaptTableViewData(tableViewData, outputPath, pointerClass) {
     var adapted = { ...row, data: row.cells, actions: renameTableActions(row.actions) };
     if (withSubset) {
       adapted.cells = { ...row.cells, [TABLE_INCLUDE_COL]: true };
-      adapted.cellContexts = {
-        ...row.cellContexts,
-        [TABLE_INCLUDE_COL]: { edit: { type: 'boolean', field: TABLE_INCLUDE_COL } }
-      };
+      // An All row (row.selectAll, e.g. of the 3D classes): its checkbox is
+      // the state of the others and sets them all; it is not an item
+      var edit = { type: 'boolean', field: TABLE_INCLUDE_COL };
+      if (row.selectAll)
+        edit.selectAll = true;
+      adapted.cellContexts = { ...row.cellContexts, [TABLE_INCLUDE_COL]: { edit: edit } };
     }
     return adapted;
   });
@@ -381,9 +383,10 @@ function adaptTableViewData(tableViewData, outputPath, pointerClass) {
     table.editActions = [{
       id: TABLE_SUBSET_ACTION, label: 'Create subset', requiresChanges: true
     }];
-    tableViewRowIds[outputPath] = rows.map(function (row) { return String(row.id); });
+    var items = rows.filter(function (row) { return !row.selectAll; });
+    tableViewRowIds[outputPath] = items.map(function (row) { return String(row.id); });
     tableViewRowParticles[outputPath] = {};
-    rows.forEach(function (row) {
+    items.forEach(function (row) {
       tableViewRowParticles[outputPath][String(row.id)] = Number(row.cells.particles) || 0;
     });
   }

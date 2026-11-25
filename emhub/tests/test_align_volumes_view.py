@@ -86,18 +86,19 @@ class TestAlignVolumesView(unittest.TestCase):
         self.assertEqual([c['id'] for c in table['columns']][-1], 'show')
         rows = table['rows']
         self.assertEqual([r['id'] for r in rows],
-                         ['overall', 'similarity', 'all', 'class1', 'class2'])
+                         ['overall', 'all', 'class1', 'class2'])
         self.assertEqual(table['initialAction'], {'rowId': 'overall', 'actionId': 'overall'})
-        self.assertEqual(rows[1]['defaultAction']['id'], 'similarity')
-        self.assertEqual(rows[2]['defaultAction']['id'], 'all')
-        c1, c2 = rows[3]['cells'], rows[4]['cells']
+        self.assertEqual(rows[1]['defaultAction']['id'], 'all')
+        # Overall and All first also when the table is sorted
+        self.assertEqual([r.get('pinned', False) for r in rows], [True, True, False, False])
+        c1, c2 = rows[2]['cells'], rows[3]['cells']
         self.assertEqual((c1['cls'], c1['name'], c1['status']), (1, 'nucleosome', 'kept'))
         self.assertEqual((c2['name'], c2['source']), ('membrane', self.volumes[1]))
         self.assertTrue(c2['status'].startswith('aligned'), c2['status'])
         self.assertGreater(c2['ccAfter'], c2['ccBefore'])
         self.assertGreater(c2['rotation'], 0)
-        self.assertEqual(rows[4]['defaultAction']['id'], 'volumes')
-        self.assertEqual(rows[4]['cellContexts']['show']['actions'][0]['id'], 'volumes')
+        self.assertEqual(rows[3]['defaultAction']['id'], 'volumes')
+        self.assertEqual(rows[3]['cellContexts']['show']['actions'][0]['id'], 'volumes')
 
     def test_all_references(self):
         """ The map of the poses with every reference over it (overlays). """
@@ -131,7 +132,11 @@ class TestAlignVolumesView(unittest.TestCase):
         self.assertIn('low-pass 20 Å', pane['title'])
 
     def test_overall(self):
+        # The CC plot and the similarity matrix beside it
         pane = build_job_view_pane(self.root, self.value, 'overall', {'cls': 'Overall'})
+        self.assertEqual((pane['kind'], pane['layout']), ('grid', 'cols'))
+        self.assertEqual(pane['cells']['right']['figure']['data'][0]['type'], 'heatmap')
+        pane = pane['cells']['left']
         self.assertEqual(pane['kind'], 'plotly')
         traces = pane['figure']['data']
         self.assertEqual([t['name'] for t in traces], ['Before', 'After', 'Next solution'])
@@ -232,6 +237,40 @@ class TestAlignVolumesView(unittest.TestCase):
         config = pane['viewerConfig']
         self.assertEqual(config['overlaysMainLabel'], 'Class 1')
         self.assertEqual([o['label'] for o in config['overlays']], ['Class 2'])
+
+    def test_classes3d_all(self):
+        """ The 3D classes of an iteration: an All row first, every class
+        in the 3D volume tab (over class 1, or tiled). """
+        from emhub.blueprints.api_viewers_spa import build_classes3d_table, build_spa_pane_content
+
+        job = os.path.join(self.root, 'Class3D/job040')
+        os.makedirs(job, exist_ok=True)
+        for k in (1, 2):
+            shutil.copy(os.path.join(self.root, 'Refine3D/job010/run_class001.mrc'),
+                    os.path.join(job, f'run_it025_class00{k}.mrc'))
+        with open(os.path.join(job, 'run_it025_model.star'), 'w') as f:
+            f.write('data_model_general\n\n_rlnPixelSize 8.0\n\n'
+                    'data_model_classes\n\nloop_\n_rlnReferenceImage #1\n_rlnEstimatedResolution #2\n'
+                    'Class3D/job040/run_it025_class001.mrc 20.0\n'
+                    'Class3D/job040/run_it025_class002.mrc 25.0\n\n')
+        optimiser = os.path.join(job, 'run_it025_optimiser.star')
+        open(optimiser, 'w').close()
+        table = build_classes3d_table(optimiser)
+        rows = table['rows']
+        self.assertEqual([r['id'] for r in rows], ['all', 1, 2])
+        self.assertEqual(rows[0]['defaultAction']['id'], 'allmaps')
+        self.assertFalse(rows[0]['gallery'])
+        # Not a class of a subset: its checkbox selects the others
+        self.assertTrue(rows[0]['selectAll'] and rows[0]['pinned'])
+        self.assertNotIn('selectAll', rows[1])
+        self.assertIn('2 classes', table['title'])
+        pane = build_spa_pane_content('allmaps', self.root, 'classes3d', rows[0]['cells'])
+        config = pane['viewerConfig']
+        self.assertEqual(config['overlaysMainLabel'], 'Class 1')
+        self.assertEqual([o['label'] for o in config['overlays']], ['Class 2'])
+        # Its volume cell too
+        pane = build_spa_pane_content('volume', self.root, 'classes3d', rows[0]['cells'])
+        self.assertIn('overlays', pane['viewerConfig'])
 
 
 if __name__ == '__main__':
