@@ -177,6 +177,7 @@ def register_content(dc):
         form_config = {
             'show_title': True,
             'show_desc': True,
+            'show_date': True,
         }
         entry_label = entry_config['label']
 
@@ -190,7 +191,7 @@ def register_content(dc):
                 form_data = {**form_data, **preload}
             dc.set_form_values(form, form_data)
             if 'config' in form.definition:
-                form_config = form.definition['config']
+                form_config = {**form_config, **form.definition['config']}
             dc.load_form_content(form, data)
             if project.status == dc.INVENTORY_STATUS:
                 data['inventory_items'] = dc.get_inventory_items_with_operations(

@@ -30,8 +30,8 @@
                     <input type="hidden" id="entry-project-id" name="entry-project-id" value="{{ project.id }}">
                     {{ macros.hidden_hour_id() }}
 
-                    <!-- Date -->
-                    <div class="form-group row">
+                    <!-- Date (kept hidden when show_date is false, it is still sent) -->
+                    <div class="form-group row" {% if not form_config.get('show_date', True) %}style="display: none;"{% endif %}>
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Date</label>
                         <div class="col-12 col-sm-8 col-lg-6">
                             {% if is_manager %}
@@ -53,7 +53,7 @@
                     {% endif %}
 
                     <!-- Description Row -->
-                    {% if form_config['show_title'] %}
+                    {% if form_config['show_desc'] %}
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
                         <div class="col-12 col-sm-8 col-lg-6">
